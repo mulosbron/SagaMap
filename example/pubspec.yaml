@@ -1,0 +1,41 @@
+name: saga_map_example
+publish_to: none
+description: Example app for the saga_map package.
+homepage: https://github.com/mulosbron/SagaMap
+repository: https://github.com/mulosbron/SagaMap
+version: 0.0.1
+
+dependencies:
+  saga_map:
+    path: ../
+  flutter:
+    sdk: flutter
+
+# For information on the generic Dart part of this file, see the
+# following page: https://www.dartlang.org/tools/pub/pubspec
+
+# The following section is specific to Flutter.
+flutter:
+
+  # The following line ensures that the Material Icons font is
+  # included with your application, so that you can use the icons in
+  # the material Icons class.
+  uses-material-design: true
+  assets:
+    - assets/drawable/hero_walk.png
+    - assets/drawable/hero_idle.png
+    - assets/drawable/map_vertical.png
+    - assets/drawable/map_vertical_point.png
+    - assets/drawable/map_horizontal.png
+    - assets/drawable/map_horizontal_point.png
+    - assets/svg/map_vertical.svg
+    - assets/svg/map_horizontal.svg
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+  flutter: ">=3.10.0"
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0

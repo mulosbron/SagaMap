@@ -1,0 +1,9 @@
+tags:
+  golden:
+    description: >-
+      Visual regression tests backed by reference PNGs. Output depends on the
+      host renderer, so these can legitimately differ across platforms and
+      Flutter versions. Run `flutter test --exclude-tags golden` where the
+      reference platform is not available, and
+      `flutter test --update-goldens test/golden` after an intended visual
+      change.

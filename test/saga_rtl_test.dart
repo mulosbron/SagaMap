@@ -147,6 +147,10 @@ void main() {
         child: MaterialApp(
           home: Scaffold(
             body: MapChunkWidget(
+              chunkContext: SagaChunkContext(
+                  chunkIndex: 0,
+                  levels: const [LevelData(id: 1, position: SagaPoint(0.5, 0.5), biomeId: kBiomeIdForest)],
+                  progress: const {}),
               levels: [const LevelData(id: 1, position: SagaPoint(0.5, 0.5), biomeId: kBiomeIdForest)],
               chunkIndex: 0,
               chunkExtent: 700,

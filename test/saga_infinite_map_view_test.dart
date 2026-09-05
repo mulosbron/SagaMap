@@ -135,7 +135,7 @@ void main() {
         tester.getCenter(find.byKey(ValueKey('node-$id'))).dy;
 
     // Generated levels alternate between two lateral targets, so equal parity
-    // across a seam means equal lateral placement â€” within jitter amplitude.
+    // across a seam means equal lateral placement — within jitter amplitude.
     final beforeSeam = lateralOf(18);
     final afterSeam = lateralOf(20);
     expect((afterSeam - beforeSeam).abs(), lessThan(80));

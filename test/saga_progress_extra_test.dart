@@ -28,7 +28,7 @@ void main() {
     });
 
     test('survives round-trip intact', () {
-      final progress = SagaProgress(
+      final progress = const SagaProgress(
         currentMaxUnlockedLevelId: 0,
         levels: {},
         extra: {'app.played_times': 42},
@@ -39,7 +39,7 @@ void main() {
     });
 
     test('preserves nested Maps and Lists in round-trip', () {
-      final progress = SagaProgress(
+      final progress = const SagaProgress(
         currentMaxUnlockedLevelId: 0,
         levels: {},
         extra: {
@@ -81,7 +81,7 @@ void main() {
     });
 
     test('copyWith isolates extra changes', () {
-      final original = SagaProgress(
+      final original = const SagaProgress(
         currentMaxUnlockedLevelId: 5,
         levels: {},
         extra: {'app.a': 1},
@@ -146,16 +146,16 @@ void main() {
     });
     
     test('preserves extra on re-completion', () {
-      final originalProgress = SagaProgress(
+      final originalProgress = const SagaProgress(
         currentMaxUnlockedLevelId: 1,
         levels: {
-          1: const LevelProgress(
+          1: LevelProgress(
             levelId: 1,
             state: LevelCompletionState.completed,
             stars: 2,
             extra: {'app.score': 9000},
           ),
-          2: const LevelProgress(
+          2: LevelProgress(
             levelId: 2,
             state: LevelCompletionState.unlocked,
           ),

@@ -139,6 +139,8 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: MapChunkWidget(
+            chunkContext: SagaChunkContext(
+                chunkIndex: 0, levels: _levels, progress: const {}),
             levels: _levels,
             chunkIndex: 0,
             chunkExtent: 700,
@@ -176,6 +178,8 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: MapChunkWidget(
+            chunkContext: SagaChunkContext(
+                chunkIndex: 0, levels: _levels, progress: const {}),
             levels: _levels,
             chunkIndex: 0,
             chunkExtent: 700,
@@ -211,6 +215,8 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: MapChunkWidget(
+            chunkContext: SagaChunkContext(
+                chunkIndex: 0, levels: _levels, progress: const {}),
             levels: _levels,
             chunkIndex: 0,
             chunkExtent: 700,

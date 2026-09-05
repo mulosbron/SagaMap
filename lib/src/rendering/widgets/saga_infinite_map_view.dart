@@ -71,7 +71,7 @@ class SagaMapScrollPhysics extends ScrollPhysics {
 /// Infinite-scrolling map powered by [SagaInfiniteMapController].
 ///
 /// Scroll direction is derived from [SagaMapResponsiveConfig.pathAxis], not
-/// configured separately â€” the map scrolls in the direction its path travels,
+/// configured separately — the map scrolls in the direction its path travels,
 /// and the two cannot fall out of sync.
 class SagaInfiniteMapView extends StatefulWidget {
   final SagaInfiniteMapController controller;
@@ -157,7 +157,7 @@ class SagaInfiniteMapView extends StatefulWidget {
   @Deprecated('Use decorationBuilder with SagaChunkContext. Removed in 3.0.0.')
   final SagaMapLegacyDecorationBuilder? legacyDecorationBuilder;
 
-  /// Banner shown before a chunk in the scroll direction â€” an episode title,
+  /// Banner shown before a chunk in the scroll direction — an episode title,
   /// a "World 2" divider. Return `null` for a chunk to leave it bare.
   final SagaEpisodeHeaderBuilder? episodeHeaderBuilder;
   @Deprecated('Use episodeHeaderBuilder with SagaChunkContext. Removed in 3.0.0.')

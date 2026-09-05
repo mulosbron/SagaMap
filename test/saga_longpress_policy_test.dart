@@ -1,10 +1,6 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:saga_map/saga_map.dart';
-import 'package:saga_map/src/rendering/adapters/widget_renderer_adapter.dart';
-import 'package:saga_map/src/core/domain/models/resolved_saga_layout.dart';
-import 'package:saga_map/src/core/domain/models/saga_geometry.dart';
-import 'package:saga_map/src/rendering/contracts/saga_map_render_context.dart';
 
 class _MockCustomPolicy extends SagaNodeInteractionPolicy {
   const _MockCustomPolicy();
@@ -18,29 +14,29 @@ void main() {
   group('SagaNodeInteractionPolicy long press', () {
     test('default emits tap logic (emitTapForLockedNode: false)', () {
       const policy = SagaNodeInteractionPolicy(emitTapForLockedNode: false);
-      final level = LevelData(id: 0, position: const SagaPoint(0, 0), biomeId: 'test');
-      final progress = LevelProgress(levelId: 0, state: LevelCompletionState.locked);
+      final level = const LevelData(id: 0, position: SagaPoint(0, 0), biomeId: 'test');
+      final progress = const LevelProgress(levelId: 0, state: LevelCompletionState.locked);
       expect(policy.canLongPress(level, progress), isFalse);
     });
 
     test('default emits tap logic (emitTapForLockedNode: true)', () {
       const policy = SagaNodeInteractionPolicy(emitTapForLockedNode: true);
-      final level = LevelData(id: 0, position: const SagaPoint(0, 0), biomeId: 'test');
-      final progress = LevelProgress(levelId: 0, state: LevelCompletionState.locked);
+      final level = const LevelData(id: 0, position: SagaPoint(0, 0), biomeId: 'test');
+      final progress = const LevelProgress(levelId: 0, state: LevelCompletionState.locked);
       expect(policy.canLongPress(level, progress), isTrue);
     });
 
     test('completed node blocked when emitTapForCompletedNode is false', () {
       const policy = SagaNodeInteractionPolicy(emitTapForCompletedNode: false);
-      final level = LevelData(id: 0, position: const SagaPoint(0, 0), biomeId: 'test');
-      final progress = LevelProgress(levelId: 0, state: LevelCompletionState.completed, stars: 1);
+      final level = const LevelData(id: 0, position: SagaPoint(0, 0), biomeId: 'test');
+      final progress = const LevelProgress(levelId: 0, state: LevelCompletionState.completed, stars: 1);
       expect(policy.canLongPress(level, progress), isFalse);
     });
 
     test('unlocked is true', () {
       const policy = SagaNodeInteractionPolicy();
-      final level = LevelData(id: 0, position: const SagaPoint(0, 0), biomeId: 'test');
-      final progress = LevelProgress(levelId: 0, state: LevelCompletionState.unlocked);
+      final level = const LevelData(id: 0, position: SagaPoint(0, 0), biomeId: 'test');
+      final progress = const LevelProgress(levelId: 0, state: LevelCompletionState.unlocked);
       expect(policy.canLongPress(level, progress), isTrue);
     });
   });

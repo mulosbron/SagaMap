@@ -20,9 +20,9 @@ tests), so they show exactly what it draws.
 | --- | --- | --- |
 | ![Curved vertical path](doc/screenshots/curved_path_vertical.png) | ![Walked path lit up](doc/screenshots/walked_path.png) | ![Curved horizontal path](doc/screenshots/curved_path_horizontal.png) |
 
-- **Curved path** â€” `pathCurvature` bends the line between nodes; the nodes
+- **Curved path** — `pathCurvature` bends the line between nodes; the nodes
   stay put. Continuous across chunk seams.
-- **Walked vs. upcoming** â€” the stretch the player has covered is drawn in the
+- **Walked vs. upcoming** — the stretch the player has covered is drawn in the
   bright colour, the road ahead dimmed, split exactly under the character.
 
 Run the demo (`cd example && flutter run`) for the whole feature set live: a
@@ -165,7 +165,7 @@ backgroundConfig: const SagaMapBackgroundConfig.svgAsset(
 
 `pathAxis` is the single switch between a vertical and a horizontal map. It
 drives coordinate mapping, which viewport dimension counts as lateral, and the
-scroll direction of `SagaInfiniteMapView` â€” there is no separate scroll axis to
+scroll direction of `SagaInfiniteMapView` — there is no separate scroll axis to
 keep in sync.
 
 ```dart
@@ -178,12 +178,12 @@ final responsiveResolver = SagaResponsiveResolver(
 
 Sizes are expressed along the path axis, never as width/height:
 
-- `chunkExtent` â€” pixels the chunk occupies along the path axis (height when
+- `chunkExtent` — pixels the chunk occupies along the path axis (height when
   vertical, width when horizontal).
-- `chunkSpanNormalized` â€” normalized span the chunk covers along that axis. It
+- `chunkSpanNormalized` — normalized span the chunk covers along that axis. It
   must equal `stepHeight * levelsPerChunk`; use
   `SagaMapConfig.spanForLevelCount()` rather than hardcoding it.
-- `maxLateralExtentPolicy` â€” caps the *lateral* axis only, so it never shortens
+- `maxLateralExtentPolicy` — caps the *lateral* axis only, so it never shortens
   the direction the path travels in.
 
 The cross axis fills whatever space the parent gives it, so a horizontal map
@@ -192,7 +192,7 @@ one. `SagaInfiniteMapView` handles this for you.
 
 ### Responsive policies
 
-Breakpoints always resolve from the real viewport width, on both orientations â€”
+Breakpoints always resolve from the real viewport width, on both orientations —
 a long horizontal map on a phone still resolves as `mobile`.
 
 ```dart
@@ -248,7 +248,7 @@ chunk recycling keeps working, hit testing needs no inverse mapping, and the
 path is rasterised at its final size instead of being magnified.
 
 One finger scrolls, two fingers zoom. The pinch recognizer stays out of the
-gesture arena until a second finger lands, then claims it immediately â€” waiting
+gesture arena until a second finger lands, then claims it immediately — waiting
 for movement would lose the race to the scrollable underneath, which sits deeper
 in the tree and is offered each event first. The known limit of that approach:
 a pinch begun *after* a one-finger drag has already captured the arena will
@@ -273,7 +273,7 @@ MapChunkWidget(
 
 ### Path roundness
 
-`pathCurvature` runs from `0` â€” straight lines between nodes, the default â€” to
+`pathCurvature` runs from `0` — straight lines between nodes, the default — to
 `1`, a fully rounded spline in the style of a casual world map.
 
 ```dart
@@ -286,7 +286,7 @@ SagaInfiniteMapView(
 The spline interpolates, so raising the value bends the line between nodes
 without moving the nodes themselves. Each control handle points from the
 previous node towards the next, which is what makes the curve enter and leave a
-node on one smooth tangent, and its length is capped at half its segment â€” that
+node on one smooth tangent, and its length is capped at half its segment — that
 cap is why `1` is safe rather than folding the line into a cusp. At `0` the
 handles collapse onto the endpoints and the result is exactly the straight
 polyline.
@@ -345,7 +345,7 @@ deterministic.
 Level positions come from `(globalSeed, levelId)` alone, via `stableHash`. That
 means:
 
-- Generating chunk 10,000 costs the same as chunk 0 â€” no replay from level zero.
+- Generating chunk 10,000 costs the same as chunk 0 — no replay from level zero.
 - The same seed produces the same map on every run, platform and release, so
   saved progress keeps pointing at the same map.
 
@@ -401,7 +401,7 @@ Text('Legendary drop rate: ${(odds[InventoryRarity.legendary]! * 100).toStringAs
 
 A character walks the map, Candy-Crush style. The library computes where it is,
 which way it faces and what it is doing; the host draws it, so any format plugs
-in â€” sprite sheet, Lottie, Rive, GIF, plain Flutter.
+in — sprite sheet, Lottie, Rive, GIF, plain Flutter.
 
 ```dart
 final character = SagaCharacterController(vsync: this);
@@ -431,7 +431,7 @@ user cannot drag the map out from under the camera.
 
 `SagaCharacterGait.hop` arcs between nodes instead of walking.
 
-Sprite sheets have no ready package, so one is built in â€” dependency-free,
+Sprite sheets have no ready package, so one is built in — dependency-free,
 horizontal strips by default (`SagaSpriteSheet(frameWidth: 60, frameHeight: 60,
 frameCount: 6)` is a 360Ã—60 image), plus vertical and grid, `loop`/`once`/
 `pingPong`, and `FilterQuality.none` for crisp pixel art:
@@ -448,11 +448,11 @@ SagaSpriteAnimation(
 
 ```dart
 SagaInfiniteMapView(
-  // Bright behind the player, dim ahead â€” set the theme's upcoming colours and:
+  // Bright behind the player, dim ahead — set the theme's upcoming colours and:
   pathProgressPosition: highestLevelReached.toDouble(),
   pathCurvature: 0.8,
 
-  // Trees, houses, clouds â€” positioned by the library, drawn by you, below nodes:
+  // Trees, houses, clouds — positioned by the library, drawn by you, below nodes:
   decorationBuilder: (context, chunkIndex) => [
     SagaMapDecoration.besidePath(
       pathPosition: chunkIndex * 10 + 3,
@@ -471,7 +471,7 @@ SagaInfiniteMapView(
 )
 ```
 
-A gate holds the character back until the host opens it â€” the "ask 3 friends" or
+A gate holds the character back until the host opens it — the "ask 3 friends" or
 "spend a ticket" barrier. Whether it is open is your call; the library just
 stops the character:
 

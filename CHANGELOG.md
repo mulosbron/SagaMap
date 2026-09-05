@@ -1,19 +1,26 @@
-﻿# Changelog
+# Changelog
 
 All notable changes to this package are documented in this file.
 
 ## 1.1.0
 
-- Added LootTableOdds extension with arityOdds and probabilityOf methods to compute precise drop rates from loot table weights.
-
-<<<<<<< HEAD
-## 1.1.0
-
-- Added - SagaProgress.extra and LevelProgress.extra for host-owned data.
-- **Added:** SagaProgressStars extension for star counting and analysis.
-- **Added:** SagaNodeInteractionPolicy.canLongPress controls when a long press should be accepted. Locked nodes no longer emit long-press callbacks by default.
-- **Added:** The long-press action is reachable from the keyboard (Shift+F10 / context-menu key) and screen readers.
-- **Added:** onLevelLongPress convenience callback to SagaInfiniteMapView.
+- **Added:** `SagaProgress.extra` and `LevelProgress.extra` for host-owned data
+  that round-trips through JSON without touching the library's own fields.
+- **Added:** `SagaProgressStars` extension for star counting and range analysis
+  (`totalStars`, `starsInRange`, `completedCountInRange`, `isRangePerfect`).
+- **Added:** `LootTableOdds` extension with `totalWeight`, `probabilityOf` and
+  `rarityOdds` to compute precise drop rates from loot table weights.
+- **Added:** `SagaChunkContext` passed to `decorationBuilder` and
+  `episodeHeaderBuilder`, replacing the bare chunk index.
+- **Added:** `SagaMapDecoration.atLevel` to place decorations relative to a
+  level rather than raw coordinates.
+- **Added:** `onChunkEnter` and `onLevelReached` listeners on
+  `SagaInfiniteMapView`, with hysteresis to avoid spam on back-and-forth scroll.
+- **Added:** `SagaNodeInteractionPolicy.canLongPress` controls when a long press
+  should be accepted. Locked nodes no longer emit long-press callbacks by default.
+- **Added:** The long-press action is reachable from the keyboard
+  (Shift+F10 / context-menu key) and screen readers.
+- **Added:** `onLevelLongPress` convenience callback to `SagaInfiniteMapView`.
 
 - **Fixed:** Screen readers announced the first level as "Level 0".
 - **Docs:** Level ids are documented as zero-based.
@@ -38,7 +45,7 @@ First stable release.
   correct and the path is rasterised at its final size.
 - Right-to-left support: a horizontal map mirrors its path axis.
 - Responsive policies for node size, spacing, zoom, touch target, camera
-  padding, lateral extent and scroll sensitivity â€” each resolved per
+  padding, lateral extent and scroll sensitivity — each resolved per
   breakpoint from the real viewport.
 - Background layers: solid colour, image, SVG, and multi-asset sequences
   with loop / clamp / empty overflow behaviour.
@@ -48,7 +55,7 @@ First stable release.
 ### Character
 
 - A character that walks the path, with the library computing position,
-  facing and motion while the host draws it â€” so sprite sheets, Lottie,
+  facing and motion while the host draws it — so sprite sheets, Lottie,
   Rive, GIF or plain Flutter all plug into the same builder.
 - Arc-length parameterisation, so travel keeps an even pace through curves
   rather than crawling and racing.
@@ -66,7 +73,7 @@ First stable release.
 ### Domain
 
 - Deterministic level generation from a seed, with each level derived from
-  `(globalSeed, levelId)` alone â€” generating a deep chunk costs the same as
+  `(globalSeed, levelId)` alone — generating a deep chunk costs the same as
   the first, and the same seed always produces the same map across runs and
   platforms.
 - Progression models with JSON persistence, a completion use-case that
@@ -93,81 +100,3 @@ First stable release.
   type-checked rather than cast, and impossible states are clamped on load.
 - Generation and terrain allocation are bounded, so a bad configuration
   fails fast instead of exhausting memory.
-
-=======
-## 1.0.0
-
-First stable release.
-
-### Map
-
-- Vertical and horizontal level paths. `pathAxis` is the single source of
-  truth for orientation: it drives coordinate mapping, which viewport
-  dimension counts as lateral, and the scroll direction.
-- Curved paths via `pathCurvature`, from `0` (straight) to `1` (fully
-  rounded). The spline interpolates, so nodes stay put and only the line
-  between them bends.
-- The walked stretch of path is painted apart from the road ahead
-  (`pathProgressPosition` plus the theme's upcoming colours).
-- Infinite chunked scrolling with lazy loading, an optional chunk budget,
-  and eviction for long maps.
-- Pinch-to-zoom applied at the layout level, so the scroll extent stays
-  correct and the path is rasterised at its final size.
-- Right-to-left support: a horizontal map mirrors its path axis.
-- Responsive policies for node size, spacing, zoom, touch target, camera
-  padding, lateral extent and scroll sensitivity â€” each resolved per
-  breakpoint from the real viewport.
-- Background layers: solid colour, image, SVG, and multi-asset sequences
-  with loop / clamp / empty overflow behaviour.
-- Scenery via `decorationBuilder`, episode banners via
-  `episodeHeaderBuilder`, and a parallax layer that lags the scroll.
-
-### Character
-
-- A character that walks the path, with the library computing position,
-  facing and motion while the host draws it â€” so sprite sheets, Lottie,
-  Rive, GIF or plain Flutter all plug into the same builder.
-- Arc-length parameterisation, so travel keeps an even pace through curves
-  rather than crawling and racing.
-- `SagaCharacterController`: step-by-step movement with a per-node pause,
-  distance-proportional timing, interruption that resumes in place, a
-  hopping gait, and reduced-motion support.
-- Camera following, an opening position so a returning player resumes where
-  they left off, and `SagaMapCameraController` for scrolling to a level on
-  demand.
-- Optional gates that hold the character back until the host opens them.
-- A dependency-free sprite-sheet player: horizontal, vertical and grid
-  layouts, clip ranges, loop / once / ping-pong, 2x and 3x assets, and
-  `FilterQuality.none` for crisp pixel art.
-
-### Domain
-
-- Deterministic level generation from a seed, with each level derived from
-  `(globalSeed, levelId)` alone â€” generating a deep chunk costs the same as
-  the first, and the same seed always produces the same map across runs and
-  platforms.
-- Progression models with JSON persistence, a completion use-case that
-  keeps the best run and only unlocks forward, and a weighted boss loot
-  table that rewards on first clear.
-- Repository contracts with in-memory implementations for demos and tests.
-- Procedural biome/terrain generation with bounded allocation.
-
-### Accessibility
-
-- Level nodes are exposed to screen readers as buttons carrying the level
-  number, state and star count, disabled when the interaction policy
-  rejects taps.
-- Keyboard navigation: Tab visits nodes in level order rather than paint
-  order, Enter and Space activate, and locked nodes are skipped.
-- Visual size and touch target are independent, so a node can shrink below
-  the 44dp accessibility minimum visually while staying comfortably
-  tappable.
-- Animations are suppressed when the platform asks for reduced motion.
-
-### Robustness
-
-- Deserialization tolerates malformed or tampered saves: every field is
-  type-checked rather than cast, and impossible states are clamped on load.
-- Generation and terrain allocation are bounded, so a bad configuration
-  fails fast instead of exhausting memory.
->>>>>>> origin/task/050-loot-odds

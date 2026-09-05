@@ -1,4 +1,4 @@
-﻿# 05 â€” C4 GÃ¶rÃ¼nÃ¼mÃ¼: Paket â†” Host SÄ±nÄ±rÄ± ve Eksik GeniÅŸleme DikiÅŸleri
+﻿# 05 — C4 GÃ¶rÃ¼nÃ¼mÃ¼: Paket ↔ Host SÄ±nÄ±rÄ± ve Eksik GeniÅŸleme DikiÅŸleri
 
 **Beceri:** `software-architecture-skills/skills/documenting-with-c4/SKILL.md`
 
@@ -7,11 +7,11 @@ nerede bitip host'un nerede baÅŸladÄ±ÄŸÄ±nÄ±** Ã§izmek ve tÃ¼ketic
 maddenin bu sÄ±nÄ±rÄ±n hangi noktasÄ±nda bir delik olduÄŸunu gÃ¶stermek.
 
 > C4 notu: bir "Container" burada bir Docker konteyneri deÄŸil, ayrÄ± daÄŸÄ±tÄ±labilir
-> bir birim â€” yani `saga_map` paketi ile onu tÃ¼keten uygulama.
+> bir birim — yani `saga_map` paketi ile onu tÃ¼keten uygulama.
 
 ---
 
-## Seviye 1 â€” BaÄŸlam (Context)
+## Seviye 1 — BaÄŸlam (Context)
 
 ```mermaid
 graph TB
@@ -28,19 +28,19 @@ graph TB
     pkg -.->|"âŒ Ã–dÃ¼l yazmaz<br/>(A4/DIP-3)"| store
 ```
 
-**Okuma:** Paket depoya hiÃ§ dokunmuyor â€” bu doÄŸru bir tasarÄ±m tercihi. Sorun,
+**Okuma:** Paket depoya hiÃ§ dokunmuyor — bu doÄŸru bir tasarÄ±m tercihi. Sorun,
 bunun **hiÃ§bir yerde yazÄ±lÄ± olmamasÄ±**: `CompleteLevelResult.reward` dÃ¶ner,
-host onu yazmazsa eÅŸya sessizce kaybolur ve hiÃ§bir uyarÄ± Ã§Ä±kmaz (â†’ T-14, T-19).
+host onu yazmazsa eÅŸya sessizce kaybolur ve hiÃ§bir uyarÄ± Ã§Ä±kmaz (→ T-14, T-19).
 
 ---
 
-## Seviye 2 â€” Konteyner (Container)
+## Seviye 2 — Konteyner (Container)
 
 ```mermaid
 graph LR
     subgraph host["Host Uygulama"]
         game["Oyun mantÄ±ÄŸÄ±"]
-        realm["SagaRealm<br/>(10 diyar â€” paketin<br/>biyom sistemi yerine)"]
+        realm["SagaRealm<br/>(10 diyar — paketin<br/>biyom sistemi yerine)"]
         boss["BossRules<br/>(paketin kilit<br/>mantÄ±ÄŸÄ± yerine)"]
         loot2["Kendi loot sistemi<br/>(paketinki yerine)"]
         repo2["Ä°kinci kayÄ±t katmanÄ±<br/>(SagaProgress'e<br/>sÄ±ÄŸmayan veriler)"]
@@ -72,7 +72,7 @@ kullanÄ±lÄ±yor; alan modeli olarak kullanÄ±lamÄ±yor.
 
 ---
 
-## Seviye 3 â€” BileÅŸen: `core/domain`
+## Seviye 3 — BileÅŸen: `core/domain`
 
 ```mermaid
 graph TB
@@ -105,7 +105,7 @@ graph TB
 ### DiyagramÄ±n sÃ¶ylediÄŸi
 
 YeÅŸil kutular (`LevelGenerator`, `SagaProgressRepository`) paketin **doÄŸru
-kurulmuÅŸ** soyutlamalarÄ± â€” host bunlarÄ± deÄŸiÅŸtirebiliyor.
+kurulmuÅŸ** soyutlamalarÄ± — host bunlarÄ± deÄŸiÅŸtirebiliyor.
 
 KÄ±rmÄ±zÄ± kutular ise aynÄ± katmanda duran ama soyutlanmamÄ±ÅŸ kurallar. AralarÄ±ndaki
 fark tesadÃ¼fi gÃ¶rÃ¼nÃ¼yor: seviye Ã¼retimi enjekte edilebilir, Ã¶dÃ¼l Ã¼retimi deÄŸil.
@@ -141,12 +141,12 @@ graph TB
 ```
 
 DeÄŸiÅŸim maliyeti: **bir `typedef`, Ã¼Ã§ constructor parametresi, bir opsiyonel
-fonksiyon argÃ¼manÄ±.** Yeni sÄ±nÄ±f yok, kayÄ±t defteri yok, plugin mimarisi yok â€”
+fonksiyon argÃ¼manÄ±.** Yeni sÄ±nÄ±f yok, kayÄ±t defteri yok, plugin mimarisi yok —
 `balancing-architectural-tradeoffs`'un aÅŸÄ±rÄ± mÃ¼hendislik uyarÄ±sÄ±na uygun.
 
 ---
 
-## Seviye 3 â€” BileÅŸen: `rendering` etkileÅŸim yolu
+## Seviye 3 — BileÅŸen: `rendering` etkileÅŸim yolu
 
 ```mermaid
 graph LR
@@ -156,7 +156,7 @@ graph LR
     pol["SagaNodeInteractionPolicy"]
     h["SagaNodeInteractionHandler"]
 
-    gd -->|"onTap â†’ emitTap"| pol
+    gd -->|"onTap → emitTap"| pol
     pol -->|"canTap âœ…"| h
     gd -->|"onLongPress<br/>ğŸ”´ H3: kapÄ±dan geÃ§mez"| h
     sem -->|"onTap âœ…"| pol
@@ -183,11 +183,11 @@ yapÄ±lmasÄ±nÄ±n gerekÃ§esi bu diyagramda gÃ¶rÃ¼nÃ¼yor: aynÄ± kap
 
 | DikiÅŸ | 1.0.0 | GÃ¶rev | Hedef |
 |---|---|---|---|
-| Seviye Ã¼retimi (`LevelGenerator`) | âœ… | â€” | âœ… |
-| Ã‡izim (`SagaMapRenderer`, `nodeBuilder`) | âœ… | â€” | âœ… |
+| Seviye Ã¼retimi (`LevelGenerator`) | âœ… | — | âœ… |
+| Ã‡izim (`SagaMapRenderer`, `nodeBuilder`) | âœ… | — | âœ… |
 | KalÄ±cÄ±lÄ±k (`SagaProgressRepository`) | ğŸŸ¡ asimetrik | T-09 | âœ… |
-| Tema Ã§Ã¶zÃ¼mÃ¼ (`SagaBiomeThemeResolver`) | âœ… | â€” | âœ… |
-| DuyarlÄ±lÄ±k (`SagaResponsiveResolver`) | âœ… | â€” | âœ… |
+| Tema Ã§Ã¶zÃ¼mÃ¼ (`SagaBiomeThemeResolver`) | âœ… | — | âœ… |
+| DuyarlÄ±lÄ±k (`SagaResponsiveResolver`) | âœ… | — | âœ… |
 | Ekran okuyucu etiketi (`semanticsLabelBuilder`) | âœ… | T-02 (varsayÄ±lan) | âœ… |
 | **Boss kuralÄ±** | ğŸ”´ yok | T-04 | âœ… |
 | **Loot tablosu** | ğŸ”´ yok | T-04 | âœ… |

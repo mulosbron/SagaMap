@@ -33,7 +33,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: MapChunkWidget(
+          body: MapChunkWidget(chunkContext: SagaChunkContext(chunkIndex: 0, levels: const [], progress: const {}),
             levels: _levels,
             chunkIndex: 0,
             chunkExtent: 700,

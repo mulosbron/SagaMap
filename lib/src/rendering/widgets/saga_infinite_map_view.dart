@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../core/domain/models/level_data.dart';
+import '../../core/domain/models/level_progress.dart';
 import '../../core/domain/models/resolved_saga_layout.dart';
 import '../../core/domain/models/saga_geometry.dart';
 import '../../core/domain/responsive/saga_map_responsive_config.dart';
@@ -15,6 +16,7 @@ import '../character/saga_character.dart';
 import '../decoration/saga_map_decoration.dart';
 import '../character/saga_character_controller.dart';
 import '../contracts/saga_map_render_context.dart';
+import '../contracts/saga_chunk_context.dart';
 import '../controllers/saga_infinite_map_controller.dart';
 import '../controllers/saga_map_camera_controller.dart';
 import '../interaction/saga_node_interaction_handler.dart';
@@ -28,6 +30,19 @@ typedef SagaInfiniteNodeBuilder = Widget Function(
   BuildContext context,
   LevelData level,
   ResolvedSagaLayout layout,
+);
+
+@Deprecated('Use SagaEpisodeHeaderBuilder with SagaChunkContext. Removed in 3.0.0.')
+typedef SagaLegacyEpisodeHeaderBuilder = Widget? Function(
+  BuildContext context,
+  int chunkIndex,
+);
+
+/// Builds an episode banner or divider before a chunk in the scroll direction.
+/// Return `null` to leave the chunk bare.
+typedef SagaEpisodeHeaderBuilder = Widget? Function(
+  BuildContext context,
+  SagaChunkContext chunk,
 );
 
 /// Scroll physics that scale drag distance by a responsive sensitivity factor.
@@ -139,11 +154,14 @@ class SagaInfiniteMapView extends StatefulWidget {
 
   /// Scenery for each chunk, drawn below the path and nodes.
   final SagaMapDecorationBuilder? decorationBuilder;
+  @Deprecated('Use decorationBuilder with SagaChunkContext. Removed in 3.0.0.')
+  final SagaMapLegacyDecorationBuilder? legacyDecorationBuilder;
 
   /// Banner shown before a chunk in the scroll direction â€” an episode title,
   /// a "World 2" divider. Return `null` for a chunk to leave it bare.
-  final Widget? Function(BuildContext context, int chunkIndex)?
-      episodeHeaderBuilder;
+  final SagaEpisodeHeaderBuilder? episodeHeaderBuilder;
+  @Deprecated('Use episodeHeaderBuilder with SagaChunkContext. Removed in 3.0.0.')
+  final SagaLegacyEpisodeHeaderBuilder? legacyEpisodeHeaderBuilder;
 
   /// A layer drawn behind the map that scrolls slower than it, for depth.
   ///
@@ -153,6 +171,14 @@ class SagaInfiniteMapView extends StatefulWidget {
 
   /// Fraction of the scroll offset the [parallaxBackground] moves by.
   final double parallaxFactor;
+
+  /// Fires when a chunk becomes the dominant one on screen. Not called again while it stays dominant.
+  /// The first entrance is reported to the host; the package only emits the event.
+  final void Function(SagaChunkContext chunk)? onChunkEnter;
+
+  /// Fires when the characters path position crosses a level.
+  /// Fast scrolls may skip intermediate chunks or levels; this only emits the latest reached level.
+  final ValueChanged<LevelData>? onLevelReached;
 
   const SagaInfiniteMapView({
     super.key,
@@ -184,10 +210,21 @@ class SagaInfiniteMapView extends StatefulWidget {
     this.cameraController,
     this.pathProgressPosition,
     this.decorationBuilder,
+    this.legacyDecorationBuilder,
     this.episodeHeaderBuilder,
+    this.legacyEpisodeHeaderBuilder,
     this.parallaxBackground,
     this.parallaxFactor = 0.4,
-  });
+    this.onChunkEnter,
+    this.onLevelReached,
+  }) : assert(
+          legacyDecorationBuilder == null || decorationBuilder == null,
+          'Cannot provide both legacyDecorationBuilder and decorationBuilder.',
+        ),
+       assert(
+          legacyEpisodeHeaderBuilder == null || episodeHeaderBuilder == null,
+          'Cannot provide both legacyEpisodeHeaderBuilder and episodeHeaderBuilder.',
+        );
 
   /// Scroll direction implied by the configured path axis.
   Axis get scrollAxis {
@@ -204,6 +241,7 @@ class SagaInfiniteMapView extends StatefulWidget {
 }
 
 class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
+  final Map<int, SagaChunkContext> _chunkContexts = {};
   final ScrollController _scrollController = ScrollController();
   StreamSubscription<void>? _kickStart;
 
@@ -217,6 +255,9 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
   bool _openingScrollDone = false;
   bool _openingScrollRunning = false;
   double _parallaxOffset = 0;
+
+  int? _lastBroadcastChunkIndex;
+  int? _highestReachedLevel;
 
   late double _zoom = widget.zoomConfig?.initial ?? 1.0;
   double _lateralPan = 0;
@@ -267,6 +308,9 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
       _kickStart = Stream<void>.fromFuture(widget.controller.initialize())
           .listen((_) {});
     }
+    if (oldWidget.pathProgressPosition != widget.pathProgressPosition) {
+      _checkLevelReached();
+    }
   }
 
   void _attachCharacter(
@@ -277,9 +321,11 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
     previous?.removeListener(_onCharacterChanged);
     next?.addListener(_onCharacterChanged);
     _characterMoving = next?.isMoving ?? false;
+    _checkLevelReached();
   }
 
   void _onCharacterChanged() {
+    _checkLevelReached();
     final moving = widget.character?.controller?.isMoving ?? false;
     if (moving && widget.followCharacter) {
       _followCharacter();
@@ -310,6 +356,67 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
 
   double _currentCharacterPosition() =>
       widget.character?.effectivePathPosition ?? 0;
+
+  void _checkDominantChunk() {
+    if (!mounted) return;
+    if (widget.onChunkEnter == null) return;
+    if (!_scrollController.hasClients) return;
+    
+    final position = _scrollController.position;
+    final centerOffset = position.pixels + (position.viewportDimension / 2.0);
+    
+    final layout = widget.responsiveResolver.resolveForWidth(
+      MediaQuery.sizeOf(context).width,
+    );
+    final extent = (widget.chunkExtent * layout.nodeSpacing).roundToDouble() * _zoom;
+    if (extent <= 0) return;
+    
+    final dominantIndex = (centerOffset / extent).floor();
+    if (dominantIndex < 0) return;
+    
+    if (_lastBroadcastChunkIndex != dominantIndex) {
+      _lastBroadcastChunkIndex = dominantIndex;
+      final cached = _chunkContexts[dominantIndex];
+      if (cached != null && cached.levels.isNotEmpty) {
+        widget.onChunkEnter!(cached);
+      } else {
+        final levels = widget.controller.chunkLevels(dominantIndex);
+        if (levels.isNotEmpty) {
+          final ctx = SagaChunkContext(chunkIndex: dominantIndex, levels: levels, progress: const {});
+          widget.onChunkEnter!(ctx);
+        }
+      }
+    }
+  }
+
+  void _checkLevelReached() {
+    if (!mounted) return;
+    if (widget.onLevelReached == null) return;
+    
+    final currentPos = widget.character?.effectivePathPosition ?? widget.pathProgressPosition;
+    if (currentPos == null) return;
+    
+    final currentLevelIdx = currentPos.floor();
+    if (_highestReachedLevel == null) {
+      _highestReachedLevel = currentLevelIdx;
+      return; 
+    }
+    if (currentLevelIdx > _highestReachedLevel!) {
+      _highestReachedLevel = currentLevelIdx;
+      
+      final sections = widget.controller.sectionsPerChunk;
+      if (sections > 0) {
+        final chunkIndex = currentLevelIdx ~/ sections;
+        final chunkLevelIndex = currentLevelIdx % sections;
+        final levels = widget.controller.chunkLevels(chunkIndex);
+        if (chunkLevelIndex < levels.length) {
+          widget.onLevelReached!(levels[chunkLevelIndex]);
+        }
+      }
+    }
+  }
+
+
 
   /// Loads chunks until [chunkIndex] exists, or the map says it has ended.
   Future<void> _ensureChunkLoaded(int chunkIndex) async {
@@ -391,6 +498,7 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
         curve: Curves.linear,
       );
       _openingScrollDone = true;
+      if (mounted) _checkDominantChunk();
     } finally {
       _openingScrollRunning = false;
     }
@@ -415,11 +523,16 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
       // Chunks have just arrived; the opening scroll may now be possible.
       WidgetsBinding.instance
           .addPostFrameCallback((_) => _applyOpeningScroll());
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _checkDominantChunk();
+      });
     }
   }
 
   void _onScroll() {
     if (!_scrollController.hasClients) return;
+    _checkDominantChunk();
     if (widget.parallaxBackground != null) {
       final next = _scrollController.offset * widget.parallaxFactor;
       if (next != _parallaxOffset && mounted) {
@@ -479,11 +592,45 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
         if (index == count) {
           return _buildTrailer();
         }
-        // The chunk sizes its own path axis and fills the lateral axis from the
-        // constraints the list hands it. No MediaQuery override, so responsive
-        // resolution still sees the real device.
+        var levels = widget.controller.chunkLevels(index);
+        var cached = _chunkContexts[index];
+        if (levels.isEmpty && cached != null) {
+          levels = cached.levels;
+        }
+        Map<int, LevelProgress> progress = {};
+        if (widget.progressResolver != null && levels.isNotEmpty) {
+          for (final l in levels) {
+            final p = widget.progressResolver!(l);
+            if (p != null) progress[l.id] = p;
+          }
+        }
+        bool progressChanged = false;
+        if (cached != null) {
+          if (cached.progress.length != progress.length) {
+            progressChanged = true;
+          } else {
+            for (final k in progress.keys) {
+              if (cached.progress[k] != progress[k]) {
+                progressChanged = true;
+                break;
+              }
+            }
+          }
+        }
+        if (cached == null || progressChanged) {
+          cached = SagaChunkContext(
+            chunkIndex: index,
+            levels: levels,
+            progress: progress,
+          );
+          if (levels.isNotEmpty) {
+            _chunkContexts[index] = cached;
+          }
+        }
+        
         final chunk = MapChunkWidget(
-          levels: widget.controller.chunkLevels(index),
+          chunkContext: cached,
+          levels: levels,
           chunkIndex: index,
           chunkExtent: widget.chunkExtent,
           chunkSpanNormalized: widget.chunkSpanNormalized,
@@ -503,6 +650,7 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
           pathCurvature: widget.pathCurvature,
           pathProgressPosition: widget.pathProgressPosition,
           decorationBuilder: widget.decorationBuilder,
+          legacyDecorationBuilder: widget.legacyDecorationBuilder,
           baseNodeSize: widget.baseNodeSize,
           minTouchTarget: widget.minTouchTarget,
           semanticsLabelBuilder: widget.semanticsLabelBuilder,
@@ -512,7 +660,12 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
           characterKey: _characterKey,
         );
 
-        final header = widget.episodeHeaderBuilder?.call(context, index);
+        Widget? header;
+        if (widget.episodeHeaderBuilder != null) {
+          header = widget.episodeHeaderBuilder!(context, cached);
+        } else if (widget.legacyEpisodeHeaderBuilder != null) {
+          header = widget.legacyEpisodeHeaderBuilder!(context, index);
+        }
         if (header == null) return chunk;
         // The header precedes the chunk in the scroll direction, so it reads
         // as a divider entering a new episode.

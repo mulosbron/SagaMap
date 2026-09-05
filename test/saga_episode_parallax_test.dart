@@ -43,7 +43,7 @@ void main() {
             chunkSpanNormalized: _config.spanForLevelCount(_levelsPerChunk),
             lateralBounds: _config.lateralBounds,
             biomeThemeResolver: const DefaultSagaBiomeThemeResolver(),
-            episodeHeaderBuilder: episodeHeaderBuilder,
+            legacyEpisodeHeaderBuilder: episodeHeaderBuilder,
             parallaxBackground: parallaxBackground,
             parallaxFactor: parallaxFactor,
             nodeBuilder: (context, level, layout) =>

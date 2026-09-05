@@ -11,6 +11,7 @@ import '../character/saga_character.dart';
 import '../decoration/saga_map_decoration.dart';
 import '../adapters/widget_renderer_adapter.dart';
 import '../background/saga_map_background.dart';
+import '../contracts/saga_chunk_context.dart';
 import '../contracts/saga_map_render_context.dart';
 import '../interaction/saga_node_interaction_handler.dart';
 import '../interaction/saga_node_interaction_policy.dart';
@@ -118,7 +119,9 @@ class MapChunkWidget extends StatelessWidget {
   final SagaCharacter? character;
 
   /// Scenery for this chunk, drawn below the path and nodes.
+  final SagaChunkContext chunkContext;
   final SagaMapDecorationBuilder? decorationBuilder;
+  final SagaMapLegacyDecorationBuilder? legacyDecorationBuilder;
 
   /// Identity for the character's widget across chunk hand-offs.
   ///
@@ -155,7 +158,9 @@ class MapChunkWidget extends StatelessWidget {
     this.lateralPanOffset = 0.0,
     this.character,
     this.characterKey,
+    required this.chunkContext,
     this.decorationBuilder,
+    this.legacyDecorationBuilder,
   });
 
   @override
@@ -318,10 +323,15 @@ class MapChunkWidget extends StatelessWidget {
     BuildContext context,
     SagaMapRenderContext renderContext,
   ) {
-    final builder = decorationBuilder;
-    if (builder == null) return const <Widget>[];
+    List<SagaMapDecoration>? list;
+    if (decorationBuilder != null) {
+      list = decorationBuilder!(context, chunkContext);
+    } else if (legacyDecorationBuilder != null) {
+      list = legacyDecorationBuilder!(context, chunkIndex);
+    }
+    if (list == null) return const <Widget>[];
 
-    final decorations = [...builder(context, chunkIndex)]
+    final decorations = [...list]
       ..sort((a, b) => a.z.compareTo(b.z));
 
     final widgets = <Widget>[];

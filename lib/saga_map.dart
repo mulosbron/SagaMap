@@ -49,10 +49,12 @@ export 'src/rendering/theme/saga_biome_theme_resolver.dart';
 // that appear in the widget signatures above, and are the extension point for
 // host-supplied renderers.
 export 'src/rendering/contracts/saga_map_render_context.dart';
+export 'src/rendering/contracts/saga_chunk_context.dart';
 export 'src/rendering/contracts/saga_map_renderer.dart';
 export 'src/rendering/adapters/painter_renderer_adapter.dart';
 export 'src/rendering/painters/saga_path_geometry.dart';
 export 'src/rendering/painters/saga_path_metrics.dart';
+export 'src/rendering/painters/saga_chunk_fraction.dart';
 export 'src/rendering/adapters/widget_renderer_adapter.dart';
 
 // Character on the path

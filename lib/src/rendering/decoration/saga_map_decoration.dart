@@ -2,8 +2,9 @@ import 'package:flutter/widgets.dart';
 
 import '../../core/domain/models/saga_geometry.dart';
 import '../character/saga_character.dart';
+import '../contracts/saga_chunk_context.dart';
 
-/// A scenery item placed on a chunk — a tree, a house, a cloud.
+/// A scenery item placed on a chunk - a tree, a house, a cloud.
 ///
 /// Positioned by the library, drawn by the host. Two placements: beside the
 /// path at a level, or at a free point in the chunk. Decorations sit below the
@@ -11,7 +12,7 @@ import '../character/saga_character.dart';
 class SagaMapDecoration {
   /// Level index to place beside, when this decoration hugs the path.
   ///
-  /// Mutually exclusive with [chunkFraction]. A fractional value places it
+  /// Mutually exclusive with [chunkFraction] and [levelId]. A fractional value places it
   /// between two levels.
   final double? pathPosition;
 
@@ -19,9 +20,19 @@ class SagaMapDecoration {
   /// positive the other. Only meaningful with [pathPosition].
   final double lateralOffset;
 
-  /// Normalized `0..1` point in the chunk box, when the decoration floats free
-  /// of the path. Mutually exclusive with [pathPosition].
+  /// Normalized 0..1 point in the chunk box, when the decoration floats free
+  /// of the path. Mutually exclusive with [pathPosition] and [levelId].
   final Offset? chunkFraction;
+
+  /// The level id this decoration spans horizontally.
+  ///
+  /// Mutually exclusive with [pathPosition] and [chunkFraction].
+  /// Unlike [besidePath], this ignores the path's lateral wander.
+  /// The decoration spans the full width of the chunk box, accounting for the edge inset.
+  final int? levelId;
+
+  /// Fixed height for [atLevel] decorations.
+  final double? height;
 
   /// Logical size before responsive scaling.
   final Size size;
@@ -32,7 +43,7 @@ class SagaMapDecoration {
   /// Extra pixel nudge after anchoring.
   final Offset offset;
 
-  /// Whether [size] grows with the map's zoom.
+  /// Whether [size] (or height) grows with the map's zoom.
   final bool scaleWithZoom;
 
   /// Draw order among decorations. Higher paints later, so on top.
@@ -49,7 +60,35 @@ class SagaMapDecoration {
     this.offset = Offset.zero,
     this.scaleWithZoom = true,
     this.z = 0,
-  }) : chunkFraction = null;
+  }) : chunkFraction = null,
+       levelId = null,
+       height = null;
+
+  const SagaMapDecoration.atFraction({
+    required Offset this.chunkFraction,
+    required this.builder,
+    this.size = const Size(48, 48),
+    this.anchor = SagaCharacterAnchor.center,
+    this.offset = Offset.zero,
+    this.scaleWithZoom = true,
+    this.z = 0,
+  })  : pathPosition = null,
+        lateralOffset = 0,
+        levelId = null,
+        height = null;
+
+  const SagaMapDecoration.atLevel({
+    required int this.levelId,
+    required this.builder,
+    required this.height,
+    this.offset = Offset.zero,
+    this.scaleWithZoom = true,
+    this.z = 0,
+  })  : pathPosition = null,
+        lateralOffset = 0,
+        chunkFraction = null,
+        size = Size.zero,
+        anchor = SagaCharacterAnchor.center;
 
   /// Top-left corner for art of [scaledSize] anchored at [point].
   Offset topLeftFor(SagaPoint point, Size scaledSize) {
@@ -67,24 +106,19 @@ class SagaMapDecoration {
       point.y + dy + offset.dy,
     );
   }
-
-  const SagaMapDecoration.atFraction({
-    required Offset this.chunkFraction,
-    required this.builder,
-    this.size = const Size(48, 48),
-    this.anchor = SagaCharacterAnchor.center,
-    this.offset = Offset.zero,
-    this.scaleWithZoom = true,
-    this.z = 0,
-  })  : pathPosition = null,
-        lateralOffset = 0;
 }
+
+@Deprecated('Use SagaMapDecorationBuilder with SagaChunkContext. Removed in 3.0.0.')
+typedef SagaMapLegacyDecorationBuilder = List<SagaMapDecoration> Function(
+  BuildContext context,
+  int chunkIndex,
+);
 
 /// Produces the decorations for one chunk.
 ///
-/// Called per chunk, so a host can scatter scenery deterministically from the
-/// chunk index. Returning `const []` for a chunk leaves it bare.
+/// Called per chunk, so a host can scatter scenery deterministically. Returning
+/// const [] for a chunk leaves it bare.
 typedef SagaMapDecorationBuilder = List<SagaMapDecoration> Function(
   BuildContext context,
-  int chunkIndex,
+  SagaChunkContext chunk,
 );

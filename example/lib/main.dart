@@ -556,8 +556,8 @@ class _SagaMapDemoState extends State<SagaMapDemo>
       pathProgressPosition: _showWalkedPath ? _reached : null,
 
       // Scenery, banners, depth.
-      decorationBuilder: _buildScenery,
-      episodeHeaderBuilder: _buildEpisodeHeader,
+      legacyDecorationBuilder: _buildScenery,
+      legacyEpisodeHeaderBuilder: _buildEpisodeHeader,
       parallaxBackground: _parallaxLayer,
       parallaxFactor: 0.35,
 

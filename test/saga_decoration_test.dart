@@ -30,7 +30,7 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: SingleChildScrollView(
-            child: MapChunkWidget(
+            child: MapChunkWidget(chunkContext: SagaChunkContext(chunkIndex: 0, levels: const [], progress: const {}),
               levels: _chunk(0),
               chunkIndex: 0,
               chunkExtent: 800,
@@ -60,13 +60,17 @@ void main() {
       (tester) async {
     await pump(
       tester,
-      builder: (context, chunkIndex) => [
+      builder: (context, chunk) {
+        expect(chunk.chunkIndex, 0);
+        return [
+
         SagaMapDecoration.besidePath(
           pathPosition: 4,
           lateralOffset: 120,
           builder: (context) => const SizedBox.expand(key: ValueKey('tree')),
         ),
-      ],
+      ];
+      },
     );
 
     final node = tester.getCenter(find.byKey(const ValueKey('node-4')));
@@ -81,12 +85,16 @@ void main() {
       (tester) async {
     await pump(
       tester,
-      builder: (context, chunkIndex) => [
+      builder: (context, chunk) {
+        expect(chunk.chunkIndex, 0);
+        return [
+
         SagaMapDecoration.atFraction(
           chunkFraction: const Offset(0.5, 0.25),
           builder: (context) => const SizedBox.expand(key: ValueKey('cloud')),
         ),
-      ],
+      ];
+      },
     );
 
     final cloud = tester.getCenter(find.byKey(const ValueKey('cloud')));
@@ -99,14 +107,18 @@ void main() {
     await pump(
       tester,
       onLevelTap: (level) => tapped.add(level.id),
-      builder: (context, chunkIndex) => [
+      builder: (context, chunk) {
+        expect(chunk.chunkIndex, 0);
+        return [
+
         // A decoration sitting right on the node it must not block.
         SagaMapDecoration.besidePath(
           pathPosition: 4,
           builder: (context) => const SizedBox.expand(key: ValueKey('tree')),
           size: const Size(140, 140),
         ),
-      ],
+      ];
+      },
     );
 
     await tester.tap(
@@ -120,7 +132,10 @@ void main() {
   testWidgets('z-order stacks later decorations on top', (tester) async {
     await pump(
       tester,
-      builder: (context, chunkIndex) => [
+      builder: (context, chunk) {
+        expect(chunk.chunkIndex, 0);
+        return [
+
         SagaMapDecoration.atFraction(
           chunkFraction: const Offset(0.5, 0.3),
           z: 5,
@@ -131,7 +146,8 @@ void main() {
           z: 0,
           builder: (context) => const SizedBox.expand(key: ValueKey('bottom')),
         ),
-      ],
+      ];
+      },
     );
 
     // Sorted by z, so 'bottom' is painted before 'top'; both are present.
@@ -153,12 +169,16 @@ void main() {
     // Level 40 is far past chunk 0's reach, so nothing is drawn.
     await pump(
       tester,
-      builder: (context, chunkIndex) => [
+      builder: (context, chunk) {
+        expect(chunk.chunkIndex, 0);
+        return [
+
         SagaMapDecoration.besidePath(
           pathPosition: 40,
           builder: (context) => const SizedBox.expand(key: ValueKey('tree')),
         ),
-      ],
+      ];
+      },
     );
     expect(find.byKey(const ValueKey('tree')), findsNothing);
   });

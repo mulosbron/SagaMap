@@ -352,6 +352,17 @@ means:
 Do not use `Object.hash` for anything you persist or regenerate: it mixes in
 `identityHashCode(Object)`, which is randomised per program run.
 
+### Regenerating the map
+
+To generate a new map layout, persist a new seed. Because SagaProgress retains its level ids, existing progress will simply point to the new layout.
+
+`dart
+final newSeed = 12345;
+await repository.saveGlobalSeed(newSeed);
+
+// The next time the map loads, it will use the new layout.
+`
+
 ### Domain utilities
 
 ```dart

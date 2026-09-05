@@ -2,6 +2,10 @@
 
 All notable changes to this package are documented in this file.
 
+## 2.0.0
+
+- **BREAKING** — SagaProgressRepository gained saveGlobalSeed(int seed). If your loadGlobalSeed wrote a default as a side effect, move that write here.
+
 ## 1.1.0
 
 - **Fixed:** Screen readers announced the first level as "Level 0".

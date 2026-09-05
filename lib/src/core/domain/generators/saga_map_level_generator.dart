@@ -15,6 +15,7 @@ class SagaMapLevelGenerator implements LevelGenerator {
   const SagaMapLevelGenerator();
 
   @override
+
   /// Builds level data from a seed and geometry config.
   List<LevelData> generateLevels({
     required int globalSeed,
@@ -35,8 +36,8 @@ class SagaMapLevelGenerator implements LevelGenerator {
 
         // Alternating lateral targets, nudged by a per-level jitter.
         final target = levelId.isEven ? mid - bandHalf : mid + bandHalf;
-        final jitter = _unitJitter(globalSeed, levelId) * 2 * jitterMax -
-            jitterMax;
+        final jitter =
+            _unitJitter(globalSeed, levelId) * 2 * jitterMax - jitterMax;
         final lateral = (target + jitter).clamp(config.minX, config.maxX);
 
         // Computed rather than accumulated: repeated addition drifts, and the

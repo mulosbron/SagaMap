@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 class SagaBiomeTheme {
   final Color backgroundColor;
   final Gradient? backgroundGradient;
+
   /// Colours for the path already covered, and for the whole path when no
   /// progress is supplied.
   final Color pathFillColor;

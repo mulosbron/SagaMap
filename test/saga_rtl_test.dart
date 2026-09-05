@@ -102,8 +102,7 @@ void main() {
     expect(rtlStep, moreOrLessEquals(-ltrStep, epsilon: 0.5));
   });
 
-  testWidgets('a vertical map is unaffected by text direction',
-      (tester) async {
+  testWidgets('a vertical map is unaffected by text direction', (tester) async {
     Future<double> firstNodeY(TextDirection direction) async {
       final controller = _controller();
       addTearDown(controller.dispose);
@@ -140,18 +139,25 @@ void main() {
 
   testWidgets('RTL does not break keyboard shortcuts', (tester) async {
     final longPressed = <int>[];
-    
+
     await tester.pumpWidget(
       Directionality(
         textDirection: TextDirection.rtl,
         child: MaterialApp(
           home: Scaffold(
             body: MapChunkWidget(
-              chunkContext: SagaChunkContext(
-                  chunkIndex: 0,
-                  levels: const [LevelData(id: 1, position: SagaPoint(0.5, 0.5), biomeId: kBiomeIdForest)],
-                  progress: const {}),
-              levels: [const LevelData(id: 1, position: SagaPoint(0.5, 0.5), biomeId: kBiomeIdForest)],
+              chunkContext: SagaChunkContext(chunkIndex: 0, levels: const [
+                LevelData(
+                    id: 1,
+                    position: SagaPoint(0.5, 0.5),
+                    biomeId: kBiomeIdForest)
+              ], progress: const {}),
+              levels: [
+                const LevelData(
+                    id: 1,
+                    position: SagaPoint(0.5, 0.5),
+                    biomeId: kBiomeIdForest)
+              ],
               chunkIndex: 0,
               chunkExtent: 700,
               chunkSpanNormalized: 1.0,
@@ -171,7 +177,7 @@ void main() {
 
     await tester.sendKeyEvent(LogicalKeyboardKey.tab);
     await tester.pumpAndSettle();
-    
+
     await tester.sendKeyDownEvent(LogicalKeyboardKey.shift);
     await tester.sendKeyEvent(LogicalKeyboardKey.f10);
     await tester.sendKeyUpEvent(LogicalKeyboardKey.shift);

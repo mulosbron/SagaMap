@@ -72,9 +72,8 @@ class SagaCharacterController extends ChangeNotifier {
   SagaCharacterMotion get motion =>
       _moving ? SagaCharacterMotion.walking : SagaCharacterMotion.idle;
 
-  SagaCharacterFacing get facing => _to >= _from
-      ? SagaCharacterFacing.forward
-      : SagaCharacterFacing.backward;
+  SagaCharacterFacing get facing =>
+      _to >= _from ? SagaCharacterFacing.forward : SagaCharacterFacing.backward;
 
   /// Progress through the current step, `0..1`. Zero when standing still.
   double get stepProgress => _moving ? _animation.value : 0;

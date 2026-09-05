@@ -97,8 +97,7 @@ void main() {
               vsync: vsync,
               stepDuration: const Duration(milliseconds: 30),
               stepPause: Duration.zero,
-              barrier: (from, to) =>
-                  clampTravelThroughGates(gates, from, to),
+              barrier: (from, to) => clampTravelThroughGates(gates, from, to),
             );
             return const SizedBox.shrink();
           },
@@ -157,8 +156,7 @@ void main() {
               vsync: vsync,
               stepDuration: const Duration(milliseconds: 20),
               stepPause: Duration.zero,
-              barrier: (from, to) =>
-                  clampTravelThroughGates(gates, from, to),
+              barrier: (from, to) => clampTravelThroughGates(gates, from, to),
             );
             return const SizedBox.shrink();
           },

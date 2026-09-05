@@ -4,9 +4,9 @@ import 'level_progress.dart';
 class SagaProgress {
   final int currentMaxUnlockedLevelId;
   final Map<int, LevelProgress> levels;
-  
+
   /// Host-owned data the package stores but never interprets.
-  /// 
+  ///
   /// The package reads nothing from it and will never claim a key.
   /// Keep it small; it is serialised on every save.
   final Map<String, dynamic> extra;
@@ -74,7 +74,7 @@ class SagaProgress {
     // is unlocked.
     final rawUnlocked = json['currentMaxUnlockedLevelId'];
     final unlocked = rawUnlocked is num ? rawUnlocked.toInt() : 0;
-    
+
     final extraRaw = json['extra'];
     Map<String, dynamic> extra = {};
     if (extraRaw is Map<String, dynamic>) {

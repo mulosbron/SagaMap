@@ -266,7 +266,8 @@ void main() {
     test('a whole position lands on its node on a straight path too', () {
       final ctx = context(1, curvature: 0);
       final level = ctx.levels[4];
-      expect(ctx.characterPixel(level.id.toDouble()), ctx.pixelFor(level.position));
+      expect(ctx.characterPixel(level.id.toDouble()),
+          ctx.pixelFor(level.position));
     });
 
     test('a fractional position sits between its neighbours', () {

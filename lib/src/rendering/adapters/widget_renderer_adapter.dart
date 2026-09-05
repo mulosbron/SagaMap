@@ -144,7 +144,10 @@ class WidgetRendererAdapter implements SagaMapRenderer<List<Widget>> {
             focusable: canTap,
             label: semanticsLabelBuilder(level, progress),
             onTap: canTap ? emitTap : null,
-            onLongPress: canLongPress && interactionHandler.onNodeLongPress != null ? emitLongPress : null,
+            onLongPress:
+                canLongPress && interactionHandler.onNodeLongPress != null
+                    ? emitLongPress
+                    : null,
             // The node visual is decorative; the label already describes it.
             excludeSemantics: true,
             child: FocusableActionDetector(
@@ -152,6 +155,7 @@ class WidgetRendererAdapter implements SagaMapRenderer<List<Widget>> {
               enabled: canTap,
               mouseCursor:
                   canTap ? SystemMouseCursors.click : SystemMouseCursors.basic,
+
               /// Shift+F10 or the context-menu key triggers the long-press action.
               shortcuts: canLongPress
                   ? const <ShortcutActivator, Intent>{
@@ -206,9 +210,10 @@ class WidgetRendererAdapter implements SagaMapRenderer<List<Widget>> {
                     SagaNodeInteractionState.pressed,
                   ),
                   onTap: emitTap,
-                  onLongPress: canLongPress && interactionHandler.onNodeLongPress != null
-                      ? emitLongPress
-                      : null,
+                  onLongPress:
+                      canLongPress && interactionHandler.onNodeLongPress != null
+                          ? emitLongPress
+                          : null,
                   // Gesture area is touchSize; the visual sits centred in it.
                   child: SizedBox(
                     width: touchSize,

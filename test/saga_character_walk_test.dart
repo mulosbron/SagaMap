@@ -14,8 +14,7 @@ const _generator = SagaMapLevelGenerator();
 SagaInfiniteMapController _mapController() => SagaInfiniteMapController(
       sectionsPerChunk: _levelsPerChunk,
       initialChunkCount: 4,
-      chunkLoader: (chunkIndex, sectionsPerChunk) =>
-          _generator.generateLevels(
+      chunkLoader: (chunkIndex, sectionsPerChunk) => _generator.generateLevels(
         globalSeed: 5,
         config: _config,
         startLevelId: chunkIndex * sectionsPerChunk,
@@ -73,8 +72,7 @@ void main() {
       expect(controller.isMoving, isFalse);
     });
 
-    testWidgets('a longer journey takes proportionally longer',
-        (tester) async {
+    testWidgets('a longer journey takes proportionally longer', (tester) async {
       late SagaCharacterController controller;
       await tester.pumpWidget(
         _TickerHost(

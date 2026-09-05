@@ -1,4 +1,4 @@
-﻿import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:saga_map/saga_map.dart';
 
 void main() {
@@ -12,12 +12,17 @@ void main() {
       final progressOnlyUnlocked = const SagaProgress(
         currentMaxUnlockedLevelId: 2,
         levels: {
-          0: LevelProgress(levelId: 0, state: LevelCompletionState.unlocked, stars: 3), // e.g. cheating stars, but state is unlocked
-          1: LevelProgress(levelId: 1, state: LevelCompletionState.unlocked, stars: 2),
-          2: LevelProgress(levelId: 2, state: LevelCompletionState.unlocked, stars: 0),
+          0: LevelProgress(
+              levelId: 0,
+              state: LevelCompletionState.unlocked,
+              stars: 3), // e.g. cheating stars, but state is unlocked
+          1: LevelProgress(
+              levelId: 1, state: LevelCompletionState.unlocked, stars: 2),
+          2: LevelProgress(
+              levelId: 2, state: LevelCompletionState.unlocked, stars: 0),
         },
       );
-      
+
       expect(progressOnlyUnlocked.totalStars, 0);
     });
 
@@ -25,33 +30,43 @@ void main() {
       final progress = const SagaProgress(
         currentMaxUnlockedLevelId: 5,
         levels: {
-          0: LevelProgress(levelId: 0, state: LevelCompletionState.completed, stars: 3),
-          1: LevelProgress(levelId: 1, state: LevelCompletionState.completed, stars: 2),
-          2: LevelProgress(levelId: 2, state: LevelCompletionState.completed, stars: 1),
-          3: LevelProgress(levelId: 3, state: LevelCompletionState.completed, stars: 3),
+          0: LevelProgress(
+              levelId: 0, state: LevelCompletionState.completed, stars: 3),
+          1: LevelProgress(
+              levelId: 1, state: LevelCompletionState.completed, stars: 2),
+          2: LevelProgress(
+              levelId: 2, state: LevelCompletionState.completed, stars: 1),
+          3: LevelProgress(
+              levelId: 3, state: LevelCompletionState.completed, stars: 3),
         },
       );
 
       // starsInRange(1, 2) -> levels 1 and 2 -> 2 + 1 = 3
       expect(progress.starsInRange(1, 2), 3);
-      
+
       // completedCountInRange(1, 2) -> levels 1 and 2 -> 2
       expect(progress.completedCountInRange(1, 2), 2);
     });
 
-    test('isRangePerfect is false when one level is missing or not perfect', () {
+    test('isRangePerfect is false when one level is missing or not perfect',
+        () {
       final progress = const SagaProgress(
         currentMaxUnlockedLevelId: 5,
         levels: {
-          0: LevelProgress(levelId: 0, state: LevelCompletionState.completed, stars: 3),
-          1: LevelProgress(levelId: 1, state: LevelCompletionState.completed, stars: 3),
-          2: LevelProgress(levelId: 2, state: LevelCompletionState.completed, stars: 2), // not perfect
+          0: LevelProgress(
+              levelId: 0, state: LevelCompletionState.completed, stars: 3),
+          1: LevelProgress(
+              levelId: 1, state: LevelCompletionState.completed, stars: 3),
+          2: LevelProgress(
+              levelId: 2,
+              state: LevelCompletionState.completed,
+              stars: 2), // not perfect
         },
       );
 
       // missing level 3
       expect(progress.isRangePerfect(0, 4), isFalse);
-      
+
       // not perfect level 2
       expect(progress.isRangePerfect(0, 3), isFalse);
 

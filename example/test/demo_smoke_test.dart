@@ -8,7 +8,8 @@ import 'package:saga_map_example/main.dart';
 /// every feature toggle.
 void main() {
   /// Boots the demo at a fixed viewport so layout is predictable.
-  Future<void> bootDemo(WidgetTester tester, {Size size = const Size(420, 860)}) async {
+  Future<void> bootDemo(WidgetTester tester,
+      {Size size = const Size(420, 860)}) async {
     tester.view.devicePixelRatio = 1.0;
     tester.view.physicalSize = size;
     addTearDown(tester.view.reset);

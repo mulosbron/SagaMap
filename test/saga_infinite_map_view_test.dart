@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:saga_map/saga_map.dart';
 
@@ -21,7 +21,9 @@ SagaInfiniteMapController _controller({int? maxChunkCount}) {
   );
 }
 
-Widget _app(SagaInfiniteMapController controller, SagaMapPathAxis pathAxis, {
+Widget _app(
+  SagaInfiniteMapController controller,
+  SagaMapPathAxis pathAxis, {
   ValueChanged<LevelData>? onLevelTap,
   ValueChanged<LevelData>? onLevelLongPress,
   SagaNodeInteractionHandler? interactionHandler,
@@ -37,7 +39,8 @@ Widget _app(SagaInfiniteMapController controller, SagaMapPathAxis pathAxis, {
         biomeThemeResolver: const DefaultSagaBiomeThemeResolver(),
         onLevelTap: onLevelTap,
         onLevelLongPress: onLevelLongPress,
-        interactionHandler: interactionHandler ?? const SagaNodeInteractionHandler(),
+        interactionHandler:
+            interactionHandler ?? const SagaNodeInteractionHandler(),
         progressResolver: progressResolver,
         // Spacing is neutralised so seam geometry can be measured against the
         // declared chunkExtent directly; it has dedicated tests elsewhere.
@@ -185,7 +188,8 @@ void main() {
     expect(controller.loadedChunkCount, 3);
   });
 
-  testWidgets('onLevelLongPress is fired on a long press event', (tester) async {
+  testWidgets('onLevelLongPress is fired on a long press event',
+      (tester) async {
     useViewport(tester, const Size(390, 844));
     final controller = _controller();
     addTearDown(controller.dispose);
@@ -196,7 +200,8 @@ void main() {
     await tester.pumpWidget(_app(
       controller,
       SagaMapPathAxis.vertical,
-      progressResolver: (l) => LevelProgress(levelId: l.id, state: LevelCompletionState.unlocked),
+      progressResolver: (l) =>
+          LevelProgress(levelId: l.id, state: LevelCompletionState.unlocked),
       onLevelTap: (l) => tapped = l,
       onLevelLongPress: (l) => longPressed = l,
     ));
@@ -207,7 +212,8 @@ void main() {
     expect(tapped, isNull);
   });
 
-  testWidgets('interactionHandler.onNodeLongPress wins over onLevelLongPress', (tester) async {
+  testWidgets('interactionHandler.onNodeLongPress wins over onLevelLongPress',
+      (tester) async {
     useViewport(tester, const Size(390, 844));
     final controller = _controller();
     addTearDown(controller.dispose);
@@ -218,7 +224,8 @@ void main() {
     await tester.pumpWidget(_app(
       controller,
       SagaMapPathAxis.vertical,
-      progressResolver: (l) => LevelProgress(levelId: l.id, state: LevelCompletionState.unlocked),
+      progressResolver: (l) =>
+          LevelProgress(levelId: l.id, state: LevelCompletionState.unlocked),
       interactionHandler: SagaNodeInteractionHandler(
         onNodeLongPress: (l) => handlerLongPressed = l,
       ),
@@ -231,7 +238,8 @@ void main() {
     expect(viewLongPressed, isNull);
   });
 
-  testWidgets('onLevelLongPress blocked by canLongPress (locked node)', (tester) async {
+  testWidgets('onLevelLongPress blocked by canLongPress (locked node)',
+      (tester) async {
     useViewport(tester, const Size(390, 844));
     final controller = _controller();
     addTearDown(controller.dispose);
@@ -241,7 +249,8 @@ void main() {
     await tester.pumpWidget(_app(
       controller,
       SagaMapPathAxis.vertical,
-      progressResolver: (l) => LevelProgress(levelId: l.id, state: LevelCompletionState.locked),
+      progressResolver: (l) =>
+          LevelProgress(levelId: l.id, state: LevelCompletionState.locked),
       onLevelLongPress: (l) => longPressed = l,
     ));
     await tester.pumpAndSettle();
@@ -250,5 +259,3 @@ void main() {
     expect(longPressed, isNull);
   });
 }
-
-

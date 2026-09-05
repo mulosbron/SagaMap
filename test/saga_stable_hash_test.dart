@@ -36,7 +36,9 @@ void main() {
     });
 
     test('separates neighbouring level ids', () {
-      final values = <int>{for (var i = 0; i < 500; i++) stableHash([42, i])};
+      final values = <int>{
+        for (var i = 0; i < 500; i++) stableHash([42, i])
+      };
       // A weak mix would collide constantly across consecutive ids.
       expect(values.length, 500);
     });

@@ -124,7 +124,8 @@ class _SagaSpriteAnimationState extends State<SagaSpriteAnimation>
   void _onTick(Duration total) {
     // Accumulate deltas rather than using the raw ticker time, so pausing does
     // not fast-forward the clip by however long it was stopped.
-    final delta = _lastTick == Duration.zero ? Duration.zero : total - _lastTick;
+    final delta =
+        _lastTick == Duration.zero ? Duration.zero : total - _lastTick;
     _lastTick = total;
     _elapsed += delta;
 

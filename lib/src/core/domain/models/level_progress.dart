@@ -24,7 +24,7 @@ class LevelProgress {
   final LevelCompletionState state;
   final int stars;
   final DateTime? lastPlayedAt;
-  
+
   /// Per-level host data — alternate-mode scores, a no-mistake streak.
   final Map<String, dynamic> extra;
 
@@ -65,7 +65,7 @@ class LevelProgress {
     final rawLastPlayed = json['lastPlayedAt'];
 
     final stars = rawStars is num ? rawStars.toInt() : 0;
-    
+
     final extraRaw = json['extra'];
     Map<String, dynamic> extra = {};
     if (extraRaw is Map<String, dynamic>) {

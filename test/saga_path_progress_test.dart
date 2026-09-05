@@ -22,7 +22,8 @@ SagaMapRenderContext _context({
   double? progress,
   double curvature = 1,
 }) {
-  final previous = chunkIndex > 0 ? _chunk(chunkIndex - 1) : const <LevelData>[];
+  final previous =
+      chunkIndex > 0 ? _chunk(chunkIndex - 1) : const <LevelData>[];
   final next = _chunk(chunkIndex + 1);
   return SagaMapRenderContext(
     levels: _chunk(chunkIndex),
@@ -139,8 +140,7 @@ void main() {
     });
 
     test('a chunk entirely ahead of the player is untouched', () {
-      final split =
-          _context(chunkIndex: 2, progress: 3).splitPathAtProgress();
+      final split = _context(chunkIndex: 2, progress: 3).splitPathAtProgress();
       expect(split.walked, isEmpty);
       expect(split.upcoming, isNotEmpty);
     });
@@ -152,8 +152,7 @@ void main() {
     });
 
     test('a straight path splits too', () {
-      final split =
-          _context(progress: 5.5, curvature: 0).splitPathAtProgress();
+      final split = _context(progress: 5.5, curvature: 0).splitPathAtProgress();
       expect(split.walked, isNotEmpty);
       expect(split.upcoming, isNotEmpty);
       expect(split.walked.last.end, split.upcoming.first.start);

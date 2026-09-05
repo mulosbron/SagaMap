@@ -1,4 +1,4 @@
-﻿// Public API surface for the `saga_map` package.
+// Public API surface for the `saga_map` package.
 // Import only this file from consuming applications:
 // `import 'package:saga_map/saga_map.dart';`
 // Everything under `lib/src` is implementation detail.
@@ -78,5 +78,3 @@ export 'src/rendering/controllers/saga_map_camera_controller.dart';
 export 'src/rendering/interaction/saga_map_zoom.dart';
 export 'src/rendering/interaction/saga_node_interaction_handler.dart';
 export 'src/rendering/interaction/saga_node_interaction_policy.dart';
-
-

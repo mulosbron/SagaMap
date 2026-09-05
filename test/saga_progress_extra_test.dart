@@ -124,7 +124,7 @@ void main() {
       final restored = LevelProgress.fromJson(json);
       expect(restored.extra, equals({'app.streak': 5}));
     });
-    
+
     test('yields empty map on invalid string type', () {
       final jsonBad = {
         'levelId': 1,
@@ -144,7 +144,7 @@ void main() {
       final level = LevelProgress.fromJson(jsonNull);
       expect(level.extra, isEmpty);
     });
-    
+
     test('preserves extra on re-completion', () {
       final originalProgress = const SagaProgress(
         currentMaxUnlockedLevelId: 1,
@@ -161,7 +161,7 @@ void main() {
           ),
         },
       );
-      
+
       const useCase = CompleteLevelUseCase();
       final result = useCase.execute(
         currentProgress: originalProgress,
@@ -169,7 +169,7 @@ void main() {
         globalSeed: 123,
         stars: 3,
       );
-      
+
       final updatedLevel = result.nextProgress.levels[1]!;
       expect(updatedLevel.stars, 3);
       expect(updatedLevel.extra, equals({'app.score': 9000}));

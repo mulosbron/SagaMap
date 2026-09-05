@@ -54,7 +54,9 @@ void main() {
             scrollDirection: pathAxis == SagaMapPathAxis.horizontal
                 ? Axis.horizontal
                 : Axis.vertical,
-            child: MapChunkWidget(chunkContext: SagaChunkContext(chunkIndex: 0, levels: const [], progress: const {}),
+            child: MapChunkWidget(
+              chunkContext: SagaChunkContext(
+                  chunkIndex: 0, levels: const [], progress: const {}),
               levels: levels,
               chunkIndex: 0,
               chunkExtent: chunkExtent,
@@ -137,8 +139,7 @@ void main() {
   });
 
   group('interactionRadius', () {
-    testWidgets('a tap outside the visual still hits the node',
-        (tester) async {
+    testWidgets('a tap outside the visual still hits the node', (tester) async {
       useViewport(tester, const Size(400, 800));
       final tapped = <int>[];
 

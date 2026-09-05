@@ -28,9 +28,10 @@ void main() {
 
   // Regression: atLevel decorations were never handled by the chunk renderer,
   // so a host that used one crashed with a null-check on pathPosition, and the
-  // box collapsed to zero even after that. Render one and assert it lands on
-  // its level at the requested size.
-  testWidgets('atLevel decoration renders at its level, at its height',
+  // box collapsed to zero even after that. Per 041 an atLevel decoration is a
+  // band: full width across the lateral axis, `height` thick along the path
+  // axis, aligned with its level and ignoring the path's wander.
+  testWidgets('atLevel renders as a full-width band aligned to its level',
       (tester) async {
     tester.view.devicePixelRatio = 1.0;
     tester.view.physicalSize = const Size(400, 800);
@@ -56,13 +57,13 @@ void main() {
                   zoomPolicy: const SagaMapValuePolicy.all(1.0),
                 ),
               ),
-              decorationBuilder: (context, chunk) => [
+              chunkDecorationBuilder: (context, chunk) => [
                 SagaMapDecoration.atLevel(
                   levelId: 4,
                   height: 30,
                   scaleWithZoom: false,
                   builder: (context) =>
-                      const SizedBox.expand(key: ValueKey('flag')),
+                      const SizedBox.expand(key: ValueKey('band')),
                 ),
               ],
               nodeBuilder: (context, level, layout) =>
@@ -74,19 +75,21 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final flagFinder = find.byKey(const ValueKey('flag'));
-    expect(flagFinder, findsOneWidget);
+    final bandFinder = find.byKey(const ValueKey('band'));
+    expect(bandFinder, findsOneWidget);
 
-    // Sized by `height`, not collapsed to zero.
-    final size = tester.getSize(flagFinder);
-    expect(size.width, 30);
+    // A band: `height` thick, spanning the chunk's full lateral width.
+    final chunkWidth = tester.getSize(find.byType(MapChunkWidget)).width;
+    final size = tester.getSize(bandFinder);
     expect(size.height, 30);
+    expect(size.width, moreOrLessEquals(chunkWidth, epsilon: 0.5));
 
-    // Anchored to level 4's node, not to a raw coordinate.
+    // Aligned with level 4 along the path axis, and centred laterally rather
+    // than following the path's wander.
     final node = tester.getCenter(find.byKey(const ValueKey('node-4')));
-    final flag = tester.getCenter(flagFinder);
-    expect((flag.dx - node.dx).abs(), lessThan(40));
-    expect((flag.dy - node.dy).abs(), lessThan(40));
+    final band = tester.getCenter(bandFinder);
+    expect(band.dy, moreOrLessEquals(node.dy, epsilon: 1.0));
+    expect(band.dx, moreOrLessEquals(chunkWidth / 2, epsilon: 1.0));
   });
 
   // Backward-compat: chunkContext is optional. A host that used MapChunkWidget
@@ -113,7 +116,7 @@ void main() {
               chunkSpanNormalized: _config.spanForLevelCount(_levelsPerChunk),
               lateralBounds: _config.lateralBounds,
               biomeThemeResolver: const DefaultSagaBiomeThemeResolver(),
-              decorationBuilder: (context, chunk) {
+              chunkDecorationBuilder: (context, chunk) {
                 seenIndex = chunk.chunkIndex;
                 seenLevelCount = chunk.levels.length;
                 return const <SagaMapDecoration>[];

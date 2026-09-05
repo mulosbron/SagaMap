@@ -78,7 +78,8 @@ void main() {
       // chord and the segment cannot bow.
       for (final point in _sample(segments)) {
         expect(
-          _distanceToPolyline(point, const [SagaPoint(0, 0), SagaPoint(10, 10)]),
+          _distanceToPolyline(
+              point, const [SagaPoint(0, 0), SagaPoint(10, 10)]),
           lessThan(1e-9),
         );
       }
@@ -217,7 +218,8 @@ void main() {
           previous = current;
         }
         // A cusp makes the traced length balloon past the chord.
-        expect(travelled, lessThan(_distance(segment.start, segment.end) * 1.6));
+        expect(
+            travelled, lessThan(_distance(segment.start, segment.end) * 1.6));
       }
     });
 
@@ -394,12 +396,18 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: MapChunkWidget(chunkContext: SagaChunkContext(chunkIndex: 0, levels: const [], progress: const {}),
+            body: MapChunkWidget(
+              chunkContext: SagaChunkContext(
+                  chunkIndex: 0, levels: const [], progress: const {}),
               levels: const [
                 LevelData(
-                    id: 0, position: SagaPoint(0.2, 0.0), biomeId: kBiomeIdForest),
+                    id: 0,
+                    position: SagaPoint(0.2, 0.0),
+                    biomeId: kBiomeIdForest),
                 LevelData(
-                    id: 1, position: SagaPoint(0.8, 0.5), biomeId: kBiomeIdForest),
+                    id: 1,
+                    position: SagaPoint(0.8, 0.5),
+                    biomeId: kBiomeIdForest),
               ],
               chunkIndex: 0,
               chunkExtent: 600,

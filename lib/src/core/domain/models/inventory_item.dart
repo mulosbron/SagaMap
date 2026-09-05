@@ -51,8 +51,8 @@ class InventoryItem {
     return InventoryItem(
       itemId: rawId is String ? rawId : 'unknown_item',
       itemName: rawName is String ? rawName : 'Unknown',
-      rarity:
-          InventoryRarity.fromString(rawRarity is String ? rawRarity : 'common'),
+      rarity: InventoryRarity.fromString(
+          rawRarity is String ? rawRarity : 'common'),
       obtainedFromLevelId: rawLevel is num ? rawLevel.toInt() : 0,
       obtainedAt: (rawAt is String ? DateTime.tryParse(rawAt) : null) ??
           DateTime.fromMillisecondsSinceEpoch(0),

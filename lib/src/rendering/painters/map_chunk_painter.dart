@@ -88,8 +88,7 @@ class MapChunkPainter extends CustomPainter {
   }) {
     if (segments.isEmpty) return;
 
-    final path = Path()
-      ..moveTo(segments.first.start.x, segments.first.start.y);
+    final path = Path()..moveTo(segments.first.start.x, segments.first.start.y);
     for (final segment in segments) {
       // A zero-curvature segment carries its controls on the endpoints, so this
       // draws exactly the straight polyline.

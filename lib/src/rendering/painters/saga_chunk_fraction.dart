@@ -8,17 +8,19 @@ double chunkFractionForLevel({
   double edgeInsetFraction = 0.0,
 }) {
   if (levelsPerChunk <= 0) {
-    throw ArgumentError.value(levelsPerChunk, 'levelsPerChunk', 'must be positive');
+    throw ArgumentError.value(
+        levelsPerChunk, 'levelsPerChunk', 'must be positive');
   }
   if (levelIndexInChunk < 0 || levelIndexInChunk >= levelsPerChunk) {
-    throw ArgumentError.value(levelIndexInChunk, 'levelIndexInChunk', 'out of bounds');
+    throw ArgumentError.value(
+        levelIndexInChunk, 'levelIndexInChunk', 'out of bounds');
   }
-  
+
   final clampedInset = edgeInsetFraction.clamp(0.0, 0.5);
   if (levelsPerChunk == 1) {
     return 0.5;
   }
-  
+
   final availableSpan = 1.0 - (2 * clampedInset);
   final step = availableSpan / (levelsPerChunk - 1);
   return clampedInset + (levelIndexInChunk * step);

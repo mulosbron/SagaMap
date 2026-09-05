@@ -118,12 +118,21 @@ class MapChunkWidget extends StatelessWidget {
   /// position draws it, so it is never drawn twice near a seam.
   final SagaCharacter? character;
 
-  /// Context handed to [decorationBuilder]. Optional: when omitted it is
+  /// Context handed to [chunkDecorationBuilder]. Optional: when omitted it is
   /// derived from [levels], [chunkIndex] and [progressResolver], so hosts that
   /// used this widget before 1.1.0 keep compiling unchanged.
   final SagaChunkContext? chunkContext;
-  final SagaMapDecorationBuilder? decorationBuilder;
-  final SagaMapLegacyDecorationBuilder? legacyDecorationBuilder;
+
+  /// Scenery for this chunk, receiving only the chunk index.
+  ///
+  /// Prefer [chunkDecorationBuilder], which is handed a [SagaChunkContext].
+  @Deprecated(
+      'Use chunkDecorationBuilder with SagaChunkContext. Removed in 3.0.0.')
+  final SagaMapLegacyDecorationBuilder? decorationBuilder;
+
+  /// Scenery for this chunk, handed a [SagaChunkContext]. Supersedes
+  /// [decorationBuilder].
+  final SagaMapDecorationBuilder? chunkDecorationBuilder;
 
   /// Identity for the character's widget across chunk hand-offs.
   ///
@@ -162,8 +171,11 @@ class MapChunkWidget extends StatelessWidget {
     this.characterKey,
     this.chunkContext,
     this.decorationBuilder,
-    this.legacyDecorationBuilder,
-  });
+    this.chunkDecorationBuilder,
+  }) : assert(
+          decorationBuilder == null || chunkDecorationBuilder == null,
+          'Cannot provide both decorationBuilder and chunkDecorationBuilder.',
+        );
 
   @override
   Widget build(BuildContext context) {
@@ -189,8 +201,8 @@ class MapChunkWidget extends StatelessWidget {
         // A horizontal chunk list is laid out right-to-left under RTL, so each
         // chunk's interior has to run the same way or the path breaks at the
         // seams. Vertical maps are unaffected by text direction.
-        final reverseAlongAxis = !isVertical &&
-            Directionality.maybeOf(context) == TextDirection.rtl;
+        final reverseAlongAxis =
+            !isVertical && Directionality.maybeOf(context) == TextDirection.rtl;
 
         final availableLateral = _availableLateral(
           constraints: constraints,
@@ -326,7 +338,7 @@ class MapChunkWidget extends StatelessWidget {
     SagaMapRenderContext renderContext,
   ) {
     List<SagaMapDecoration>? list;
-    if (decorationBuilder != null) {
+    if (chunkDecorationBuilder != null) {
       final chunk = chunkContext ??
           SagaChunkContext(
             chunkIndex: chunkIndex,
@@ -336,30 +348,31 @@ class MapChunkWidget extends StatelessWidget {
                 if (progressResolver?.call(level) case final p?) level.id: p,
             },
           );
-      list = decorationBuilder!(context, chunk);
-    } else if (legacyDecorationBuilder != null) {
-      list = legacyDecorationBuilder!(context, chunkIndex);
+      list = chunkDecorationBuilder!(context, chunk);
+      // ignore: deprecated_member_use_from_same_package
+    } else if (decorationBuilder != null) {
+      // ignore: deprecated_member_use_from_same_package
+      list = decorationBuilder!(context, chunkIndex);
     }
     if (list == null) return const <Widget>[];
 
-    final decorations = [...list]
-      ..sort((a, b) => a.z.compareTo(b.z));
+    final decorations = [...list]..sort((a, b) => a.z.compareTo(b.z));
 
     final widgets = <Widget>[];
     for (final decoration in decorations) {
-      // Three placement modes: a free chunk fraction, pinned to a level
-      // (`atLevel`), or hugging the path at an explicit position.
+      // Three placement modes: a free chunk fraction, a band aligned to a level
+      // (`atLevel`), or scenery hugging the path at an explicit position.
+      final isAtLevel = decoration.levelId != null;
       final SagaPoint? point;
       if (decoration.chunkFraction != null) {
         point = renderContext.decorationPixelAtFraction(
           decoration.chunkFraction!.dx,
           decoration.chunkFraction!.dy,
         );
-      } else if (decoration.levelId != null) {
-        point = renderContext.decorationPixelBesidePath(
-          decoration.levelId!.toDouble(),
-          decoration.lateralOffset,
-        );
+      } else if (isAtLevel) {
+        // Aligned with the level on the path axis and centred on the lateral
+        // one: a band ignores the path's wander.
+        point = renderContext.decorationPixelAtLevel(decoration.levelId!);
       } else {
         point = renderContext.decorationPixelBesidePath(
           decoration.pathPosition!,
@@ -370,17 +383,22 @@ class MapChunkWidget extends StatelessWidget {
       // drawn here; the chunk that owns that level draws it.
       if (point == null) continue;
 
-      final scale =
-          decoration.scaleWithZoom ? renderContext.layout.zoom : 1.0;
-      // `atLevel` decorations carry a fixed `height` instead of a `size`; give
-      // them a square box so they render rather than collapsing to zero.
-      final baseSize = decoration.levelId != null && decoration.height != null
-          ? Size(decoration.height!, decoration.height!)
-          : decoration.size;
-      final size = Size(
-        baseSize.width * scale,
-        baseSize.height * scale,
-      );
+      final scale = decoration.scaleWithZoom ? renderContext.layout.zoom : 1.0;
+      // An `atLevel` decoration is a band: it spans the chunk's whole lateral
+      // axis and is `height` thick along the path axis. Every other kind uses
+      // its own `size`.
+      final Size size;
+      if (isAtLevel) {
+        final thickness = (decoration.height ?? 0) * scale;
+        size = renderContext.layout.pathAxis == SagaMapPathAxis.vertical
+            ? Size(renderContext.chunkSize.width, thickness)
+            : Size(thickness, renderContext.chunkSize.height);
+      } else {
+        size = Size(
+          decoration.size.width * scale,
+          decoration.size.height * scale,
+        );
+      }
       final topLeft = decoration.topLeftFor(point, size);
       widgets.add(
         Positioned(

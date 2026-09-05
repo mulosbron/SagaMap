@@ -6,12 +6,10 @@ class SagaPoint {
   const SagaPoint(this.x, this.y);
 
   /// Componentwise sum.
-  SagaPoint operator +(SagaPoint other) =>
-      SagaPoint(x + other.x, y + other.y);
+  SagaPoint operator +(SagaPoint other) => SagaPoint(x + other.x, y + other.y);
 
   /// Componentwise difference.
-  SagaPoint operator -(SagaPoint other) =>
-      SagaPoint(x - other.x, y - other.y);
+  SagaPoint operator -(SagaPoint other) => SagaPoint(x - other.x, y - other.y);
 
   /// Scales both components by [factor].
   SagaPoint operator *(double factor) => SagaPoint(x * factor, y * factor);

@@ -136,8 +136,8 @@ class SagaMapRenderContext {
   int? pointIndexForLevel(int levelId) {
     if (levels.isEmpty) return null;
     final index = leadingNeighbors.length + (levelId - levels.first.id);
-    final total = leadingNeighbors.length + levels.length +
-        trailingNeighbors.length;
+    final total =
+        leadingNeighbors.length + levels.length + trailingNeighbors.length;
     return index >= 0 && index < total ? index : null;
   }
 
@@ -199,7 +199,7 @@ class SagaMapRenderContext {
   }
 
   /// Anchor point for a decoration placed at [chunkFraction] of the chunk box.
-  
+
   /// Anchor point for a decoration spanning the given [levelId].
   ///
   /// The point is centered on the lateral axis and aligned with the level on the path axis.
@@ -207,7 +207,7 @@ class SagaMapRenderContext {
   SagaPoint? decorationPixelAtLevel(int levelId) {
     final level = levels.where((l) => l.id == levelId).firstOrNull;
     if (level == null) return null;
-    
+
     final point = pixelFor(level.position);
     if (layout.pathAxis == SagaMapPathAxis.vertical) {
       return SagaPoint(chunkSize.width / 2, point.y);

@@ -289,7 +289,8 @@ class _SagaMapDemoState extends State<SagaMapDemo>
         (_progressFor(level)?.extra['bookmarked'] as bool?) ?? false;
 
     // Odds only make sense where a reward actually rolls: boss levels.
-    final odds = isBossLevel(level.id) ? kMvpLootTable : const <LootTableEntry>[];
+    final odds =
+        isBossLevel(level.id) ? kMvpLootTable : const <LootTableEntry>[];
 
     showDialog<void>(
       context: context,
@@ -311,14 +312,14 @@ class _SagaMapDemoState extends State<SagaMapDemo>
               const Divider(),
               for (final MapEntry(:key, :value) in odds.rarityOdds().entries)
                 Text('${key.name}: ${(value * 100).toStringAsFixed(1)}%',
-                    style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                    style:
+                        const TextStyle(color: Colors.white70, fontSize: 12)),
             ],
           ],
         ),
         actions: [
           TextButton.icon(
-            icon: Icon(
-                bookmarked ? Icons.bookmark : Icons.bookmark_border),
+            icon: Icon(bookmarked ? Icons.bookmark : Icons.bookmark_border),
             label: Text(bookmarked ? 'Bookmarked' : 'Bookmark'),
             onPressed: () {
               _toggleBookmark(level.id, !bookmarked);
@@ -532,8 +533,8 @@ class _SagaMapDemoState extends State<SagaMapDemo>
   ///
   /// 1.1.0: the builder is handed a [SagaChunkContext] instead of a bare index,
   /// so it can read the chunk's levels and dominant biome. Here the tree colour
-  /// follows `chunk.dominantBiomeId`, and `SagaMapDecoration.atLevel` pins a
-  /// flag right beside every boss node without any coordinate maths.
+  /// follows `chunk.dominantBiomeId`, and `SagaMapDecoration.atLevel` lays a
+  /// full-width band across every boss level without any coordinate maths.
   List<SagaMapDecoration> _buildScenery(
     BuildContext context,
     SagaChunkContext chunk,
@@ -558,15 +559,24 @@ class _SagaMapDemoState extends State<SagaMapDemo>
         builder: (context) =>
             const Icon(Icons.cloud, color: Color(0x55FFFFFF), size: 52),
       ),
-      // 1.1.0: a boss flag anchored to the level itself, not to raw pixels.
+      // 1.1.0: a boss band aligned to the level itself, not to raw pixels. It
+      // spans the chunk's full width and ignores the path's lateral wander.
       for (final level in chunk.levels)
         if (isBossLevel(level.id))
           SagaMapDecoration.atLevel(
             levelId: level.id,
-            height: 34,
-            offset: const Offset(30, -30),
-            builder: (context) =>
-                const Icon(Icons.flag, color: Color(0xFFFFC107), size: 30),
+            height: 46,
+            builder: (context) => DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    const Color(0x00FFC107),
+                    const Color(0xFFFFC107).withValues(alpha: 0.35),
+                    const Color(0x00FFC107),
+                  ],
+                ),
+              ),
+            ),
           ),
     ];
   }
@@ -678,8 +688,8 @@ class _SagaMapDemoState extends State<SagaMapDemo>
       pathProgressPosition: _showWalkedPath ? _reached : null,
 
       // Scenery, banners, depth. 1.1.0 context-aware builders.
-      decorationBuilder: _buildScenery,
-      episodeHeaderBuilder: _buildEpisodeHeader,
+      chunkDecorationBuilder: _buildScenery,
+      chunkEpisodeHeaderBuilder: _buildEpisodeHeader,
       parallaxBackground: _parallaxLayer,
       parallaxFactor: 0.35,
 

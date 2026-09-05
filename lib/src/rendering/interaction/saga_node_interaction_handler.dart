@@ -17,10 +17,13 @@ enum SagaNodeInteractionState {
 
 /// Tap callback signature for level nodes.
 typedef SagaNodeTapCallback = void Function(LevelData level);
+
 /// Long-press callback signature for level nodes.
 typedef SagaNodeLongPressCallback = void Function(LevelData level);
+
 /// Hover callback signature for level nodes.
 typedef SagaNodeHoverCallback = void Function(LevelData level, bool isHovered);
+
 /// Focus-state callback signature for level nodes.
 typedef SagaNodeFocusChangeCallback = void Function(
   LevelData level,

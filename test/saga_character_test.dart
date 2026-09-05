@@ -91,8 +91,8 @@ void main() {
         );
 
     test('bottomCenter puts the feet on the node', () {
-      final topLeft = character(SagaCharacterAnchor.bottomCenter)
-          .topLeftFor(point, size);
+      final topLeft =
+          character(SagaCharacterAnchor.bottomCenter).topLeftFor(point, size);
       expect(topLeft.dx, 180); // centred horizontally
       expect(topLeft.dy, 440); // bottom edge lands on the node
     });
@@ -150,19 +150,19 @@ void main() {
       tester.view.physicalSize = const Size(400, 800);
       addTearDown(tester.view.reset);
 
-      final previous = chunkIndex > 0
-          ? _chunk(chunkIndex - 1)
-          : const <LevelData>[];
+      final previous =
+          chunkIndex > 0 ? _chunk(chunkIndex - 1) : const <LevelData>[];
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
             body: SingleChildScrollView(
-              child: MapChunkWidget(chunkContext: SagaChunkContext(chunkIndex: 0, levels: const [], progress: const {}),
+              child: MapChunkWidget(
+                chunkContext: SagaChunkContext(
+                    chunkIndex: 0, levels: const [], progress: const {}),
                 levels: _chunk(chunkIndex),
                 chunkIndex: chunkIndex,
                 chunkExtent: 800,
-                chunkSpanNormalized:
-                    _config.spanForLevelCount(_levelsPerChunk),
+                chunkSpanNormalized: _config.spanForLevelCount(_levelsPerChunk),
                 lateralBounds: _config.lateralBounds,
                 leadingNeighbors: previous.isEmpty
                     ? const <LevelData>[]
@@ -229,8 +229,7 @@ void main() {
       expect(hero.center.dx, moreOrLessEquals(node.dx, epsilon: 0.5));
     });
 
-    testWidgets('a fractional position sits between two nodes',
-        (tester) async {
+    testWidgets('a fractional position sits between two nodes', (tester) async {
       await pump(
         tester,
         character: const SagaCharacter(
@@ -322,12 +321,13 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: SingleChildScrollView(
-              child: MapChunkWidget(chunkContext: SagaChunkContext(chunkIndex: 0, levels: const [], progress: const {}),
+              child: MapChunkWidget(
+                chunkContext: SagaChunkContext(
+                    chunkIndex: 0, levels: const [], progress: const {}),
                 levels: _chunk(0),
                 chunkIndex: 0,
                 chunkExtent: 800,
-                chunkSpanNormalized:
-                    _config.spanForLevelCount(_levelsPerChunk),
+                chunkSpanNormalized: _config.spanForLevelCount(_levelsPerChunk),
                 lateralBounds: _config.lateralBounds,
                 biomeThemeResolver: const DefaultSagaBiomeThemeResolver(),
                 onLevelTap: (level) => tapped.add(level.id),

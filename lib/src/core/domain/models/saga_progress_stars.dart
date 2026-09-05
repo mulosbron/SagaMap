@@ -1,4 +1,4 @@
-﻿import 'level_progress.dart';
+import 'level_progress.dart';
 import 'saga_progress.dart';
 
 /// Provides total star counts and chunk evaluation without duplicate loops.
@@ -22,7 +22,7 @@ extension SagaProgressStars on SagaProgress {
       throw ArgumentError.value(count, 'count', 'Must not be negative.');
     }
     if (count == 0) return 0;
-    
+
     int total = 0;
     for (int id = startLevelId; id < startLevelId + count; id++) {
       final level = levels[id];
@@ -41,7 +41,7 @@ extension SagaProgressStars on SagaProgress {
       throw ArgumentError.value(count, 'count', 'Must not be negative.');
     }
     if (count == 0) return 0;
-    
+
     int completed = 0;
     for (int id = startLevelId; id < startLevelId + count; id++) {
       final level = levels[id];
@@ -52,11 +52,12 @@ extension SagaProgressStars on SagaProgress {
     return completed;
   }
 
-  /// Checks if every level in [startLevelId, startLevelId + count) is completed and 
+  /// Checks if every level in [startLevelId, startLevelId + count) is completed and
   /// has [perLevel] stars. If the range is empty (count == 0), returns true.
   ///
   /// Example: progress.isRangePerfect(chunkIndex * sectionsPerChunk, sectionsPerChunk)
-  bool isRangePerfect(int startLevelId, int count, {int perLevel = kMaxLevelStars}) {
+  bool isRangePerfect(int startLevelId, int count,
+      {int perLevel = kMaxLevelStars}) {
     if (count < 0) {
       throw ArgumentError.value(count, 'count', 'Must not be negative.');
     }
@@ -64,7 +65,9 @@ extension SagaProgressStars on SagaProgress {
 
     for (int id = startLevelId; id < startLevelId + count; id++) {
       final level = levels[id];
-      if (level == null || level.state != LevelCompletionState.completed || level.stars < perLevel) {
+      if (level == null ||
+          level.state != LevelCompletionState.completed ||
+          level.stars < perLevel) {
         return false;
       }
     }

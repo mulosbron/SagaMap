@@ -60,9 +60,9 @@ class SagaMapDecoration {
     this.offset = Offset.zero,
     this.scaleWithZoom = true,
     this.z = 0,
-  }) : chunkFraction = null,
-       levelId = null,
-       height = null;
+  })  : chunkFraction = null,
+        levelId = null,
+        height = null;
 
   const SagaMapDecoration.atFraction({
     required Offset this.chunkFraction,
@@ -77,6 +77,16 @@ class SagaMapDecoration {
         levelId = null,
         height = null;
 
+  /// A band laid across the chunk, aligned with [levelId].
+  ///
+  /// The band spans the chunk's full lateral width — the whole height on a
+  /// horizontal map — and is [height] thick along the path axis. Unlike
+  /// [besidePath] it ignores the path's lateral wander, so it stays centred
+  /// however far the path swings, and it accounts for the chunk's edge inset.
+  ///
+  /// Use it for a milestone stripe or a boss marker behind a level. If
+  /// [levelId] does not belong to the chunk being drawn, the decoration is
+  /// silently skipped — the chunk that owns that level draws it instead.
   const SagaMapDecoration.atLevel({
     required int this.levelId,
     required this.builder,
@@ -108,7 +118,8 @@ class SagaMapDecoration {
   }
 }
 
-@Deprecated('Use SagaMapDecorationBuilder with SagaChunkContext. Removed in 3.0.0.')
+@Deprecated(
+    'Use SagaMapDecorationBuilder with SagaChunkContext. Removed in 3.0.0.')
 typedef SagaMapLegacyDecorationBuilder = List<SagaMapDecoration> Function(
   BuildContext context,
   int chunkIndex,

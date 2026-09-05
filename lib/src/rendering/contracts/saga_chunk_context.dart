@@ -18,6 +18,11 @@ class SagaChunkContext {
   /// The dominant biome id of this chunk, calculated based on the levels.
   final String dominantBiomeId;
 
+  /// Creates a context for one chunk.
+  ///
+  /// [levels] and [progress] are copied into unmodifiable views, and
+  /// [dominantBiomeId] is derived from [levels], so the context is a stable
+  /// snapshot a builder can hold without the map changing under it.
   SagaChunkContext({
     required this.chunkIndex,
     required List<LevelData> levels,

@@ -13,6 +13,7 @@ class CompleteLevelResult {
   });
 
   final SagaProgress nextProgress;
+
   /// Returned, **not persisted**.
   /// The caller must write it to its `InventoryRepository`; dropping this value silently loses the item.
   final InventoryItem? reward;

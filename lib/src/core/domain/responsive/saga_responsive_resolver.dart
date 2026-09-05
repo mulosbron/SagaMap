@@ -72,5 +72,4 @@ class SagaResponsiveResolver {
         return viewport.height;
     }
   }
-
 }

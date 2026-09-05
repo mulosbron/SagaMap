@@ -97,7 +97,9 @@ void main() {
                 scrollDirection: pathAxis == SagaMapPathAxis.horizontal
                     ? Axis.horizontal
                     : Axis.vertical,
-                child: MapChunkWidget(chunkContext: SagaChunkContext(chunkIndex: 0, levels: const [], progress: const {}),
+                child: MapChunkWidget(
+                  chunkContext: SagaChunkContext(
+                      chunkIndex: 0, levels: const [], progress: const {}),
                   levels: _fixedLevels,
                   chunkIndex: 0,
                   chunkExtent: 520,
@@ -180,7 +182,9 @@ void main() {
           debugShowCheckedModeBanner: false,
           home: Scaffold(
             body: SingleChildScrollView(
-              child: MapChunkWidget(chunkContext: SagaChunkContext(chunkIndex: 0, levels: const [], progress: const {}),
+              child: MapChunkWidget(
+                chunkContext: SagaChunkContext(
+                    chunkIndex: 0, levels: const [], progress: const {}),
                 levels: _fixedLevels,
                 chunkIndex: 0,
                 chunkExtent: 520,
@@ -213,7 +217,9 @@ void main() {
         debugShowCheckedModeBanner: false,
         home: Scaffold(
           body: SingleChildScrollView(
-            child: MapChunkWidget(chunkContext: SagaChunkContext(chunkIndex: 0, levels: const [], progress: const {}),
+            child: MapChunkWidget(
+              chunkContext: SagaChunkContext(
+                  chunkIndex: 0, levels: const [], progress: const {}),
               levels: _fixedLevels,
               chunkIndex: 0,
               chunkExtent: 520,

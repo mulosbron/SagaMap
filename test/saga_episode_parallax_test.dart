@@ -11,8 +11,7 @@ const _generator = SagaMapLevelGenerator();
 SagaInfiniteMapController _mapController() => SagaInfiniteMapController(
       sectionsPerChunk: _levelsPerChunk,
       initialChunkCount: 4,
-      chunkLoader: (chunkIndex, sectionsPerChunk) =>
-          _generator.generateLevels(
+      chunkLoader: (chunkIndex, sectionsPerChunk) => _generator.generateLevels(
         globalSeed: 5,
         config: _config,
         startLevelId: chunkIndex * sectionsPerChunk,
@@ -43,7 +42,10 @@ void main() {
             chunkSpanNormalized: _config.spanForLevelCount(_levelsPerChunk),
             lateralBounds: _config.lateralBounds,
             biomeThemeResolver: const DefaultSagaBiomeThemeResolver(),
-            legacyEpisodeHeaderBuilder: episodeHeaderBuilder,
+            // Exercises the pre-1.1.0 index-only builder, which stays
+            // supported until 3.0.0.
+            // ignore: deprecated_member_use_from_same_package
+            episodeHeaderBuilder: episodeHeaderBuilder,
             parallaxBackground: parallaxBackground,
             parallaxFactor: parallaxFactor,
             nodeBuilder: (context, level, layout) =>
@@ -73,8 +75,7 @@ void main() {
       expect(find.byType(Column), findsNothing);
     });
 
-    testWidgets('headers appear for the chunks that want them',
-        (tester) async {
+    testWidgets('headers appear for the chunks that want them', (tester) async {
       await pump(
         tester,
         episodeHeaderBuilder: (context, index) => index.isEven

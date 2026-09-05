@@ -17,8 +17,7 @@ SagaInfiniteMapController _mapController({int? maxChunkCount}) =>
       sectionsPerChunk: _levelsPerChunk,
       initialChunkCount: 2,
       maxChunkCount: maxChunkCount,
-      chunkLoader: (chunkIndex, sectionsPerChunk) =>
-          _generator.generateLevels(
+      chunkLoader: (chunkIndex, sectionsPerChunk) => _generator.generateLevels(
         globalSeed: 5,
         config: _config,
         startLevelId: chunkIndex * sectionsPerChunk,
@@ -79,8 +78,7 @@ void main() {
               return SagaInfiniteMapView(
                 controller: mapController,
                 chunkExtent: _chunkExtent,
-                chunkSpanNormalized:
-                    _config.spanForLevelCount(_levelsPerChunk),
+                chunkSpanNormalized: _config.spanForLevelCount(_levelsPerChunk),
                 lateralBounds: _config.lateralBounds,
                 biomeThemeResolver: const DefaultSagaBiomeThemeResolver(),
                 responsiveResolver: SagaResponsiveResolver(
@@ -136,8 +134,7 @@ void main() {
       expect(atEighteen, greaterThan(offsetOf(tester)));
     });
 
-    testWidgets('loads the chunks the opening position needs',
-        (tester) async {
+    testWidgets('loads the chunks the opening position needs', (tester) async {
       // Only two chunks load initially; level 35 lives in the fourth.
       await pumpMap(tester, initialPathPosition: 35, withCharacter: false);
       expect(find.byKey(const ValueKey('node-35')), findsOneWidget);
@@ -234,8 +231,7 @@ void main() {
       expect(offsetOf(tester), greaterThan(200));
     });
 
-    testWidgets('alignment places the target in the viewport',
-        (tester) async {
+    testWidgets('alignment places the target in the viewport', (tester) async {
       final camera = SagaMapCameraController();
       addTearDown(camera.dispose);
       await pumpMap(tester, camera: camera, withCharacter: false);

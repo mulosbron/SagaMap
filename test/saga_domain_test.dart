@@ -212,7 +212,8 @@ void main() {
 
     test('biomeSpan of zero is rejected at construction', () {
       expect(
-        () => SagaMapConfig(minX: 0.2, maxX: 0.8, stepHeight: 0.08, biomeSpan: 0),
+        () =>
+            SagaMapConfig(minX: 0.2, maxX: 0.8, stepHeight: 0.08, biomeSpan: 0),
         throwsA(isA<AssertionError>()),
       );
     });

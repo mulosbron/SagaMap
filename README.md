@@ -27,14 +27,15 @@ tests), so they show exactly what it draws.
 
 ### New in 1.1.0
 
-| Level-anchored scenery and host data | Episode header from the chunk context |
+| Level-anchored bands and host data | Episode header from the chunk context |
 | --- | --- |
-| ![atLevel markers, biome-tinted scenery and an extra-driven bookmark](doc/screenshots/features_1_1_0_decorations.png) | ![Episode header reporting stars earned in the chunk](doc/screenshots/features_1_1_0_episode_header.png) |
+| ![atLevel bands, biome-tinted scenery and an extra-driven bookmark](doc/screenshots/features_1_1_0_decorations.png) | ![Episode header reporting stars earned in the chunk](doc/screenshots/features_1_1_0_episode_header.png) |
 
-- **Level-anchored decorations** — the red markers are
-  `SagaMapDecoration.atLevel`: pinned to a level id, not to a pixel
-  coordinate. The round scenery is tinted from
-  `SagaChunkContext.dominantBiomeId`, which the decoration builder now receives.
+- **Level-anchored bands** — the red stripes are `SagaMapDecoration.atLevel`:
+  aligned to a level id rather than a pixel coordinate, spanning the chunk's
+  full width and ignoring the path's lateral wander. The round scenery is
+  tinted from `SagaChunkContext.dominantBiomeId`, which the decoration builder
+  now receives.
 - **Host-owned data on a node** — the dark stripe on the second node is drawn
   from a `bookmarked` flag the app stored in `LevelProgress.extra`. The package
   persists it and never interprets it.
@@ -476,25 +477,26 @@ SagaInfiniteMapView(
   pathCurvature: 0.8,
 
   // Trees, houses, clouds — positioned by the library, drawn by you, below
-  // nodes. The builder receives a SagaChunkContext (1.1.0) carrying the chunk's
-  // levels, progress and dominant biome:
-  decorationBuilder: (context, chunk) => [
+  // nodes. The 1.1.0 builder receives a SagaChunkContext carrying the chunk's
+  // levels, progress and dominant biome. (The 1.0.0 `decorationBuilder`, which
+  // takes a bare chunk index, still works and is deprecated.)
+  chunkDecorationBuilder: (context, chunk) => [
     SagaMapDecoration.besidePath(
       pathPosition: chunk.chunkIndex * 10 + 3,
       lateralOffset: 120,
       builder: (context) => Icon(Icons.park, color: tintFor(chunk.dominantBiomeId)),
     ),
-    // Pin a decoration to a level rather than a raw coordinate (1.1.0):
+    // A full-width band aligned to a level rather than a raw coordinate
+    // (1.1.0). It ignores the path's lateral wander:
     SagaMapDecoration.atLevel(
       levelId: chunk.chunkIndex * 10 + 5,
       height: 34,
-      offset: const Offset(30, -30),
-      builder: (context) => const Icon(Icons.flag),
+      builder: (context) => const ColoredBox(color: Color(0x33FFC107)),
     ),
   ],
 
   // A banner before a chunk, also handed the SagaChunkContext (1.1.0):
-  episodeHeaderBuilder: (context, chunk) => chunk.chunkIndex.isEven
+  chunkEpisodeHeaderBuilder: (context, chunk) => chunk.chunkIndex.isEven
       ? EpisodeBanner('World ${chunk.chunkIndex ~/ 2 + 1}')
       : null,
 

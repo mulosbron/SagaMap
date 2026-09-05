@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:saga_map/saga_map.dart';
@@ -18,7 +18,14 @@ const _progress = <int, LevelProgress>{
   3: LevelProgress(levelId: 3, state: LevelCompletionState.locked),
 };
 
-class _MockNoLongPressPolicy extends SagaNodeInteractionPolicy { const _MockNoLongPressPolicy(); @override bool canTap(LevelData level, LevelProgress? progress) => true; @override bool canLongPress(LevelData level, LevelProgress? progress) => false; }
+class _MockNoLongPressPolicy extends SagaNodeInteractionPolicy {
+  const _MockNoLongPressPolicy();
+  @override
+  bool canTap(LevelData level, LevelProgress? progress) => true;
+  @override
+  bool canLongPress(LevelData level, LevelProgress? progress) => false;
+}
+
 void main() {
   Future<void> pumpMap(
     WidgetTester tester, {
@@ -33,7 +40,9 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: MapChunkWidget(chunkContext: SagaChunkContext(chunkIndex: 0, levels: const [], progress: const {}),
+          body: MapChunkWidget(
+            chunkContext: SagaChunkContext(
+                chunkIndex: 0, levels: const [], progress: const {}),
             levels: _levels,
             chunkIndex: 0,
             chunkExtent: 700,
@@ -134,7 +143,7 @@ void main() {
   testWidgets('Shift+F10 triggers long press callback', (tester) async {
     final tapped = <int>[];
     final longPressed = <int>[];
-    
+
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -173,7 +182,7 @@ void main() {
   testWidgets('Context menu key triggers long press callback', (tester) async {
     final tapped = <int>[];
     final longPressed = <int>[];
-    
+
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -207,10 +216,11 @@ void main() {
     expect(tapped, isEmpty);
   });
 
-  testWidgets('Shift+F10 does nothing if canLongPress is false', (tester) async {
+  testWidgets('Shift+F10 does nothing if canLongPress is false',
+      (tester) async {
     final tapped = <int>[];
     final longPressed = <int>[];
-    
+
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -246,4 +256,3 @@ void main() {
     expect(longPressed, isEmpty);
   });
 }
-

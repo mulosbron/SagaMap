@@ -73,17 +73,19 @@ void main() {
 
     test('an edge inset shrinks the usable along span symmetrically', () {
       final start = _pixel(const SagaPoint(0.5, 0.0),
-          alongEdgeInsetFraction: SagaMapCoordinates.kDefaultAlongEdgeInsetFraction);
+          alongEdgeInsetFraction:
+              SagaMapCoordinates.kDefaultAlongEdgeInsetFraction);
       final end = _pixel(const SagaPoint(0.5, 1.0),
-          alongEdgeInsetFraction: SagaMapCoordinates.kDefaultAlongEdgeInsetFraction);
+          alongEdgeInsetFraction:
+              SagaMapCoordinates.kDefaultAlongEdgeInsetFraction);
 
       expect(start.y, closeTo(0.08 * 500, 1e-9));
       expect(end.y, closeTo(500 - 0.08 * 500, 1e-9));
     });
 
     test('the inset is capped so the span cannot collapse', () {
-      final start = _pixel(const SagaPoint(0.5, 0.0),
-          alongEdgeInsetFraction: 0.9);
+      final start =
+          _pixel(const SagaPoint(0.5, 0.0), alongEdgeInsetFraction: 0.9);
       expect(
         start.y,
         closeTo(SagaMapCoordinates.kMaxAlongEdgeInsetFraction * 500, 1e-9),

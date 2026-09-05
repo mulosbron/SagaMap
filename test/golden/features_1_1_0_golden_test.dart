@@ -148,18 +148,20 @@ List<SagaMapDecoration> _decorations(
           ),
         ),
       ),
-    // 1.1.0: pinned to the level itself, no coordinate maths. Offset far enough
-    // to clear the node, since decorations are drawn beneath the nodes.
+    // 1.1.0: a band aligned to the level itself, no coordinate maths. It spans
+    // the chunk's full lateral width and ignores the path's wander.
     for (final levelId in const [1, 3])
       SagaMapDecoration.atLevel(
         levelId: base + levelId,
-        height: 26,
-        offset: const Offset(42, -34),
+        height: 34,
         scaleWithZoom: false,
         builder: (context) => const DecoratedBox(
           decoration: BoxDecoration(
-            color: Color(0xFFE23D3D),
-            borderRadius: BorderRadius.all(Radius.circular(4)),
+            color: Color(0x66E23D3D),
+            border: Border(
+              top: BorderSide(color: Color(0xFFE23D3D), width: 2),
+              bottom: BorderSide(color: Color(0xFFE23D3D), width: 2),
+            ),
           ),
         ),
       ),
@@ -203,7 +205,7 @@ void main() {
                 config: SagaMapResponsiveConfig.defaults,
               ),
               progressResolver: _progressFor,
-              decorationBuilder: _decorations,
+              chunkDecorationBuilder: _decorations,
               nodeBuilder: _node,
             ),
           ),
@@ -259,10 +261,10 @@ void main() {
               config: SagaMapResponsiveConfig.defaults,
             ),
             progressResolver: _progressFor,
-            decorationBuilder: _decorations,
+            chunkDecorationBuilder: _decorations,
             // 1.1.0: the header builder is handed the chunk context, so it can
             // report stars earned across that chunk with starsInRange.
-            episodeHeaderBuilder: (context, chunk) {
+            chunkEpisodeHeaderBuilder: (context, chunk) {
               final earned = _progress.starsInRange(
                 chunk.chunkIndex * _levelsPerChunk,
                 _levelsPerChunk,
@@ -275,8 +277,8 @@ void main() {
                         horizontal: 18, vertical: 10),
                     decoration: BoxDecoration(
                       color: const Color(0xCC1B3A17),
-                      border: Border.all(
-                          color: const Color(0xFF7BC96F), width: 2),
+                      border:
+                          Border.all(color: const Color(0xFF7BC96F), width: 2),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(

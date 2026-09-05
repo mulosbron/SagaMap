@@ -11,7 +11,8 @@ SagaInfiniteMapController _controller() {
     sectionsPerChunk: _levelsPerChunk,
     initialChunkCount: 3,
     loadBatchSize: 2,
-    chunkLoader: (chunkIndex, sectionsPerChunk) async => generator.generateLevels(
+    chunkLoader: (chunkIndex, sectionsPerChunk) async =>
+        generator.generateLevels(
       globalSeed: 42,
       config: _config,
       startLevelId: chunkIndex * sectionsPerChunk,
@@ -21,7 +22,8 @@ SagaInfiniteMapController _controller() {
 }
 
 void main() {
-  testWidgets('onChunkEnter is called correctly when scrolling across 3 chunks', (tester) async {
+  testWidgets('onChunkEnter is called correctly when scrolling across 3 chunks',
+      (tester) async {
     final controller = _controller();
     final enteredChunks = <int>[];
 
@@ -35,7 +37,8 @@ void main() {
               chunkExtent: 500,
               chunkSpanNormalized: _config.spanForLevelCount(_levelsPerChunk),
               biomeThemeResolver: const DefaultSagaBiomeThemeResolver(),
-              nodeBuilder: (context, level, layout) => const SizedBox(width: 50, height: 50),
+              nodeBuilder: (context, level, layout) =>
+                  const SizedBox(width: 50, height: 50),
               onChunkEnter: (chunk) {
                 enteredChunks.add(chunk.chunkIndex);
               },
@@ -59,7 +62,8 @@ void main() {
     expect(enteredChunks, [0, 1, 2]);
   });
 
-  testWidgets('onChunkEnter does not repeat on boundary hysteresis', (tester) async {
+  testWidgets('onChunkEnter does not repeat on boundary hysteresis',
+      (tester) async {
     final controller = _controller();
     final enteredChunks = <int>[];
 
@@ -73,7 +77,8 @@ void main() {
               chunkExtent: 500,
               chunkSpanNormalized: _config.spanForLevelCount(_levelsPerChunk),
               biomeThemeResolver: const DefaultSagaBiomeThemeResolver(),
-              nodeBuilder: (context, level, layout) => const SizedBox(width: 50, height: 50),
+              nodeBuilder: (context, level, layout) =>
+                  const SizedBox(width: 50, height: 50),
               onChunkEnter: (chunk) {
                 enteredChunks.add(chunk.chunkIndex);
               },
@@ -95,16 +100,17 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(enteredChunks, [0, 1]);
-    
+
     await tester.drag(find.byType(SagaInfiniteMapView), const Offset(0, 500));
     await tester.pumpAndSettle();
     expect(enteredChunks, [0, 1, 0]);
   });
 
-  testWidgets('onLevelReached fires only on forward transition', (tester) async {
+  testWidgets('onLevelReached fires only on forward transition',
+      (tester) async {
     final controller = _controller();
     final reachedLevels = <int>[];
-    
+
     final charController = SagaCharacterController(vsync: const TestVSync());
 
     await tester.pumpWidget(
@@ -117,10 +123,12 @@ void main() {
               chunkExtent: 500,
               chunkSpanNormalized: _config.spanForLevelCount(_levelsPerChunk),
               biomeThemeResolver: const DefaultSagaBiomeThemeResolver(),
-              nodeBuilder: (context, level, layout) => const SizedBox(width: 50, height: 50),
+              nodeBuilder: (context, level, layout) =>
+                  const SizedBox(width: 50, height: 50),
               character: SagaCharacter(
                 controller: charController,
-                builder: (context, state) => const SizedBox(width: 20, height: 20),
+                builder: (context, state) =>
+                    const SizedBox(width: 20, height: 20),
               ),
               onLevelReached: (level) {
                 reachedLevels.add(level.id);
@@ -163,7 +171,8 @@ void main() {
               chunkExtent: 500,
               chunkSpanNormalized: _config.spanForLevelCount(_levelsPerChunk),
               biomeThemeResolver: const DefaultSagaBiomeThemeResolver(),
-              nodeBuilder: (context, level, layout) => const SizedBox(width: 50, height: 50),
+              nodeBuilder: (context, level, layout) =>
+                  const SizedBox(width: 50, height: 50),
               onChunkEnter: (chunk) {
                 entered = true;
               },
@@ -182,8 +191,9 @@ void main() {
 
     expect(entered, false);
   });
-  
-  testWidgets('didUpdateWidget properly respects new callbacks', (tester) async {
+
+  testWidgets('didUpdateWidget properly respects new callbacks',
+      (tester) async {
     final controller = _controller();
     int oldCalls = 0;
     int newCalls = 0;
@@ -198,8 +208,10 @@ void main() {
               chunkExtent: 500,
               chunkSpanNormalized: _config.spanForLevelCount(_levelsPerChunk),
               biomeThemeResolver: const DefaultSagaBiomeThemeResolver(),
-              nodeBuilder: (context, level, layout) => const SizedBox(width: 50, height: 50),
-              onChunkEnter: useNew ? (chunk) => newCalls++ : (chunk) => oldCalls++,
+              nodeBuilder: (context, level, layout) =>
+                  const SizedBox(width: 50, height: 50),
+              onChunkEnter:
+                  useNew ? (chunk) => newCalls++ : (chunk) => oldCalls++,
             ),
           ),
         ),
@@ -213,10 +225,10 @@ void main() {
 
     await tester.pumpWidget(buildMap(useNew: true));
     await tester.pumpAndSettle();
-    
+
     await tester.drag(find.byType(SagaInfiniteMapView), const Offset(0, -500));
     await tester.pumpAndSettle();
-    
+
     expect(oldCalls, 1);
     expect(newCalls, 1);
   });

@@ -30,7 +30,9 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: SingleChildScrollView(
-            child: MapChunkWidget(chunkContext: SagaChunkContext(chunkIndex: 0, levels: const [], progress: const {}),
+            child: MapChunkWidget(
+              chunkContext: SagaChunkContext(
+                  chunkIndex: 0, levels: const [], progress: const {}),
               levels: _chunk(0),
               chunkIndex: 0,
               chunkExtent: 800,
@@ -44,7 +46,7 @@ void main() {
                   zoomPolicy: const SagaMapValuePolicy.all(1.0),
                 ),
               ),
-              decorationBuilder: builder,
+              chunkDecorationBuilder: builder,
               onLevelTap: onLevelTap,
               nodeBuilder: (context, level, layout) =>
                   SizedBox.expand(key: ValueKey('node-${level.id}')),
@@ -63,13 +65,12 @@ void main() {
       builder: (context, chunk) {
         expect(chunk.chunkIndex, 0);
         return [
-
-        SagaMapDecoration.besidePath(
-          pathPosition: 4,
-          lateralOffset: 120,
-          builder: (context) => const SizedBox.expand(key: ValueKey('tree')),
-        ),
-      ];
+          SagaMapDecoration.besidePath(
+            pathPosition: 4,
+            lateralOffset: 120,
+            builder: (context) => const SizedBox.expand(key: ValueKey('tree')),
+          ),
+        ];
       },
     );
 
@@ -88,12 +89,11 @@ void main() {
       builder: (context, chunk) {
         expect(chunk.chunkIndex, 0);
         return [
-
-        SagaMapDecoration.atFraction(
-          chunkFraction: const Offset(0.5, 0.25),
-          builder: (context) => const SizedBox.expand(key: ValueKey('cloud')),
-        ),
-      ];
+          SagaMapDecoration.atFraction(
+            chunkFraction: const Offset(0.5, 0.25),
+            builder: (context) => const SizedBox.expand(key: ValueKey('cloud')),
+          ),
+        ];
       },
     );
 
@@ -110,14 +110,13 @@ void main() {
       builder: (context, chunk) {
         expect(chunk.chunkIndex, 0);
         return [
-
-        // A decoration sitting right on the node it must not block.
-        SagaMapDecoration.besidePath(
-          pathPosition: 4,
-          builder: (context) => const SizedBox.expand(key: ValueKey('tree')),
-          size: const Size(140, 140),
-        ),
-      ];
+          // A decoration sitting right on the node it must not block.
+          SagaMapDecoration.besidePath(
+            pathPosition: 4,
+            builder: (context) => const SizedBox.expand(key: ValueKey('tree')),
+            size: const Size(140, 140),
+          ),
+        ];
       },
     );
 
@@ -135,18 +134,18 @@ void main() {
       builder: (context, chunk) {
         expect(chunk.chunkIndex, 0);
         return [
-
-        SagaMapDecoration.atFraction(
-          chunkFraction: const Offset(0.5, 0.3),
-          z: 5,
-          builder: (context) => const SizedBox.expand(key: ValueKey('top')),
-        ),
-        SagaMapDecoration.atFraction(
-          chunkFraction: const Offset(0.5, 0.3),
-          z: 0,
-          builder: (context) => const SizedBox.expand(key: ValueKey('bottom')),
-        ),
-      ];
+          SagaMapDecoration.atFraction(
+            chunkFraction: const Offset(0.5, 0.3),
+            z: 5,
+            builder: (context) => const SizedBox.expand(key: ValueKey('top')),
+          ),
+          SagaMapDecoration.atFraction(
+            chunkFraction: const Offset(0.5, 0.3),
+            z: 0,
+            builder: (context) =>
+                const SizedBox.expand(key: ValueKey('bottom')),
+          ),
+        ];
       },
     );
 
@@ -172,12 +171,11 @@ void main() {
       builder: (context, chunk) {
         expect(chunk.chunkIndex, 0);
         return [
-
-        SagaMapDecoration.besidePath(
-          pathPosition: 40,
-          builder: (context) => const SizedBox.expand(key: ValueKey('tree')),
-        ),
-      ];
+          SagaMapDecoration.besidePath(
+            pathPosition: 40,
+            builder: (context) => const SizedBox.expand(key: ValueKey('tree')),
+          ),
+        ];
       },
     );
     expect(find.byKey(const ValueKey('tree')), findsNothing);

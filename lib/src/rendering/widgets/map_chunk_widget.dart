@@ -118,8 +118,10 @@ class MapChunkWidget extends StatelessWidget {
   /// position draws it, so it is never drawn twice near a seam.
   final SagaCharacter? character;
 
-  /// Scenery for this chunk, drawn below the path and nodes.
-  final SagaChunkContext chunkContext;
+  /// Context handed to [decorationBuilder]. Optional: when omitted it is
+  /// derived from [levels], [chunkIndex] and [progressResolver], so hosts that
+  /// used this widget before 1.1.0 keep compiling unchanged.
+  final SagaChunkContext? chunkContext;
   final SagaMapDecorationBuilder? decorationBuilder;
   final SagaMapLegacyDecorationBuilder? legacyDecorationBuilder;
 
@@ -158,7 +160,7 @@ class MapChunkWidget extends StatelessWidget {
     this.lateralPanOffset = 0.0,
     this.character,
     this.characterKey,
-    required this.chunkContext,
+    this.chunkContext,
     this.decorationBuilder,
     this.legacyDecorationBuilder,
   });
@@ -325,7 +327,16 @@ class MapChunkWidget extends StatelessWidget {
   ) {
     List<SagaMapDecoration>? list;
     if (decorationBuilder != null) {
-      list = decorationBuilder!(context, chunkContext);
+      final chunk = chunkContext ??
+          SagaChunkContext(
+            chunkIndex: chunkIndex,
+            levels: levels,
+            progress: {
+              for (final level in levels)
+                if (progressResolver?.call(level) case final p?) level.id: p,
+            },
+          );
+      list = decorationBuilder!(context, chunk);
     } else if (legacyDecorationBuilder != null) {
       list = legacyDecorationBuilder!(context, chunkIndex);
     }
@@ -336,24 +347,39 @@ class MapChunkWidget extends StatelessWidget {
 
     final widgets = <Widget>[];
     for (final decoration in decorations) {
-      final point = decoration.chunkFraction != null
-          ? renderContext.decorationPixelAtFraction(
-              decoration.chunkFraction!.dx,
-              decoration.chunkFraction!.dy,
-            )
-          : renderContext.decorationPixelBesidePath(
-              decoration.pathPosition!,
-              decoration.lateralOffset,
-            );
+      // Three placement modes: a free chunk fraction, pinned to a level
+      // (`atLevel`), or hugging the path at an explicit position.
+      final SagaPoint? point;
+      if (decoration.chunkFraction != null) {
+        point = renderContext.decorationPixelAtFraction(
+          decoration.chunkFraction!.dx,
+          decoration.chunkFraction!.dy,
+        );
+      } else if (decoration.levelId != null) {
+        point = renderContext.decorationPixelBesidePath(
+          decoration.levelId!.toDouble(),
+          decoration.lateralOffset,
+        );
+      } else {
+        point = renderContext.decorationPixelBesidePath(
+          decoration.pathPosition!,
+          decoration.lateralOffset,
+        );
+      }
       // Beside-path scenery whose level is beyond this chunk simply is not
       // drawn here; the chunk that owns that level draws it.
       if (point == null) continue;
 
       final scale =
           decoration.scaleWithZoom ? renderContext.layout.zoom : 1.0;
+      // `atLevel` decorations carry a fixed `height` instead of a `size`; give
+      // them a square box so they render rather than collapsing to zero.
+      final baseSize = decoration.levelId != null && decoration.height != null
+          ? Size(decoration.height!, decoration.height!)
+          : decoration.size;
       final size = Size(
-        decoration.size.width * scale,
-        decoration.size.height * scale,
+        baseSize.width * scale,
+        baseSize.height * scale,
       );
       final topLeft = decoration.topLeftFor(point, size);
       widgets.add(

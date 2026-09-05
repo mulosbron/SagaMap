@@ -452,18 +452,34 @@ SagaInfiniteMapView(
   pathProgressPosition: highestLevelReached.toDouble(),
   pathCurvature: 0.8,
 
-  // Trees, houses, clouds — positioned by the library, drawn by you, below nodes:
-  decorationBuilder: (context, chunkIndex) => [
+  // Trees, houses, clouds — positioned by the library, drawn by you, below
+  // nodes. The builder receives a SagaChunkContext (1.1.0) carrying the chunk's
+  // levels, progress and dominant biome:
+  decorationBuilder: (context, chunk) => [
     SagaMapDecoration.besidePath(
-      pathPosition: chunkIndex * 10 + 3,
+      pathPosition: chunk.chunkIndex * 10 + 3,
       lateralOffset: 120,
-      builder: (context) => const Icon(Icons.park),
+      builder: (context) => Icon(Icons.park, color: tintFor(chunk.dominantBiomeId)),
+    ),
+    // Pin a decoration to a level rather than a raw coordinate (1.1.0):
+    SagaMapDecoration.atLevel(
+      levelId: chunk.chunkIndex * 10 + 5,
+      height: 34,
+      offset: const Offset(30, -30),
+      builder: (context) => const Icon(Icons.flag),
     ),
   ],
 
-  // A banner before a chunk:
-  episodeHeaderBuilder: (context, i) =>
-      i.isEven ? EpisodeBanner('World ${i ~/ 2 + 1}') : null,
+  // A banner before a chunk, also handed the SagaChunkContext (1.1.0):
+  episodeHeaderBuilder: (context, chunk) => chunk.chunkIndex.isEven
+      ? EpisodeBanner('World ${chunk.chunkIndex ~/ 2 + 1}')
+      : null,
+
+  // React as the map scrolls: which chunk was entered, which level was walked
+  // over, and a long-press on a node (1.1.0). All debounced against jitter:
+  onChunkEnter: (chunk) => trackEpisode(chunk.chunkIndex),
+  onLevelReached: (level) => trackReached(level.id),
+  onLevelLongPress: (level) => showLevelSheet(level),
 
   // A layer that lags the scroll for depth:
   parallaxBackground: const SkyGradient(),
@@ -488,7 +504,7 @@ character.barrier = (from, to) => clampTravelThroughGates(
 The progression model includes an extra field, a Map<String, dynamic> where the host application can store custom data without changing the package models. 
 The package preserves this data and never interprets it.
 
-`dart
+```dart
 final progress = SagaProgress(
   currentMaxUnlockedLevelId: 0,
   levels: {
@@ -501,9 +517,9 @@ final progress = SagaProgress(
   },
   extra: const {'app.spent_stars': 5, 'app.opened_chests': 2}, // global data
 );
-`
+```
 
-> **Note**: Keys should be namespaced (e.g., using an pp. prefix) to avoid future collisions. Keep the stored data small, as it is serialized on every save.
+> **Note**: Keys should be namespaced (e.g., using an `app.` prefix) to avoid future collisions. Keep the stored data small, as it is serialized on every save.
 
 ## Example App
 

@@ -23,7 +23,14 @@ All notable changes to this package are documented in this file.
 - **Added:** `onLevelLongPress` convenience callback to `SagaInfiniteMapView`.
 
 - **Fixed:** Screen readers announced the first level as "Level 0".
+- **Fixed:** `SagaMapDecoration.atLevel` crashed the chunk renderer (null-check
+  on `pathPosition`) and collapsed to a zero-size box; it now anchors to its
+  level at the requested height.
 - **Docs:** Level ids are documented as zero-based.
+- **Example:** The demo showcases the 1.1.0 additions — context-aware
+  decoration and episode builders, `atLevel` boss flags, `onChunkEnter` /
+  `onLevelReached` / `onLevelLongPress`, loot drop-rate odds, star totals, and
+  a bookmark stored in `LevelProgress.extra`.
 
 ## 1.0.0
 

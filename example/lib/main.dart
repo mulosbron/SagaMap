@@ -102,6 +102,14 @@ class _SagaMapDemoState extends State<SagaMapDemo>
 
   String _status = 'Tap a level to walk there';
 
+  /// Which episode (chunk) the viewport is centred on. Driven by [onChunkEnter],
+  /// a 1.1.0 listener that fires as the map scrolls into a new chunk.
+  int _currentEpisode = 1;
+
+  /// The last level the character physically walked over, reported by
+  /// [onLevelReached] (1.1.0) rather than inferred from completion.
+  int _lastReachedLevel = 0;
+
   // --- Feature toggles -----------------------------------------------------
 
   SagaMapPathAxis _axis = SagaMapPathAxis.vertical;
@@ -271,6 +279,78 @@ class _SagaMapDemoState extends State<SagaMapDemo>
   /// Progress lookup the map uses to style each node.
   LevelProgress? _progressFor(LevelData level) => _progress.levels[level.id];
 
+  /// Long-press handler (1.1.0). Shows the boss drop-rate breakdown computed
+  /// with the `LootTableOdds` extension, and a bookmark toggle that stores a
+  /// host-owned flag in `LevelProgress.extra` — data the library persists
+  /// through JSON without knowing what it means.
+  void _showLevelInfo(LevelData level) {
+    final displayId = level.id + 1;
+    final bookmarked =
+        (_progressFor(level)?.extra['bookmarked'] as bool?) ?? false;
+
+    // Odds only make sense where a reward actually rolls: boss levels.
+    final odds = isBossLevel(level.id) ? kMvpLootTable : const <LootTableEntry>[];
+
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Level $displayId'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (odds.isEmpty)
+              const Text('A normal level — no boss loot rolls here.')
+            else ...[
+              const Text('Boss drop rates',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              for (final entry in odds)
+                Text('• ${entry.itemName}: '
+                    '${(odds.probabilityOf(entry) * 100).toStringAsFixed(1)}%'),
+              const Divider(),
+              for (final MapEntry(:key, :value) in odds.rarityOdds().entries)
+                Text('${key.name}: ${(value * 100).toStringAsFixed(1)}%',
+                    style: const TextStyle(color: Colors.white70, fontSize: 12)),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton.icon(
+            icon: Icon(
+                bookmarked ? Icons.bookmark : Icons.bookmark_border),
+            label: Text(bookmarked ? 'Bookmarked' : 'Bookmark'),
+            onPressed: () {
+              _toggleBookmark(level.id, !bookmarked);
+              Navigator.of(dialogContext).pop();
+            },
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Writes a host-owned `bookmarked` flag into that level's progress `extra`,
+  /// creating a progress entry if the level has none yet.
+  void _toggleBookmark(int levelId, bool value) {
+    setState(() {
+      final levels = Map<int, LevelProgress>.from(_progress.levels);
+      final existing = levels[levelId] ??
+          LevelProgress(levelId: levelId, state: LevelCompletionState.locked);
+      final extra = Map<String, dynamic>.from(existing.extra)
+        ..['bookmarked'] = value;
+      levels[levelId] = existing.copyWith(extra: extra);
+      _progress = _progress.copyWith(levels: levels);
+      _status = value
+          ? 'Bookmarked level ${levelId + 1}'
+          : 'Removed bookmark on level ${levelId + 1}';
+    });
+  }
+
   // --- Builders the map calls ----------------------------------------------
 
   /// Resolves the responsive policy: orientation plus an optional touch-first
@@ -394,6 +474,9 @@ class _SagaMapDemoState extends State<SagaMapDemo>
                 '★' * progress!.stars,
                 style: const TextStyle(color: Colors.black87, fontSize: 8),
               ),
+            // A host-owned bookmark flag stored in LevelProgress.extra (1.1.0).
+            if ((progress?.extra['bookmarked'] as bool?) ?? false)
+              const Icon(Icons.bookmark, color: Color(0xFF1B3A17), size: 10),
           ],
         ),
       ),
@@ -445,36 +528,75 @@ class _SagaMapDemoState extends State<SagaMapDemo>
   ///
   /// Decorations are positioned by the library but drawn by the host, and they
   /// sit below the path and nodes — so a tree can overlap a level without ever
-  /// stealing the tap that opens it. Placement is derived from the chunk index
-  /// so scenery stays put as chunks are recycled.
-  List<SagaMapDecoration> _buildScenery(BuildContext context, int chunkIndex) {
+  /// stealing the tap that opens it.
+  ///
+  /// 1.1.0: the builder is handed a [SagaChunkContext] instead of a bare index,
+  /// so it can read the chunk's levels and dominant biome. Here the tree colour
+  /// follows `chunk.dominantBiomeId`, and `SagaMapDecoration.atLevel` pins a
+  /// flag right beside every boss node without any coordinate maths.
+  List<SagaMapDecoration> _buildScenery(
+    BuildContext context,
+    SagaChunkContext chunk,
+  ) {
     if (!_showScenery) return const <SagaMapDecoration>[];
-    final base = chunkIndex * _levelsPerChunk;
+    final base = chunk.chunkIndex * _levelsPerChunk;
+    final treeColor = _biomeTint(chunk.dominantBiomeId);
 
     return <SagaMapDecoration>[
-      // Trees hugging the path, alternating sides.
+      // Trees hugging the path, alternating sides, tinted by the chunk's biome.
       for (var i = 1; i < _levelsPerChunk; i += 3)
         SagaMapDecoration.besidePath(
           pathPosition: (base + i).toDouble(),
           lateralOffset: i.isEven ? 96 : -96,
           size: const Size(40, 46),
-          builder: (context) =>
-              const Icon(Icons.park, color: Color(0xFF2F6B2A), size: 40),
+          builder: (context) => Icon(Icons.park, color: treeColor, size: 40),
         ),
       // A cloud floating free of the path, placed by chunk fraction.
       SagaMapDecoration.atFraction(
-        chunkFraction: Offset(chunkIndex.isEven ? 0.2 : 0.8, 0.35),
+        chunkFraction: Offset(chunk.chunkIndex.isEven ? 0.2 : 0.8, 0.35),
         size: const Size(56, 34),
         builder: (context) =>
             const Icon(Icons.cloud, color: Color(0x55FFFFFF), size: 52),
       ),
+      // 1.1.0: a boss flag anchored to the level itself, not to raw pixels.
+      for (final level in chunk.levels)
+        if (isBossLevel(level.id))
+          SagaMapDecoration.atLevel(
+            levelId: level.id,
+            height: 34,
+            offset: const Offset(30, -30),
+            builder: (context) =>
+                const Icon(Icons.flag, color: Color(0xFFFFC107), size: 30),
+          ),
     ];
+  }
+
+  /// A rough tint per biome, used to colour scenery from the chunk context.
+  Color _biomeTint(String biomeId) {
+    switch (biomeId) {
+      case kBiomeIdDesert:
+        return const Color(0xFFB58A3A);
+      case kBiomeIdGlacier:
+        return const Color(0xFF6FA8C9);
+      case kBiomeIdForest:
+      default:
+        return const Color(0xFF2F6B2A);
+    }
   }
 
   /// A banner announcing each new episode, shown before its chunk in the
   /// scroll direction.
-  Widget? _buildEpisodeHeader(BuildContext context, int chunkIndex) {
+  ///
+  /// 1.1.0: the builder receives a [SagaChunkContext], so the banner can report
+  /// how many stars the player has earned across this chunk's levels using the
+  /// `SagaProgressStars.starsInRange` helper — no manual loop over levels.
+  Widget? _buildEpisodeHeader(BuildContext context, SagaChunkContext chunk) {
     if (!_showEpisodeHeaders) return null;
+
+    final earned = _progress.starsInRange(
+      chunk.chunkIndex * _levelsPerChunk,
+      _levelsPerChunk,
+    );
 
     final banner = Container(
       alignment: Alignment.center,
@@ -485,7 +607,7 @@ class _SagaMapDemoState extends State<SagaMapDemo>
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
-        'EPISODE ${chunkIndex + 1}',
+        'EPISODE ${chunk.chunkIndex + 1}   ★ $earned',
         style: const TextStyle(
           color: Color(0xFFFFC107),
           fontWeight: FontWeight.bold,
@@ -555,11 +677,23 @@ class _SagaMapDemoState extends State<SagaMapDemo>
       pathCurvature: _curvature,
       pathProgressPosition: _showWalkedPath ? _reached : null,
 
-      // Scenery, banners, depth.
-      legacyDecorationBuilder: _buildScenery,
-      legacyEpisodeHeaderBuilder: _buildEpisodeHeader,
+      // Scenery, banners, depth. 1.1.0 context-aware builders.
+      decorationBuilder: _buildScenery,
+      episodeHeaderBuilder: _buildEpisodeHeader,
       parallaxBackground: _parallaxLayer,
       parallaxFactor: 0.35,
+
+      // 1.1.0 listeners: which chunk the viewport entered, and which level the
+      // character walked over. Both are debounced by the library, so scrolling
+      // back and forth across a seam does not spam these callbacks.
+      onChunkEnter: (chunk) =>
+          setState(() => _currentEpisode = chunk.chunkIndex + 1),
+      onLevelReached: (level) =>
+          setState(() => _lastReachedLevel = level.id + 1),
+
+      // 1.1.0: long-press a node for its drop-rate breakdown. Locked nodes are
+      // filtered out by the interaction policy's canLongPress.
+      onLevelLongPress: _showLevelInfo,
 
       // The character and the camera that follows it.
       character: SagaCharacter(
@@ -601,9 +735,11 @@ class _SagaMapDemoState extends State<SagaMapDemo>
           Text(_status, style: const TextStyle(fontWeight: FontWeight.w600)),
           const SizedBox(height: 2),
           Text(
-            'seed $_seed · at ${_character.pathPosition.toStringAsFixed(1)} · '
-            'zoom ${_zoom.toStringAsFixed(2)} · '
+            'seed $_seed · episode $_currentEpisode · '
+            'reached L$_lastReachedLevel · '
+            '★ ${_progress.totalStars} · '
             'items ${_inventory.length} · '
+            'zoom ${_zoom.toStringAsFixed(2)} · '
             '${_axis == SagaMapPathAxis.vertical ? 'vertical' : 'horizontal'}',
             style: const TextStyle(fontSize: 11, color: Colors.white70),
           ),

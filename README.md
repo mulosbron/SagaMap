@@ -1,4 +1,4 @@
-﻿# saga_map
+# saga_map
 
 `saga_map` is a Flutter package for building world-map style level progression UIs.
 
@@ -366,10 +366,10 @@ final levels = generator.generateLevels(
 
 You can also track star collections without duplicate loops:
 
-``dart
+```dart
 final stars = progress.starsInRange(0, 10);
 final perfect = progress.isRangePerfect(0, 10);
-``
+```
 
 ### Rewards
 
@@ -384,6 +384,19 @@ if (result.reward != null) {
 }
 ```
 
+### Disclosing drop rates
+
+When showing loot probabilities in your UI, derive them directly from the loot table rather than hardcoding percentages. This ensures the disclosed rates cannot drift apart from the weights used by the actual roll logic.
+
+```dart
+final odds = kMvpLootTable.rarityOdds();
+
+// odds[InventoryRarity.common] == 0.75
+// odds[InventoryRarity.rare] == 0.175
+// odds[InventoryRarity.legendary] == 0.075
+
+Text('Legendary drop rate: ${(odds[InventoryRarity.legendary]! * 100).toStringAsFixed(1)}%');
+```
 ### Character on the path
 
 A character walks the map, Candy-Crush style. The library computes where it is,

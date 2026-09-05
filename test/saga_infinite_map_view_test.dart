@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:saga_map/saga_map.dart';
 
@@ -21,7 +21,12 @@ SagaInfiniteMapController _controller({int? maxChunkCount}) {
   );
 }
 
-Widget _app(SagaInfiniteMapController controller, SagaMapPathAxis pathAxis) {
+Widget _app(SagaInfiniteMapController controller, SagaMapPathAxis pathAxis, {
+  ValueChanged<LevelData>? onLevelTap,
+  ValueChanged<LevelData>? onLevelLongPress,
+  SagaNodeInteractionHandler? interactionHandler,
+  LevelProgress? Function(LevelData)? progressResolver,
+}) {
   return MaterialApp(
     home: Scaffold(
       body: SagaInfiniteMapView(
@@ -30,6 +35,10 @@ Widget _app(SagaInfiniteMapController controller, SagaMapPathAxis pathAxis) {
         chunkSpanNormalized: _config.spanForLevelCount(_levelsPerChunk),
         lateralBounds: _config.lateralBounds,
         biomeThemeResolver: const DefaultSagaBiomeThemeResolver(),
+        onLevelTap: onLevelTap,
+        onLevelLongPress: onLevelLongPress,
+        interactionHandler: interactionHandler ?? const SagaNodeInteractionHandler(),
+        progressResolver: progressResolver,
         // Spacing is neutralised so seam geometry can be measured against the
         // declared chunkExtent directly; it has dedicated tests elsewhere.
         responsiveResolver: SagaResponsiveResolver(
@@ -126,7 +135,7 @@ void main() {
         tester.getCenter(find.byKey(ValueKey('node-$id'))).dy;
 
     // Generated levels alternate between two lateral targets, so equal parity
-    // across a seam means equal lateral placement — within jitter amplitude.
+    // across a seam means equal lateral placement â€” within jitter amplitude.
     final beforeSeam = lateralOf(18);
     final afterSeam = lateralOf(20);
     expect((afterSeam - beforeSeam).abs(), lessThan(80));
@@ -175,4 +184,71 @@ void main() {
     await controller.initialize();
     expect(controller.loadedChunkCount, 3);
   });
+
+  testWidgets('onLevelLongPress is fired on a long press event', (tester) async {
+    useViewport(tester, const Size(390, 844));
+    final controller = _controller();
+    addTearDown(controller.dispose);
+
+    LevelData? tapped;
+    LevelData? longPressed;
+
+    await tester.pumpWidget(_app(
+      controller,
+      SagaMapPathAxis.vertical,
+      progressResolver: (l) => LevelProgress(levelId: l.id, state: LevelCompletionState.unlocked),
+      onLevelTap: (l) => tapped = l,
+      onLevelLongPress: (l) => longPressed = l,
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.byType(GestureDetector).first);
+    expect(longPressed, isNotNull);
+    expect(tapped, isNull);
+  });
+
+  testWidgets('interactionHandler.onNodeLongPress wins over onLevelLongPress', (tester) async {
+    useViewport(tester, const Size(390, 844));
+    final controller = _controller();
+    addTearDown(controller.dispose);
+
+    LevelData? viewLongPressed;
+    LevelData? handlerLongPressed;
+
+    await tester.pumpWidget(_app(
+      controller,
+      SagaMapPathAxis.vertical,
+      progressResolver: (l) => LevelProgress(levelId: l.id, state: LevelCompletionState.unlocked),
+      interactionHandler: SagaNodeInteractionHandler(
+        onNodeLongPress: (l) => handlerLongPressed = l,
+      ),
+      onLevelLongPress: (l) => viewLongPressed = l,
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.byType(GestureDetector).first);
+    expect(handlerLongPressed, isNotNull);
+    expect(viewLongPressed, isNull);
+  });
+
+  testWidgets('onLevelLongPress blocked by canLongPress (locked node)', (tester) async {
+    useViewport(tester, const Size(390, 844));
+    final controller = _controller();
+    addTearDown(controller.dispose);
+
+    LevelData? longPressed;
+
+    await tester.pumpWidget(_app(
+      controller,
+      SagaMapPathAxis.vertical,
+      progressResolver: (l) => LevelProgress(levelId: l.id, state: LevelCompletionState.locked),
+      onLevelLongPress: (l) => longPressed = l,
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.byType(GestureDetector).first);
+    expect(longPressed, isNull);
+  });
 }
+
+

@@ -47,6 +47,9 @@ class MapChunkWidget extends StatelessWidget {
   final SagaNodeBuilder nodeBuilder;
   final SagaNodeProgressResolver? progressResolver;
   final ValueChanged<LevelData>? onLevelTap;
+
+  /// Convenience shortcut, mirroring [onLevelTap]. Ignored when interactionHandler.onNodeLongPress is set.
+  final ValueChanged<LevelData>? onLevelLongPress;
   final SagaNodeInteractionHandler interactionHandler;
   final SagaNodeInteractionPolicy interactionPolicy;
   final SagaMapBackgroundConfig backgroundConfig;
@@ -135,6 +138,7 @@ class MapChunkWidget extends StatelessWidget {
     required this.nodeBuilder,
     this.progressResolver,
     this.onLevelTap,
+    this.onLevelLongPress,
     this.interactionHandler = const SagaNodeInteractionHandler(),
     this.interactionPolicy = const SagaNodeInteractionPolicy(),
     this.backgroundConfig = const SagaMapBackgroundConfig.none(),
@@ -360,15 +364,21 @@ class MapChunkWidget extends StatelessWidget {
     return widgets;
   }
 
-  /// Lets the convenience [onLevelTap] stand in when the handler has no tap
-  /// callback of its own.
+  /// Lets the convenience callbacks stand in when the handler has none
+  /// of its own.
   SagaNodeInteractionHandler _effectiveInteractionHandler() {
-    if (interactionHandler.onNodeTap != null || onLevelTap == null) {
+    final effectiveTap = interactionHandler.onNodeTap ?? onLevelTap;
+    final effectiveLongPress =
+        interactionHandler.onNodeLongPress ?? onLevelLongPress;
+
+    if (effectiveTap == interactionHandler.onNodeTap &&
+        effectiveLongPress == interactionHandler.onNodeLongPress) {
       return interactionHandler;
     }
+
     return SagaNodeInteractionHandler(
-      onNodeTap: onLevelTap,
-      onNodeLongPress: interactionHandler.onNodeLongPress,
+      onNodeTap: effectiveTap,
+      onNodeLongPress: effectiveLongPress,
       onNodeHover: interactionHandler.onNodeHover,
       onNodeFocusChange: interactionHandler.onNodeFocusChange,
     );

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/domain/models/level_data.dart';
 import '../../core/domain/models/level_progress.dart';
@@ -99,6 +100,17 @@ class WidgetRendererAdapter implements SagaMapRenderer<List<Widget>> {
       final pixel = contextData.pixelFor(level);
       final progress = contextData.resolveProgress(level);
 
+      void emitLongPress() {
+        if (interactionPolicy.canLongPress(level, progress)) {
+          interactionHandler.onNodeLongPress?.call(level);
+        } else {
+          interactionHandler.onNodeFocusChange?.call(
+            level,
+            SagaNodeInteractionState.locked,
+          );
+        }
+      }
+
       void emitTap() {
         if (interactionPolicy.canTap(level, progress)) {
           interactionHandler.onNodeTap?.call(level);
@@ -115,6 +127,7 @@ class WidgetRendererAdapter implements SagaMapRenderer<List<Widget>> {
       }
 
       final canTap = interactionPolicy.canTap(level, progress);
+      final canLongPress = interactionPolicy.canLongPress(level, progress);
 
       return Positioned(
         left: pixel.x - touchSize / 2,
@@ -131,6 +144,7 @@ class WidgetRendererAdapter implements SagaMapRenderer<List<Widget>> {
             focusable: canTap,
             label: semanticsLabelBuilder(level, progress),
             onTap: canTap ? emitTap : null,
+            onLongPress: canLongPress && interactionHandler.onNodeLongPress != null ? emitLongPress : null,
             // The node visual is decorative; the label already describes it.
             excludeSemantics: true,
             child: FocusableActionDetector(
@@ -138,7 +152,19 @@ class WidgetRendererAdapter implements SagaMapRenderer<List<Widget>> {
               enabled: canTap,
               mouseCursor:
                   canTap ? SystemMouseCursors.click : SystemMouseCursors.basic,
+              /// Shift+F10 or the context-menu key triggers the long-press action.
+              shortcuts: canLongPress
+                  ? const <ShortcutActivator, Intent>{
+                      SingleActivator(LogicalKeyboardKey.f10, shift: true):
+                          _SagaContextMenuIntent(),
+                      SingleActivator(LogicalKeyboardKey.contextMenu):
+                          _SagaContextMenuIntent(),
+                    }
+                  : const <ShortcutActivator, Intent>{},
               actions: <Type, Action<Intent>>{
+                _SagaContextMenuIntent: CallbackAction<_SagaContextMenuIntent>(
+                  onInvoke: (_) => emitLongPress(),
+                ),
                 ActivateIntent: CallbackAction<ActivateIntent>(
                   onInvoke: (_) => emitTap(),
                 ),
@@ -180,9 +206,9 @@ class WidgetRendererAdapter implements SagaMapRenderer<List<Widget>> {
                     SagaNodeInteractionState.pressed,
                   ),
                   onTap: emitTap,
-                  onLongPress: interactionHandler.onNodeLongPress == null
-                      ? null
-                      : () => interactionHandler.onNodeLongPress?.call(level),
+                  onLongPress: canLongPress && interactionHandler.onNodeLongPress != null
+                      ? emitLongPress
+                      : null,
                   // Gesture area is touchSize; the visual sits centred in it.
                   child: SizedBox(
                     width: touchSize,
@@ -203,4 +229,8 @@ class WidgetRendererAdapter implements SagaMapRenderer<List<Widget>> {
       );
     }).toList(growable: false);
   }
+}
+
+class _SagaContextMenuIntent extends Intent {
+  const _SagaContextMenuIntent();
 }

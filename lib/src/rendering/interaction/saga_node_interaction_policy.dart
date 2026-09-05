@@ -1,4 +1,4 @@
-import '../../core/domain/models/level_data.dart';
+﻿import '../../core/domain/models/level_data.dart';
 import '../../core/domain/models/level_progress.dart';
 
 /// Interaction gating policy for map node gestures.
@@ -25,4 +25,10 @@ class SagaNodeInteractionPolicy {
         return true;
     }
   }
+
+  /// Defaults to [canTap]: a node you cannot open is a node you cannot open a context menu on either.
+  ///
+  /// Can be overridden to allow long-pressing locked nodes, for example to show a "how to unlock?" hint.
+  bool canLongPress(LevelData level, LevelProgress? progress) => canTap(level, progress);
 }
+

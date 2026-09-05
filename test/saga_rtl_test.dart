@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:saga_map/saga_map.dart';
@@ -135,5 +136,43 @@ void main() {
     // Chunks stack downwards either way, so mirroring must not apply here.
     expect(await firstNodeY(TextDirection.rtl),
         moreOrLessEquals(await firstNodeY(TextDirection.ltr), epsilon: 0.5));
+  });
+
+  testWidgets('RTL does not break keyboard shortcuts', (tester) async {
+    final longPressed = <int>[];
+    
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.rtl,
+        child: MaterialApp(
+          home: Scaffold(
+            body: MapChunkWidget(
+              levels: [const LevelData(id: 1, position: SagaPoint(0.5, 0.5), biomeId: kBiomeIdForest)],
+              chunkIndex: 0,
+              chunkExtent: 700,
+              chunkSpanNormalized: 1.0,
+              biomeThemeResolver: const DefaultSagaBiomeThemeResolver(),
+              interactionHandler: SagaNodeInteractionHandler(
+                onNodeLongPress: (level) => longPressed.add(level.id),
+              ),
+              nodeBuilder: (context, level, layout) => const DecoratedBox(
+                decoration: BoxDecoration(color: Colors.indigo),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pumpAndSettle();
+    
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shift);
+    await tester.sendKeyEvent(LogicalKeyboardKey.f10);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shift);
+    await tester.pumpAndSettle();
+
+    expect(longPressed, isNotEmpty);
   });
 }

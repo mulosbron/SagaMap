@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -56,7 +56,7 @@ class SagaMapScrollPhysics extends ScrollPhysics {
 /// Infinite-scrolling map powered by [SagaInfiniteMapController].
 ///
 /// Scroll direction is derived from [SagaMapResponsiveConfig.pathAxis], not
-/// configured separately — the map scrolls in the direction its path travels,
+/// configured separately â€” the map scrolls in the direction its path travels,
 /// and the two cannot fall out of sync.
 class SagaInfiniteMapView extends StatefulWidget {
   final SagaInfiniteMapController controller;
@@ -78,6 +78,9 @@ class SagaInfiniteMapView extends StatefulWidget {
   final SagaNodeInteractionPolicy interactionPolicy;
   final SagaMapBackgroundConfig backgroundConfig;
   final ValueChanged<LevelData>? onLevelTap;
+
+  /// Convenience shortcut, mirroring [onLevelTap]. Ignored when interactionHandler.onNodeLongPress is set.
+  final ValueChanged<LevelData>? onLevelLongPress;
 
   /// Remaining scroll extent, in pixels, at which the next batch is requested.
   final double loadMoreTriggerPx;
@@ -137,7 +140,7 @@ class SagaInfiniteMapView extends StatefulWidget {
   /// Scenery for each chunk, drawn below the path and nodes.
   final SagaMapDecorationBuilder? decorationBuilder;
 
-  /// Banner shown before a chunk in the scroll direction — an episode title,
+  /// Banner shown before a chunk in the scroll direction â€” an episode title,
   /// a "World 2" divider. Return `null` for a chunk to leave it bare.
   final Widget? Function(BuildContext context, int chunkIndex)?
       episodeHeaderBuilder;
@@ -164,6 +167,7 @@ class SagaInfiniteMapView extends StatefulWidget {
     this.interactionPolicy = const SagaNodeInteractionPolicy(),
     this.backgroundConfig = const SagaMapBackgroundConfig.none(),
     this.onLevelTap,
+    this.onLevelLongPress,
     this.loadMoreTriggerPx = 1200,
     this.lateralBounds = SagaLateralBounds.unit,
     this.alongEdgeInsetFraction = 0.0,
@@ -488,6 +492,7 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
           nodeBuilder: widget.nodeBuilder,
           progressResolver: widget.progressResolver,
           onLevelTap: widget.onLevelTap,
+          onLevelLongPress: widget.onLevelLongPress,
           interactionHandler: widget.interactionHandler,
           interactionPolicy: widget.interactionPolicy,
           backgroundConfig: widget.backgroundConfig,
@@ -655,3 +660,4 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
         : trailer;
   }
 }
+

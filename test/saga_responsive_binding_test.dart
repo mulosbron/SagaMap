@@ -54,7 +54,7 @@ void main() {
             scrollDirection: pathAxis == SagaMapPathAxis.horizontal
                 ? Axis.horizontal
                 : Axis.vertical,
-            child: MapChunkWidget(
+            child: MapChunkWidget(chunkContext: SagaChunkContext(chunkIndex: 0, levels: const [], progress: const {}),
               levels: levels,
               chunkIndex: 0,
               chunkExtent: chunkExtent,

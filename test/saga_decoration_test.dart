@@ -30,7 +30,7 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: SingleChildScrollView(
-            child: MapChunkWidget(
+            child: MapChunkWidget(chunkContext: SagaChunkContext(chunkIndex: 0, levels: const [], progress: const {}),
               levels: _chunk(0),
               chunkIndex: 0,
               chunkExtent: 800,
@@ -60,7 +60,10 @@ void main() {
       (tester) async {
     await pump(
       tester,
-      builder: (context, chunkIndex) => [
+      builder: (context, chunk) {
+        expect(chunk.chunkIndex, 0);
+        return [
+
         SagaMapDecoration.besidePath(
           pathPosition: 4,
           lateralOffset: 120,
@@ -81,7 +84,10 @@ void main() {
       (tester) async {
     await pump(
       tester,
-      builder: (context, chunkIndex) => [
+      builder: (context, chunk) {
+        expect(chunk.chunkIndex, 0);
+        return [
+
         SagaMapDecoration.atFraction(
           chunkFraction: const Offset(0.5, 0.25),
           builder: (context) => const SizedBox.expand(key: ValueKey('cloud')),
@@ -99,7 +105,10 @@ void main() {
     await pump(
       tester,
       onLevelTap: (level) => tapped.add(level.id),
-      builder: (context, chunkIndex) => [
+      builder: (context, chunk) {
+        expect(chunk.chunkIndex, 0);
+        return [
+
         // A decoration sitting right on the node it must not block.
         SagaMapDecoration.besidePath(
           pathPosition: 4,
@@ -120,7 +129,10 @@ void main() {
   testWidgets('z-order stacks later decorations on top', (tester) async {
     await pump(
       tester,
-      builder: (context, chunkIndex) => [
+      builder: (context, chunk) {
+        expect(chunk.chunkIndex, 0);
+        return [
+
         SagaMapDecoration.atFraction(
           chunkFraction: const Offset(0.5, 0.3),
           z: 5,
@@ -153,7 +165,10 @@ void main() {
     // Level 40 is far past chunk 0's reach, so nothing is drawn.
     await pump(
       tester,
-      builder: (context, chunkIndex) => [
+      builder: (context, chunk) {
+        expect(chunk.chunkIndex, 0);
+        return [
+
         SagaMapDecoration.besidePath(
           pathPosition: 40,
           builder: (context) => const SizedBox.expand(key: ValueKey('tree')),

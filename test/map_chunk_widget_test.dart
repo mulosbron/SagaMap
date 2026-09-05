@@ -61,7 +61,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: MapChunkWidget(
+          body: MapChunkWidget(chunkContext: SagaChunkContext(chunkIndex: 0, levels: const [], progress: const {}),
             levels: levels,
             chunkIndex: 0,
             chunkExtent: 600,
@@ -85,7 +85,7 @@ void main() {
     await tester.pumpWidget(
       host(
         pathAxis: SagaMapPathAxis.horizontal,
-        child: MapChunkWidget(
+        child: MapChunkWidget(chunkContext: SagaChunkContext(chunkIndex: 0, levels: const [], progress: const {}),
           levels: const [
             LevelData(
                 id: 1, position: SagaPoint(0.5, 0.0), biomeId: kBiomeIdForest),
@@ -117,7 +117,7 @@ void main() {
     await tester.pumpWidget(
       host(
         pathAxis: SagaMapPathAxis.horizontal,
-        child: MapChunkWidget(
+        child: MapChunkWidget(chunkContext: SagaChunkContext(chunkIndex: 0, levels: const [], progress: const {}),
           levels: const [
             LevelData(
                 id: 1, position: SagaPoint(0.5, 0.0), biomeId: kBiomeIdForest),
@@ -147,7 +147,7 @@ void main() {
     await tester.pumpWidget(
       host(
         pathAxis: SagaMapPathAxis.vertical,
-        child: MapChunkWidget(
+        child: MapChunkWidget(chunkContext: SagaChunkContext(chunkIndex: 0, levels: const [], progress: const {}),
           levels: const [
             LevelData(
                 id: 1, position: SagaPoint(0.5, 0.5), biomeId: kBiomeIdForest),
@@ -173,7 +173,7 @@ void main() {
     const span = 1.0;
 
     Widget chunk(int index, LevelData level) {
-      return MapChunkWidget(
+      return MapChunkWidget(chunkContext: SagaChunkContext(chunkIndex: 0, levels: const [], progress: const {}),
         levels: [level],
         chunkIndex: index,
         chunkExtent: 400,
@@ -220,7 +220,7 @@ void main() {
     await tester.pumpWidget(
       host(
         pathAxis: SagaMapPathAxis.vertical,
-        child: MapChunkWidget(
+        child: MapChunkWidget(chunkContext: SagaChunkContext(chunkIndex: 0, levels: const [], progress: const {}),
           levels: const [
             // Sits at 2.5x the declared span: previously snapped onto the edge.
             LevelData(

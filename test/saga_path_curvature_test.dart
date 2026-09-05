@@ -394,7 +394,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: MapChunkWidget(
+            body: MapChunkWidget(chunkContext: SagaChunkContext(chunkIndex: 0, levels: const [], progress: const {}),
               levels: const [
                 LevelData(
                     id: 0, position: SagaPoint(0.2, 0.0), biomeId: kBiomeIdForest),

@@ -157,7 +157,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: SingleChildScrollView(
-              child: MapChunkWidget(
+              child: MapChunkWidget(chunkContext: SagaChunkContext(chunkIndex: 0, levels: const [], progress: const {}),
                 levels: _chunk(chunkIndex),
                 chunkIndex: chunkIndex,
                 chunkExtent: 800,
@@ -322,7 +322,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: SingleChildScrollView(
-              child: MapChunkWidget(
+              child: MapChunkWidget(chunkContext: SagaChunkContext(chunkIndex: 0, levels: const [], progress: const {}),
                 levels: _chunk(0),
                 chunkIndex: 0,
                 chunkExtent: 800,

@@ -96,7 +96,7 @@ class WidgetRendererAdapter implements SagaMapRenderer<List<Widget>> {
         math.max(visualSize * layout.interactionRadius, minTouchTarget);
 
     return contextData.levels.map((level) {
-      final pixel = contextData.pixelFor(level);
+      final pixel = contextData.pixelFor(level.position);
       final progress = contextData.resolveProgress(level);
 
       void emitTap() {

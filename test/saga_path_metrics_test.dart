@@ -257,7 +257,7 @@ void main() {
       for (final level in ctx.levels) {
         expect(
           ctx.characterPixel(level.id.toDouble()),
-          ctx.pixelFor(level),
+          ctx.pixelFor(level.position),
           reason: 'level ${level.id}',
         );
       }
@@ -266,7 +266,7 @@ void main() {
     test('a whole position lands on its node on a straight path too', () {
       final ctx = context(1, curvature: 0);
       final level = ctx.levels[4];
-      expect(ctx.characterPixel(level.id.toDouble()), ctx.pixelFor(level));
+      expect(ctx.characterPixel(level.id.toDouble()), ctx.pixelFor(level.position));
     });
 
     test('a fractional position sits between its neighbours', () {
@@ -275,8 +275,8 @@ void main() {
       final second = ctx.levels[4];
 
       final midway = ctx.characterPixel(first.id + 0.5)!;
-      final a = ctx.pixelFor(first);
-      final b = ctx.pixelFor(second);
+      final a = ctx.pixelFor(first.position);
+      final b = ctx.pixelFor(second.position);
 
       expect(midway.y, greaterThan(math.min(a.y, b.y)));
       expect(midway.y, lessThan(math.max(a.y, b.y)));

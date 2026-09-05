@@ -69,7 +69,8 @@ void main() {
           lateralOffset: 120,
           builder: (context) => const SizedBox.expand(key: ValueKey('tree')),
         ),
-      ],
+      ];
+      },
     );
 
     final node = tester.getCenter(find.byKey(const ValueKey('node-4')));
@@ -92,7 +93,8 @@ void main() {
           chunkFraction: const Offset(0.5, 0.25),
           builder: (context) => const SizedBox.expand(key: ValueKey('cloud')),
         ),
-      ],
+      ];
+      },
     );
 
     final cloud = tester.getCenter(find.byKey(const ValueKey('cloud')));
@@ -115,7 +117,8 @@ void main() {
           builder: (context) => const SizedBox.expand(key: ValueKey('tree')),
           size: const Size(140, 140),
         ),
-      ],
+      ];
+      },
     );
 
     await tester.tap(
@@ -143,7 +146,8 @@ void main() {
           z: 0,
           builder: (context) => const SizedBox.expand(key: ValueKey('bottom')),
         ),
-      ],
+      ];
+      },
     );
 
     // Sorted by z, so 'bottom' is painted before 'top'; both are present.
@@ -173,7 +177,8 @@ void main() {
           pathPosition: 40,
           builder: (context) => const SizedBox.expand(key: ValueKey('tree')),
         ),
-      ],
+      ];
+      },
     );
     expect(find.byKey(const ValueKey('tree')), findsNothing);
   });

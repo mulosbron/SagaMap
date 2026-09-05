@@ -88,9 +88,9 @@ class SagaMapRenderContext {
   ///
   /// Pass `clampAlongAxis: false` for a neighboring chunk's level, to resolve a
   /// point beyond this chunk's bounds without snapping it to the edge.
-  SagaPoint pixelFor(LevelData level, {bool clampAlongAxis = true}) {
+  SagaPoint pixelFor(SagaPoint point, {bool clampAlongAxis = true}) {
     return SagaMapCoordinates.levelToChunkPixel(
-      level.position,
+      point,
       chunkIndex,
       chunkSpanNormalized,
       chunkSize,
@@ -111,10 +111,10 @@ class SagaMapRenderContext {
   List<SagaPoint> pathPoints() {
     return <SagaPoint>[
       for (final level in leadingNeighbors)
-        pixelFor(level, clampAlongAxis: false),
-      for (final level in levels) pixelFor(level),
+        pixelFor(level.position, clampAlongAxis: false),
+      for (final level in levels) pixelFor(level.position),
       for (final level in trailingNeighbors)
-        pixelFor(level, clampAlongAxis: false),
+        pixelFor(level.position, clampAlongAxis: false),
     ];
   }
 
@@ -199,6 +199,23 @@ class SagaMapRenderContext {
   }
 
   /// Anchor point for a decoration placed at [chunkFraction] of the chunk box.
+  
+  /// Anchor point for a decoration spanning the given [levelId].
+  ///
+  /// The point is centered on the lateral axis and aligned with the level on the path axis.
+  /// Returns `null` if the level is not found in this chunk.
+  SagaPoint? decorationPixelAtLevel(int levelId) {
+    final level = levels.where((l) => l.id == levelId).firstOrNull;
+    if (level == null) return null;
+    
+    final point = pixelFor(level.position);
+    if (layout.pathAxis == SagaMapPathAxis.vertical) {
+      return SagaPoint(chunkSize.width / 2, point.y);
+    } else {
+      return SagaPoint(point.x, chunkSize.height / 2);
+    }
+  }
+
   SagaPoint decorationPixelAtFraction(double fx, double fy) {
     return SagaPoint(fx * chunkSize.width, fy * chunkSize.height);
   }

@@ -111,10 +111,10 @@ void main() {
     final handle = tester.ensureSemantics();
     await pumpMap(
       tester,
-      labelBuilder: (level, progress) => 'BÃ¶lÃ¼m ${level.id}',
+      labelBuilder: (level, progress) => 'Bölüm ${level.id}',
     );
 
-    expect(find.bySemanticsLabel('BÃ¶lÃ¼m 0'), findsOneWidget);
+    expect(find.bySemanticsLabel('Bölüm 0'), findsOneWidget);
     expect(find.bySemanticsLabel('Level 1, completed, 3 stars'), findsNothing);
 
     handle.dispose();

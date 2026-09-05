@@ -76,12 +76,12 @@ class WorldMapScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final levels = <LevelData>[
       const LevelData(
-        id: 1,
+        id: 0,
         position: SagaPoint(0.20, 0.08),
         biomeId: kBiomeIdForest,
       ),
       const LevelData(
-        id: 2,
+        id: 1,
         position: SagaPoint(0.35, 0.16),
         biomeId: kBiomeIdDesert,
       ),
@@ -328,7 +328,7 @@ rejects taps. Override the label to localise:
 
 ```dart
 MapChunkWidget(
-  semanticsLabelBuilder: (level, progress) => 'BÃ¶lÃ¼m ${level.id}',
+  semanticsLabelBuilder: (level, progress) => 'Bölüm ${level.id}',
   // ...
 )
 ```
@@ -457,7 +457,7 @@ user cannot drag the map out from under the camera.
 
 Sprite sheets have no ready package, so one is built in — dependency-free,
 horizontal strips by default (`SagaSpriteSheet(frameWidth: 60, frameHeight: 60,
-frameCount: 6)` is a 360Ã—60 image), plus vertical and grid, `loop`/`once`/
+frameCount: 6)` is a 360×60 image), plus vertical and grid, `loop`/`once`/
 `pingPong`, and `FilterQuality.none` for crisp pixel art:
 
 ```dart

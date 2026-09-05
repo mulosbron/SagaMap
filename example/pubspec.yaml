@@ -6,6 +6,7 @@ repository: https://github.com/mulosbron/SagaMap
 version: 0.0.1
 
 dependencies:
+  flutter_svg: ^2.0.0
   saga_map:
     path: ../
   flutter:

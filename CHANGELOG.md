@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.0.0
+
+* **BREAKING** — lutter_svg is no longer a dependency. If your map used SagaMapBackgroundConfig.svgAsset, add lutter_svg to your own pubspec.yaml and migrate to the builder:
+  `dart
+  backgroundConfig: SagaMapBackgroundConfig.builder(
+    backgroundBuilder: (context) => SvgPicture.asset('assets/map_bg.svg', fit: BoxFit.cover),
+  )
+  `
+
 All notable changes to this package are documented in this file.
 
 ## 1.1.0

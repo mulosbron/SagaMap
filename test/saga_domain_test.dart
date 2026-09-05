@@ -12,7 +12,7 @@ void main() {
       SagaMapBackgroundConfig config,
       int chunkIndex,
     ) {
-      final widget = config.buildBackgroundWidget(chunkIndex: chunkIndex);
+      final widget = config.buildBackgroundWidget(null as dynamic, chunkIndex: chunkIndex);
       return widget is Image ? (widget.image as AssetImage).assetName : null;
     }
 
@@ -45,17 +45,17 @@ void main() {
         assetPaths: paths,
         overflowBehavior: SagaMapBackgroundOverflowBehavior.empty,
       );
-      expect(config.buildBackgroundWidget(chunkIndex: 3), isA<SizedBox>());
+      expect(config.buildBackgroundWidget(null as dynamic, chunkIndex: 3), isA<SizedBox>());
     });
 
     test('none and colour modes need no asset', () {
       expect(
-        const SagaMapBackgroundConfig.none().buildBackgroundWidget(),
+        const SagaMapBackgroundConfig.none().buildBackgroundWidget(null as dynamic),
         isA<SizedBox>(),
       );
       expect(
         const SagaMapBackgroundConfig.color(color: Colors.red)
-            .buildBackgroundWidget(),
+            .buildBackgroundWidget(null as dynamic),
         isA<ColoredBox>(),
       );
     });

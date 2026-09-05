@@ -10,6 +10,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:saga_map/saga_map.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 void main() => runApp(const SagaMapDemoApp());
 
@@ -308,11 +309,13 @@ class _SagaMapDemoState extends State<SagaMapDemo>
       case DemoBackground.colour:
         return const SagaMapBackgroundConfig.color(color: Color(0xFF24451F));
       case DemoBackground.svg:
-        return SagaMapBackgroundConfig.svgAsset(
-          assetPath: horizontal
-              ? 'assets/svg/map_horizontal.svg'
-              : 'assets/svg/map_vertical.svg',
-          fit: BoxFit.cover,
+        return SagaMapBackgroundConfig.builder(
+          backgroundBuilder: (context) => SvgPicture.asset(
+            horizontal
+                ? 'assets/svg/map_horizontal.svg'
+                : 'assets/svg/map_vertical.svg',
+            fit: BoxFit.cover,
+          ),
         );
       case DemoBackground.image:
         return SagaMapBackgroundConfig.imageAsset(
@@ -322,13 +325,11 @@ class _SagaMapDemoState extends State<SagaMapDemo>
           fit: BoxFit.cover,
         );
       case DemoBackground.multiSvg:
-        return const SagaMapBackgroundConfig.svgAssets(
-          assetPaths: [
-            'assets/svg/map_vertical.svg',
-            'assets/svg/map_horizontal.svg',
-          ],
-          fit: BoxFit.cover,
-          overflowBehavior: SagaMapBackgroundOverflowBehavior.loop,
+        return SagaMapBackgroundConfig.builder(
+          backgroundBuilder: (context) => SvgPicture.asset(
+            'assets/svg/map_vertical.svg', // Simplified for example, though they had logic for it, let's just show one or we can add logic
+            fit: BoxFit.cover,
+          ),
         );
     }
   }

@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 /// Background source kind used by map chunk rendering.
 enum SagaMapBackgroundKind {
   none,
   color,
   imageAsset,
-  svgAsset,
+  builder,
 }
 
 /// Strategy used when chunk count exceeds provided backgrounds.
@@ -25,6 +24,11 @@ class SagaMapBackgroundConfig {
   final BoxFit fit;
   final Alignment alignment;
   final SagaMapBackgroundOverflowBehavior overflowBehavior;
+  
+  /// The package positions and scrolls whatever this returns; it loads nothing itself.
+  ///
+  /// For an SVG, add flutter_svg to your own app and return SvgPicture.asset.
+  final WidgetBuilder? backgroundBuilder;
 
   const SagaMapBackgroundConfig.none()
       : kind = SagaMapBackgroundKind.none,
@@ -33,7 +37,8 @@ class SagaMapBackgroundConfig {
         color = Colors.transparent,
         fit = BoxFit.cover,
         alignment = Alignment.center,
-        overflowBehavior = SagaMapBackgroundOverflowBehavior.loop;
+        overflowBehavior = SagaMapBackgroundOverflowBehavior.loop,
+        backgroundBuilder = null;
 
   const SagaMapBackgroundConfig.color({
     required this.color,
@@ -42,7 +47,8 @@ class SagaMapBackgroundConfig {
   })  : kind = SagaMapBackgroundKind.color,
         assetPath = null,
         assetPaths = null,
-        overflowBehavior = SagaMapBackgroundOverflowBehavior.loop;
+        overflowBehavior = SagaMapBackgroundOverflowBehavior.loop,
+        backgroundBuilder = null;
 
   const SagaMapBackgroundConfig.imageAsset({
     required this.assetPath,
@@ -51,7 +57,8 @@ class SagaMapBackgroundConfig {
     this.color = Colors.transparent,
   })  : kind = SagaMapBackgroundKind.imageAsset,
         assetPaths = null,
-        overflowBehavior = SagaMapBackgroundOverflowBehavior.loop;
+        overflowBehavior = SagaMapBackgroundOverflowBehavior.loop,
+        backgroundBuilder = null;
 
   const SagaMapBackgroundConfig.imageAssets({
     required this.assetPaths,
@@ -60,28 +67,21 @@ class SagaMapBackgroundConfig {
     this.color = Colors.transparent,
     this.overflowBehavior = SagaMapBackgroundOverflowBehavior.loop,
   })  : kind = SagaMapBackgroundKind.imageAsset,
-        assetPath = null;
+        assetPath = null,
+        backgroundBuilder = null;
 
-  const SagaMapBackgroundConfig.svgAsset({
-    required this.assetPath,
-    this.fit = BoxFit.contain,
-    this.alignment = Alignment.center,
-    this.color = Colors.transparent,
-  })  : kind = SagaMapBackgroundKind.svgAsset,
+  const SagaMapBackgroundConfig.builder({
+    required this.backgroundBuilder,
+  })  : kind = SagaMapBackgroundKind.builder,
+        assetPath = null,
         assetPaths = null,
+        fit = BoxFit.contain,
+        alignment = Alignment.center,
+        color = Colors.transparent,
         overflowBehavior = SagaMapBackgroundOverflowBehavior.loop;
 
-  const SagaMapBackgroundConfig.svgAssets({
-    required this.assetPaths,
-    this.fit = BoxFit.contain,
-    this.alignment = Alignment.center,
-    this.color = Colors.transparent,
-    this.overflowBehavior = SagaMapBackgroundOverflowBehavior.loop,
-  })  : kind = SagaMapBackgroundKind.svgAsset,
-        assetPath = null;
-
   /// Builds the background widget for an optional [chunkIndex].
-  Widget buildBackgroundWidget({int? chunkIndex}) {
+  Widget buildBackgroundWidget(BuildContext? context, {int? chunkIndex}) {
     switch (kind) {
       case SagaMapBackgroundKind.none:
         return const SizedBox.shrink();
@@ -97,16 +97,8 @@ class SagaMapBackgroundConfig {
           fit: fit,
           alignment: alignment,
         );
-      case SagaMapBackgroundKind.svgAsset:
-        final resolvedPath = _resolvePath(chunkIndex);
-        if (resolvedPath == null || resolvedPath.isEmpty) {
-          return const SizedBox.shrink();
-        }
-        return SvgPicture.asset(
-          resolvedPath,
-          fit: fit,
-          alignment: alignment,
-        );
+      case SagaMapBackgroundKind.builder:
+        return backgroundBuilder?.call(context!) ?? const SizedBox.shrink();
     }
   }
 

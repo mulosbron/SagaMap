@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:saga_map/saga_map.dart';
@@ -21,6 +21,7 @@ void main() {
     WidgetTester tester, {
     SagaNodeSemanticsLabelBuilder? labelBuilder,
     ValueChanged<LevelData>? onLevelTap,
+    SagaNodeInteractionHandler? interactionHandler,
   }) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -33,6 +34,7 @@ void main() {
             biomeThemeResolver: const DefaultSagaBiomeThemeResolver(),
             progressResolver: (level) => _progress[level.id],
             onLevelTap: onLevelTap,
+            interactionHandler: interactionHandler ?? const SagaNodeInteractionHandler(),
             semanticsLabelBuilder:
                 labelBuilder ?? defaultSagaNodeSemanticsLabel,
             nodeBuilder: (context, level, layout) => const DecoratedBox(
@@ -106,10 +108,10 @@ void main() {
     final handle = tester.ensureSemantics();
     await pumpMap(
       tester,
-      labelBuilder: (level, progress) => 'Bölüm ${level.id}',
+      labelBuilder: (level, progress) => 'BÃ¶lÃ¼m ${level.id}',
     );
 
-    expect(find.bySemanticsLabel('Bölüm 0'), findsOneWidget);
+    expect(find.bySemanticsLabel('BÃ¶lÃ¼m 0'), findsOneWidget);
     expect(find.bySemanticsLabel('Level 1, completed, 3 stars'), findsNothing);
 
     handle.dispose();
@@ -128,4 +130,44 @@ void main() {
     expect(defaultSagaNodeSemanticsLabel(level, noStars), 'Level 9, completed');
     expect(defaultSagaNodeSemanticsLabel(level, null), 'Level 9');
   });
+
+  testWidgets('node has SemanticsAction.longPress when handler provided', (tester) async {
+    final handle = tester.ensureSemantics();
+    
+
+    await pumpMap(
+      tester,
+      interactionHandler: SagaNodeInteractionHandler(onNodeLongPress: (_) {}),
+    );
+
+    final node = tester.getSemantics(find.bySemanticsLabel('Level 1, completed, 3 stars'));
+    expect(node.getSemanticsData().hasAction(SemanticsAction.longPress), isTrue); handle.dispose();
+  });
+
+  testWidgets('node lacks SemanticsAction.longPress when handler absent', (tester) async {
+    final handle = tester.ensureSemantics();
+    
+
+    await pumpMap(
+      tester,
+      interactionHandler: const SagaNodeInteractionHandler(),
+    );
+
+    final node = tester.getSemantics(find.bySemanticsLabel('Level 1, completed, 3 stars'));
+    expect(node.getSemanticsData().hasAction(SemanticsAction.longPress), isFalse); handle.dispose();
+  });
+
+  testWidgets('locked node lacks SemanticsAction.longPress even with handler', (tester) async {
+    final handle = tester.ensureSemantics();
+    
+
+    await pumpMap(
+      tester,
+      interactionHandler: SagaNodeInteractionHandler(onNodeLongPress: (_) {}),
+    );
+
+    final node = tester.getSemantics(find.bySemanticsLabel('Level 3, locked'));
+    expect(node.getSemanticsData().hasAction(SemanticsAction.longPress), isFalse); handle.dispose();
+  });
 }
+

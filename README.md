@@ -314,8 +314,8 @@ while staying comfortably tappable. Right-to-left layouts mirror a horizontal
 map's path axis; vertical maps are unaffected.
 
 Nodes are keyboard-reachable: Tab moves between them in **level order** (not
-paint order), and Enter or Space activates the focused node. Locked nodes are
-skipped. Draw a focus ring by reacting to `SagaNodeInteractionState.focused`,
+paint order), and Enter or Space activates the focused node. Shift+F10 or the
+context-menu key triggers the long-press action. Locked nodes are skipped. Draw a focus ring by reacting to `SagaNodeInteractionState.focused`,
 which is emitted only when focus arrives by keyboard:
 
 ```dart

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:saga_map/saga_map.dart';
@@ -18,6 +18,7 @@ const _progress = <int, LevelProgress>{
   3: LevelProgress(levelId: 3, state: LevelCompletionState.locked),
 };
 
+class _MockNoLongPressPolicy extends SagaNodeInteractionPolicy { const _MockNoLongPressPolicy(); @override bool canTap(LevelData level, LevelProgress? progress) => true; @override bool canLongPress(LevelData level, LevelProgress? progress) => false; }
 void main() {
   Future<void> pumpMap(
     WidgetTester tester, {
@@ -129,4 +130,114 @@ void main() {
       reason: 'focus log: $focusLog',
     );
   });
+
+  testWidgets('Shift+F10 triggers long press callback', (tester) async {
+    final tapped = <int>[];
+    final longPressed = <int>[];
+    
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: MapChunkWidget(
+            levels: _levels,
+            chunkIndex: 0,
+            chunkExtent: 700,
+            chunkSpanNormalized: 1.0,
+            biomeThemeResolver: const DefaultSagaBiomeThemeResolver(),
+            progressResolver: (level) => _progress[level.id],
+            onLevelTap: (level) => tapped.add(level.id),
+            interactionHandler: SagaNodeInteractionHandler(
+              onNodeLongPress: (level) => longPressed.add(level.id),
+            ),
+            nodeBuilder: (context, level, layout) => const DecoratedBox(
+              decoration: BoxDecoration(color: Colors.indigo),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await pressTab(tester);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shift);
+    await tester.sendKeyEvent(LogicalKeyboardKey.f10);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shift);
+    await tester.pumpAndSettle();
+
+    expect(longPressed, isNotEmpty);
+    expect(tapped, isEmpty);
+  });
+
+  testWidgets('Context menu key triggers long press callback', (tester) async {
+    final tapped = <int>[];
+    final longPressed = <int>[];
+    
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: MapChunkWidget(
+            levels: _levels,
+            chunkIndex: 0,
+            chunkExtent: 700,
+            chunkSpanNormalized: 1.0,
+            biomeThemeResolver: const DefaultSagaBiomeThemeResolver(),
+            progressResolver: (level) => _progress[level.id],
+            onLevelTap: (level) => tapped.add(level.id),
+            interactionHandler: SagaNodeInteractionHandler(
+              onNodeLongPress: (level) => longPressed.add(level.id),
+            ),
+            nodeBuilder: (context, level, layout) => const DecoratedBox(
+              decoration: BoxDecoration(color: Colors.indigo),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await pressTab(tester);
+    await tester.sendKeyEvent(LogicalKeyboardKey.contextMenu);
+    await tester.pumpAndSettle();
+
+    expect(longPressed, isNotEmpty);
+    expect(tapped, isEmpty);
+  });
+
+  testWidgets('Shift+F10 does nothing if canLongPress is false', (tester) async {
+    final tapped = <int>[];
+    final longPressed = <int>[];
+    
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: MapChunkWidget(
+            levels: _levels,
+            chunkIndex: 0,
+            chunkExtent: 700,
+            chunkSpanNormalized: 1.0,
+            biomeThemeResolver: const DefaultSagaBiomeThemeResolver(),
+            progressResolver: (level) => _progress[level.id],
+            onLevelTap: (level) => tapped.add(level.id),
+            interactionPolicy: const _MockNoLongPressPolicy(),
+            interactionHandler: SagaNodeInteractionHandler(
+              onNodeLongPress: (level) => longPressed.add(level.id),
+            ),
+            nodeBuilder: (context, level, layout) => const DecoratedBox(
+              decoration: BoxDecoration(color: Colors.indigo),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await pressTab(tester);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shift);
+    await tester.sendKeyEvent(LogicalKeyboardKey.f10);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shift);
+    await tester.pumpAndSettle();
+
+    expect(longPressed, isEmpty);
+  });
 }
+

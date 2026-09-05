@@ -1,11 +1,14 @@
-﻿# Changelog
+# Changelog
 
 All notable changes to this package are documented in this file.
 
 ## 1.1.0
 
-- Added — SagaProgress.extra and LevelProgress.extra for host-owned data.
-
+- Added - SagaProgress.extra and LevelProgress.extra for host-owned data.
+- **Added:** SagaProgressStars extension for star counting and analysis.
+- **Added:** SagaNodeInteractionPolicy.canLongPress controls when a long press should be accepted. Locked nodes no longer emit long-press callbacks by default.
+- **Added:** The long-press action is reachable from the keyboard (Shift+F10 / context-menu key) and screen readers.
+- **Added:** onLevelLongPress convenience callback to SagaInfiniteMapView.
 
 - **Fixed:** Screen readers announced the first level as "Level 0".
 - **Docs:** Level ids are documented as zero-based.

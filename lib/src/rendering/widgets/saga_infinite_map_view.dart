@@ -252,6 +252,9 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
   bool _openingScrollRunning = false;
   double _parallaxOffset = 0;
 
+  int? _lastBroadcastChunkIndex;
+  int? _highestReachedLevel;
+
   late double _zoom = widget.zoomConfig?.initial ?? 1.0;
   double _lateralPan = 0;
 
@@ -301,6 +304,9 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
       _kickStart = Stream<void>.fromFuture(widget.controller.initialize())
           .listen((_) {});
     }
+    if (oldWidget.pathProgressPosition != widget.pathProgressPosition) {
+      _checkLevelReached();
+    }
   }
 
   void _attachCharacter(
@@ -311,9 +317,11 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
     previous?.removeListener(_onCharacterChanged);
     next?.addListener(_onCharacterChanged);
     _characterMoving = next?.isMoving ?? false;
+    _checkLevelReached();
   }
 
   void _onCharacterChanged() {
+    _checkLevelReached();
     final moving = widget.character?.controller?.isMoving ?? false;
     if (moving && widget.followCharacter) {
       _followCharacter();
@@ -344,6 +352,67 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
 
   double _currentCharacterPosition() =>
       widget.character?.effectivePathPosition ?? 0;
+
+  void _checkDominantChunk() {
+    if (!mounted) return;
+    if (widget.onChunkEnter == null) return;
+    if (!_scrollController.hasClients) return;
+    
+    final position = _scrollController.position;
+    final centerOffset = position.pixels + (position.viewportDimension / 2.0);
+    
+    final layout = widget.responsiveResolver.resolveForWidth(
+      MediaQuery.sizeOf(context).width,
+    );
+    final extent = (widget.chunkExtent * layout.nodeSpacing).roundToDouble() * _zoom;
+    if (extent <= 0) return;
+    
+    final dominantIndex = (centerOffset / extent).floor();
+    if (dominantIndex < 0) return;
+    
+    if (_lastBroadcastChunkIndex != dominantIndex) {
+      _lastBroadcastChunkIndex = dominantIndex;
+      final cached = _chunkContexts[dominantIndex];
+      if (cached != null && cached.levels.isNotEmpty) {
+        widget.onChunkEnter!(cached);
+      } else {
+        final levels = widget.controller.chunkLevels(dominantIndex);
+        if (levels.isNotEmpty) {
+          final ctx = SagaChunkContext(chunkIndex: dominantIndex, levels: levels, progress: const {});
+          widget.onChunkEnter!(ctx);
+        }
+      }
+    }
+  }
+
+  void _checkLevelReached() {
+    if (!mounted) return;
+    if (widget.onLevelReached == null) return;
+    
+    final currentPos = widget.character?.effectivePathPosition ?? widget.pathProgressPosition;
+    if (currentPos == null) return;
+    
+    final currentLevelIdx = currentPos.floor();
+    if (_highestReachedLevel == null) {
+      _highestReachedLevel = currentLevelIdx;
+      return; 
+    }
+    if (currentLevelIdx > _highestReachedLevel!) {
+      _highestReachedLevel = currentLevelIdx;
+      
+      final sections = widget.controller.sectionsPerChunk;
+      if (sections > 0) {
+        final chunkIndex = currentLevelIdx ~/ sections;
+        final chunkLevelIndex = currentLevelIdx % sections;
+        final levels = widget.controller.chunkLevels(chunkIndex);
+        if (chunkLevelIndex < levels.length) {
+          widget.onLevelReached!(levels[chunkLevelIndex]);
+        }
+      }
+    }
+  }
+
+
 
   /// Loads chunks until [chunkIndex] exists, or the map says it has ended.
   Future<void> _ensureChunkLoaded(int chunkIndex) async {
@@ -425,6 +494,7 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
         curve: Curves.linear,
       );
       _openingScrollDone = true;
+      if (mounted) _checkDominantChunk();
     } finally {
       _openingScrollRunning = false;
     }
@@ -449,11 +519,16 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
       // Chunks have just arrived; the opening scroll may now be possible.
       WidgetsBinding.instance
           .addPostFrameCallback((_) => _applyOpeningScroll());
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _checkDominantChunk();
+      });
     }
   }
 
   void _onScroll() {
     if (!_scrollController.hasClients) return;
+    _checkDominantChunk();
     if (widget.parallaxBackground != null) {
       final next = _scrollController.offset * widget.parallaxFactor;
       if (next != _parallaxOffset && mounted) {

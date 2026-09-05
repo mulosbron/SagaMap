@@ -463,6 +463,28 @@ character.barrier = (from, to) => clampTravelThroughGates(
 );
 ```
 
+### Storing your own data
+
+The progression model includes an extra field, a Map<String, dynamic> where the host application can store custom data without changing the package models. 
+The package preserves this data and never interprets it.
+
+`dart
+final progress = SagaProgress(
+  currentMaxUnlockedLevelId: 0,
+  levels: {
+    0: LevelProgress(
+      levelId: 0,
+      state: LevelCompletionState.completed,
+      stars: 2,
+      extra: const {'app.no_mistake_streak': 10}, // per-level data
+    ),
+  },
+  extra: const {'app.spent_stars': 5, 'app.opened_chests': 2}, // global data
+);
+`
+
+> **Note**: Keys should be namespaced (e.g., using an pp. prefix) to avoid future collisions. Keep the stored data small, as it is serialized on every save.
+
 ## Example App
 
 See [`example/lib/main.dart`](example/lib/main.dart) for a full showcase:

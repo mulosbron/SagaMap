@@ -4,10 +4,17 @@ import 'level_progress.dart';
 class SagaProgress {
   final int currentMaxUnlockedLevelId;
   final Map<int, LevelProgress> levels;
+  
+  /// Host-owned data the package stores but never interprets.
+  /// 
+  /// The package reads nothing from it and will never claim a key.
+  /// Keep it small; it is serialised on every save.
+  final Map<String, dynamic> extra;
 
   const SagaProgress({
     required this.currentMaxUnlockedLevelId,
     required this.levels,
+    this.extra = const {},
   });
 
   /// Creates the baseline progress with level `0` unlocked.
@@ -22,6 +29,7 @@ class SagaProgress {
           stars: 0,
         ),
       },
+      extra: {},
     );
   }
 
@@ -31,10 +39,14 @@ class SagaProgress {
     for (final e in levels.entries) {
       levelsMap[e.key.toString()] = e.value.toJson();
     }
-    return {
+    final json = <String, dynamic>{
       'currentMaxUnlockedLevelId': currentMaxUnlockedLevelId,
       'levels': levelsMap,
     };
+    if (extra.isNotEmpty) {
+      json['extra'] = extra;
+    }
+    return json;
   }
 
   /// Restores progress from serialized payload.
@@ -62,9 +74,19 @@ class SagaProgress {
     // is unlocked.
     final rawUnlocked = json['currentMaxUnlockedLevelId'];
     final unlocked = rawUnlocked is num ? rawUnlocked.toInt() : 0;
+    
+    final extraRaw = json['extra'];
+    Map<String, dynamic> extra = {};
+    if (extraRaw is Map<String, dynamic>) {
+      extra = Map<String, dynamic>.from(extraRaw);
+    } else if (extraRaw is Map) {
+      extra = Map<String, dynamic>.from(extraRaw);
+    }
+
     return SagaProgress(
       currentMaxUnlockedLevelId: unlocked < 0 ? 0 : unlocked,
       levels: levels.isNotEmpty ? levels : SagaProgress.initial().levels,
+      extra: extra,
     );
   }
 
@@ -72,11 +94,13 @@ class SagaProgress {
   SagaProgress copyWith({
     int? currentMaxUnlockedLevelId,
     Map<int, LevelProgress>? levels,
+    Map<String, dynamic>? extra,
   }) {
     return SagaProgress(
       currentMaxUnlockedLevelId:
           currentMaxUnlockedLevelId ?? this.currentMaxUnlockedLevelId,
       levels: levels ?? Map<int, LevelProgress>.from(this.levels),
+      extra: extra ?? Map<String, dynamic>.from(this.extra),
     );
   }
 }

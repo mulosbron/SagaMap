@@ -66,6 +66,7 @@ class CompleteLevelUseCase {
       // result the moment the player replayed the level.
       stars: math.max(clampedStars, previous?.stars ?? 0),
       lastPlayedAt: now ?? DateTime.now(),
+      extra: previous?.extra ?? const {},
     );
 
     final unlockLevelId = levelId + 1;

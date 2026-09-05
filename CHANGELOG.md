@@ -4,6 +4,9 @@ All notable changes to this package are documented in this file.
 
 ## 1.1.0
 
+- Added — SagaProgress.extra and LevelProgress.extra for host-owned data.
+
+
 - **Fixed:** Screen readers announced the first level as "Level 0".
 - **Docs:** Level ids are documented as zero-based.
 

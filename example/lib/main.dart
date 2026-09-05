@@ -380,7 +380,7 @@ class _SagaMapDemoState extends State<SagaMapDemo>
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              '${level.id}',
+              '${level.id + 1}',
               style: TextStyle(
                 color: state == LevelCompletionState.locked
                     ? Colors.white70

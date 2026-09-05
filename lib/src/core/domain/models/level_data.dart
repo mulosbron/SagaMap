@@ -1,7 +1,11 @@
 import 'saga_geometry.dart';
 
 /// Immutable map node model that describes one level on the path.
+///
+/// Ids are zero-based: the first level a player sees has `id == 0`.
+/// Display `id + 1` wherever a player reads the number.
 class LevelData {
+  /// Zero-based identifier for the level.
   final int id;
 
   /// Normalized position: `y` advances along the path axis, `x` is the lateral
@@ -9,6 +13,8 @@ class LevelData {
   final SagaPoint position;
 
   final String biomeId;
+
+  /// Difficulty level, typically calculated as `1 + (id % 5)` (where id is zero-based).
   final int difficulty;
 
   const LevelData({

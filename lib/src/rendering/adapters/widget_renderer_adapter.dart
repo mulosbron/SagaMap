@@ -20,6 +20,7 @@ typedef SagaNodeBuilder = Widget Function(
 /// Builds the screen-reader label for one level node.
 ///
 /// Supply your own to localise; the built-in default is English.
+/// The `level.id` you receive is zero-based.
 typedef SagaNodeSemanticsLabelBuilder = String Function(
   LevelData level,
   LevelProgress? progress,
@@ -33,8 +34,10 @@ const double kSagaDefaultNodeSize = 44.0;
 const double kSagaMinTouchTarget = 44.0;
 
 /// Default English screen-reader label: level number plus its state.
+/// Shows `id + 1`.
 String defaultSagaNodeSemanticsLabel(LevelData level, LevelProgress? progress) {
-  final buffer = StringBuffer('Level ${level.id}');
+  // Ids are zero-based; players count from one. The announced number must match the number drawn on the node.
+  final buffer = StringBuffer('Level ${level.id + 1}');
   switch (progress?.state) {
     case LevelCompletionState.locked:
       buffer.write(', locked');

@@ -4,16 +4,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:saga_map/saga_map.dart';
 
 const _levels = <LevelData>[
-  LevelData(id: 1, position: SagaPoint(0.3, 0.0), biomeId: kBiomeIdForest),
-  LevelData(id: 2, position: SagaPoint(0.7, 0.4), biomeId: kBiomeIdForest),
-  LevelData(id: 3, position: SagaPoint(0.3, 0.8), biomeId: kBiomeIdForest),
+  LevelData(id: 0, position: SagaPoint(0.3, 0.0), biomeId: kBiomeIdForest),
+  LevelData(id: 1, position: SagaPoint(0.7, 0.4), biomeId: kBiomeIdForest),
+  LevelData(id: 2, position: SagaPoint(0.3, 0.8), biomeId: kBiomeIdForest),
 ];
 
 const _progress = <int, LevelProgress>{
-  1: LevelProgress(
-      levelId: 1, state: LevelCompletionState.completed, stars: 3),
-  2: LevelProgress(levelId: 2, state: LevelCompletionState.unlocked),
-  3: LevelProgress(levelId: 3, state: LevelCompletionState.locked),
+  0: LevelProgress(
+      levelId: 0, state: LevelCompletionState.completed, stars: 3),
+  1: LevelProgress(levelId: 1, state: LevelCompletionState.unlocked),
+  2: LevelProgress(levelId: 2, state: LevelCompletionState.locked),
 };
 
 void main() {
@@ -97,7 +97,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(tapped, [2]);
+    expect(tapped, [1]);
     handle.dispose();
   });
 
@@ -109,7 +109,7 @@ void main() {
       labelBuilder: (level, progress) => 'Bölüm ${level.id}',
     );
 
-    expect(find.bySemanticsLabel('Bölüm 1'), findsOneWidget);
+    expect(find.bySemanticsLabel('Bölüm 0'), findsOneWidget);
     expect(find.bySemanticsLabel('Level 1, completed, 3 stars'), findsNothing);
 
     handle.dispose();
@@ -117,11 +117,11 @@ void main() {
 
   test('the default label singularises one star', () {
     const level =
-        LevelData(id: 9, position: SagaPoint(0.5, 0.0), biomeId: kBiomeIdForest);
+        LevelData(id: 8, position: SagaPoint(0.5, 0.0), biomeId: kBiomeIdForest);
     const oneStar = LevelProgress(
-        levelId: 9, state: LevelCompletionState.completed, stars: 1);
+        levelId: 8, state: LevelCompletionState.completed, stars: 1);
     const noStars = LevelProgress(
-        levelId: 9, state: LevelCompletionState.completed, stars: 0);
+        levelId: 8, state: LevelCompletionState.completed, stars: 0);
 
     expect(defaultSagaNodeSemanticsLabel(level, oneStar),
         'Level 9, completed, 1 star');

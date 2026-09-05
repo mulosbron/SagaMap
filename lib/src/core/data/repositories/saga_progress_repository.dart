@@ -9,5 +9,6 @@ abstract interface class SagaProgressRepository {
   Future<void> saveProgress(SagaProgress progress);
 
   /// Loads global map seed used for deterministic generation.
+  /// Implementations must not persist as a side effect of loading.
   Future<int> loadGlobalSeed();
 }

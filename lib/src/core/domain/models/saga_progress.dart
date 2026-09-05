@@ -11,6 +11,7 @@ class SagaProgress {
   });
 
   /// Creates the baseline progress with level `0` unlocked.
+  /// Note that level `0` is the first level.
   factory SagaProgress.initial() {
     return const SagaProgress(
       currentMaxUnlockedLevelId: 0,

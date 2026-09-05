@@ -42,9 +42,14 @@ const List<LootTableEntry> kMvpLootTable = [
 ];
 
 /// Returns true if the level is treated as a boss milestone.
+/// 
+/// Note: this logic lands on the 16th node; corrected in 2.0.0 (ADR-0002).
 bool isBossLevel(int levelId) => levelId > 0 && levelId % 15 == 0;
 
 /// Rolls a deterministic reward for boss levels.
+/// 
+/// Deterministic and unguarded — calling it twice for the same level mints the same item twice.
+/// `CompleteLevelUseCase.execute` applies the first-clear guard; a direct caller must apply its own.
 InventoryItem rollBossReward({
   required int levelId,
   required int globalSeed,

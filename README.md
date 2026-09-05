@@ -99,6 +99,42 @@ This quick start mirrors the real package usage in `example/lib/main.dart`
 with `MapChunkWidget`, `SagaInfiniteMapView`, `SagaMapLevelGenerator`,
 and `CompleteLevelUseCase`.
 
+## Level ids
+
+Level ids are zero-based. The first level a player sees on the map has `id == 0`.
+Wherever a player reads the number, you must display `id + 1`.
+
+| Context | What to use | Example |
+| --- | --- | --- |
+| Storage | `level.id` | Saved progress uses `0` for the first node |
+| Logic | `level.id` | Generator seeds, boss math (`id % 15 == 0`) |
+| UI | `id + 1` | "Level 1", screen-reader announcements |
+
+```dart
+// Inside your nodeBuilder:
+Text(
+  '${level.id + 1}',
+  style: const TextStyle(color: Colors.white),
+)
+```
+
+The function `isBossLevel(levelId)` is public because callers need to know if a level was a boss to display the appropriate icon before it is played.
+
+## Versioning
+
+This package follows [Semantic Versioning](https://semver.org/).
+
+A change is breaking (requires a major version bump) if it breaks:
+1. **Compilation:** A public signature changes or is removed.
+2. **Saved data format:** Existing serialized progress can no longer be read.
+3. **Saved data meaning:** Reading old data behaves differently (e.g. altering the deterministic sequence of levels).
+
+**Deprecation policy:** Nothing marked `@Deprecated` is removed in the same major version. It will emit a warning until the next major release.
+
+**Upcoming breaking changes in 2.0.0:**
+- Boss milestones land on `id % 5 == 4` instead of `id % 15 == 0` (ADR-0002).
+- Drops `flutter_svg` from the core package (ADR-0008).
+
 ## Public API Design
 
 Only import this file from your app:
@@ -326,6 +362,19 @@ final levels = generator.generateLevels(
   startLevelId: 0,
   count: 50,
 );
+```
+
+### Rewards
+
+```dart
+final result = completeLevelUseCase.execute(
+  currentProgress: progress,
+  levelId: level.id,
+  globalSeed: 42,
+);
+if (result.reward != null) {
+  await inventoryRepository.add(result.reward!);
+}
 ```
 
 ### Character on the path

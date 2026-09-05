@@ -25,6 +25,29 @@ tests), so they show exactly what it draws.
 - **Walked vs. upcoming** — the stretch the player has covered is drawn in the
   bright colour, the road ahead dimmed, split exactly under the character.
 
+### New in 1.1.0
+
+| Level-anchored scenery and host data | Episode header from the chunk context |
+| --- | --- |
+| ![atLevel markers, biome-tinted scenery and an extra-driven bookmark](doc/screenshots/features_1_1_0_decorations.png) | ![Episode header reporting stars earned in the chunk](doc/screenshots/features_1_1_0_episode_header.png) |
+
+- **Level-anchored decorations** — the red markers are
+  `SagaMapDecoration.atLevel`: pinned to a level id, not to a pixel
+  coordinate. The round scenery is tinted from
+  `SagaChunkContext.dominantBiomeId`, which the decoration builder now receives.
+- **Host-owned data on a node** — the dark stripe on the second node is drawn
+  from a `bookmarked` flag the app stored in `LevelProgress.extra`. The package
+  persists it and never interprets it.
+- **Stars without a loop** — the banner's amber pips are
+  `SagaProgressStars.starsInRange` over that chunk's levels, read straight off
+  the `SagaChunkContext` handed to `episodeHeaderBuilder`.
+
+> These are golden-test renders, so decorations sit above the background layer
+> and below the path and nodes exactly as the package draws them. Note that a
+> chunk paints its own base background when `backgroundConfig` is
+> `SagaMapBackgroundConfig.none()`, which covers decorations — give the map a
+> background layer when you use scenery.
+
 Run the demo (`cd example && flutter run`) for the whole feature set live: a
 walking character, pinch zoom, scenery, episode banners, parallax, gates, and a
 control panel to toggle each one.

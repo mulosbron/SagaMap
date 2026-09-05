@@ -27,6 +27,11 @@ All notable changes to this package are documented in this file.
   on `pathPosition`) and collapsed to a zero-size box; it now anchors to its
   level at the requested height.
 - **Docs:** Level ids are documented as zero-based.
+- **Docs:** README gains golden-rendered screenshots of the 1.1.0 additions
+  (`atLevel` markers, biome-tinted scenery, an `extra`-driven bookmark, and an
+  episode header built from the chunk context), plus a note that a chunk paints
+  its own base background when `backgroundConfig` is `none`, which covers
+  decorations.
 - **Example:** The demo showcases the 1.1.0 additions — context-aware
   decoration and episode builders, `atLevel` boss flags, `onChunkEnter` /
   `onLevelReached` / `onLevelLongPress`, loot drop-rate odds, star totals, and

@@ -1,4 +1,4 @@
-# Changelog
+﻿# Changelog
 
 All notable changes to this package are documented in this file.
 
@@ -30,7 +30,7 @@ First stable release.
   correct and the path is rasterised at its final size.
 - Right-to-left support: a horizontal map mirrors its path axis.
 - Responsive policies for node size, spacing, zoom, touch target, camera
-  padding, lateral extent and scroll sensitivity — each resolved per
+  padding, lateral extent and scroll sensitivity â€” each resolved per
   breakpoint from the real viewport.
 - Background layers: solid colour, image, SVG, and multi-asset sequences
   with loop / clamp / empty overflow behaviour.
@@ -40,7 +40,7 @@ First stable release.
 ### Character
 
 - A character that walks the path, with the library computing position,
-  facing and motion while the host draws it — so sprite sheets, Lottie,
+  facing and motion while the host draws it â€” so sprite sheets, Lottie,
   Rive, GIF or plain Flutter all plug into the same builder.
 - Arc-length parameterisation, so travel keeps an even pace through curves
   rather than crawling and racing.
@@ -58,7 +58,7 @@ First stable release.
 ### Domain
 
 - Deterministic level generation from a seed, with each level derived from
-  `(globalSeed, levelId)` alone — generating a deep chunk costs the same as
+  `(globalSeed, levelId)` alone â€” generating a deep chunk costs the same as
   the first, and the same seed always produces the same map across runs and
   platforms.
 - Progression models with JSON persistence, a completion use-case that
@@ -85,3 +85,4 @@ First stable release.
   type-checked rather than cast, and impossible states are clamped on load.
 - Generation and terrain allocation are bounded, so a bad configuration
   fails fast instead of exhausting memory.
+

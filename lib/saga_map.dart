@@ -12,6 +12,7 @@ export 'src/core/domain/generators/level_generator.dart';
 export 'src/core/domain/generators/saga_map_level_generator.dart';
 export 'src/core/domain/logging/saga_logger.dart';
 export 'src/core/domain/loot_table.dart';
+export 'src/core/domain/loot_table_odds.dart';
 export 'src/core/domain/models/inventory_item.dart';
 export 'src/core/domain/models/level_data.dart';
 export 'src/core/domain/models/level_progress.dart';

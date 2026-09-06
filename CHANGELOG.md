@@ -5,8 +5,189 @@ All notable changes to this package are documented in this file.
 ## 2.0.0
 
 A single breaking release. Every item below has a copy-pasteable escape hatch,
-and nothing deprecated in 1.1.0 was removed — those removals are scheduled for
-3.0.0.
+and nothing deprecated in 1.1.0 was removed — those removals stay scheduled for
+3.0.0, so the deprecated builders survive the whole 2.x line.
+
+Six breaking changes, in the order you will hit them:
+
+| Change | What you do about it |
+| --- | --- |
+| Boss levels moved by one | Nothing, or inject `bossRule` to keep 1.x placement |
+| Rewards are injectable | Nothing; the defaults are the old values |
+| Gates block progression | Nothing; all three hooks default to off |
+| Biome ids come from config | Nothing; omitting `biomeIds` is the old sequence |
+| `saveGlobalSeed` added | Implement one method on your repository |
+| `flutter_svg` dropped | Take the dependency yourself and pass a `builder` |
+
+Only two of those need code from you. The other four are behaviour or contract
+changes whose defaults reproduce 1.x exactly.
+
+**Nothing new was deprecated in 2.0.0.** The removals in this release are
+outright, because a deprecated `svgAsset` would have kept the `flutter_svg`
+dependency alive, which was the point of removing it.
+
+The one thing this release cannot do for you: **saved reward history**. Boss
+levels moved, and the package never wrote to your `InventoryRepository`, so it
+cannot migrate what it never owned. See the first section.
+
+### BREAKING — boss levels moved by one
+
+`isBossLevel` is now `levelId >= 0 && levelId % 15 == 14`. It was
+`levelId > 0 && levelId % 15 == 0`.
+
+Ids are zero-based, so "every fifteenth level" — the 15th, 30th and 45th a
+player sees — is `id % 15 == 14`. The old formula landed on the 16th node and,
+because difficulty is `1 + id % 5`, handed the boss the easiest board in the
+cycle. The corrected rule aligns three systems at once: every boss id also
+satisfies `id % 5 == 4`, so a boss is always a difficulty-5 board.
+
+No signature changed, so this looks like a patch. It is not: the *meaning* of
+saved data changes.
+
+**Players may have been rewarded at ids 15/30/45 and never at 14/29/44; the
+package cannot migrate this because it never writes to your
+`InventoryRepository`.** Deciding whether to compensate — grant the missed
+drop, or leave it — is yours, and it has to be decided before you ship 2.0.0
+to an existing install base.
+
+To keep the 1.x placement exactly, inject the old rule:
+
+```dart
+const useCase = CompleteLevelUseCase(bossRule: legacyBossRule);
+
+bool legacyBossRule(int levelId) => levelId > 0 && levelId % 15 == 0;
+```
+
+That is why this release and the injectable rewards below ship together: the
+escape hatch has to exist in the same version as the change it undoes.
+
+### BREAKING — rewards are injectable
+
+`CompleteLevelUseCase` no longer calls `isBossLevel` and `kMvpLootTable`
+directly. Both are constructor parameters now, and both keep their old values
+as defaults, so `const CompleteLevelUseCase()` behaves exactly as it did in
+1.x.
+
+```dart
+const useCase = CompleteLevelUseCase(
+  bossRule: myBossRule,   // bool Function(int levelId), defaults to isBossLevel
+  lootTable: myTable,     // List<LootTableEntry>, defaults to kMvpLootTable
+);
+```
+
+`rollBossReward` gained an optional `table` parameter, also defaulting to
+`kMvpLootTable`, so existing calls compile unchanged.
+
+What did change behaviourally: an empty table, a negative weight or weights
+totalling `0` now throw an `ArgumentError` instead of silently rolling against
+`kMvpLootTable`. If you were relying on that fall back — you were not, it was
+unreachable with the built-in table — pass `kMvpLootTable` explicitly.
+
+`isBossLevel` stays public. Its reason for being public changed: it used to be
+the only way to ask the question, and it is now the default value of
+`bossRule`, which a default value has to be to stay overridable.
+
+### BREAKING — gates block progression
+
+`SagaMapGate` used to be a helper the package exported and never called:
+`clampTravelThroughGates` had exactly two references in `lib/`, its own
+definition and a doc comment. A gate did nothing unless the host wired it by
+hand, and even then it only slowed the character down — taps and unlocking
+never heard about it.
+
+Three new hooks close that. All three default to off, so a consumer that passes
+none of them keeps 1.x behaviour exactly.
+
+```dart
+// The one gate condition, all three consumers derived from it.
+bool gateOpen(int levelId) => levelId <= 29 || hasTicket;
+
+SagaInfiniteMapView(
+  gates: [SagaMapGate(pathPosition: 29, isOpen: hasTicket)],
+  interactionPolicy: SagaNodeInteractionPolicy(
+    isReachable: (level, progress) => gateOpen(level.id),
+  ),
+);
+
+const useCase = CompleteLevelUseCase(canUnlock: gateOpen);
+```
+
+- `SagaInfiniteMapView.gates` — the view applies `clampTravelThroughGates`
+  itself. A barrier you installed on the controller yourself still wins.
+- `SagaNodeInteractionPolicy.isReachable` — consulted before `canTap`, so a
+  vetoed node is disabled, skipped by Tab and announced as locked. A subclass
+  that overrides `canLongPress` without calling `canTap` bypasses it, as before.
+- `CompleteLevelUseCase.canUnlock` — vetoes opening the successor. The level
+  itself still completes and a boss reward still drops; only the successor and
+  `currentMaxUnlockedLevelId` stand still.
+
+`CompleteLevelResult` gained `unlockBlocked` so a host can tell "you finished
+the level" from "you finished it and the road ahead is still shut". It is
+always `false` when no `canUnlock` is injected.
+
+### BREAKING — biome ids come from config
+
+The generator read the `const` global `kSagaBiomeIds` directly, so a host with
+four realms had no way in. `SagaMapConfig` now carries the list:
+
+```dart
+final config = SagaMapConfig.defaultConfig.copyWith(
+  biomeSpan: 5,
+  biomeIds: myRealms,
+);
+```
+
+**Omitting `biomeIds` generates the same ids as before** — it defaults to
+`kSagaBiomeIds`, which is not removed and not deprecated; it is now that
+default. An empty list throws an `ArgumentError` at generation rather than
+dividing by zero.
+
+Why this is breaking is semantic rather than structural: once a host supplies
+its own ids, `SagaBiomeThemeResolver` starts receiving ids it has never seen.
+`DefaultSagaBiomeThemeResolver` answers with the forest theme rather than
+throwing, and prints one debug-mode warning per unknown id — a wrong-green map
+still works, and the silence that would have hidden the mistake is gone.
+
+`SagaBiomeTheme` gained two optional fields for art direction beyond colour:
+
+- `assets`, an opaque `Map<String, String>` of art keys. The package never
+  loads these; it hands them back to your builders. Opaque on purpose — named
+  fields would freeze an asset taxonomy and a format the package does not own,
+  which is the same trap as the `flutter_svg` dependency below.
+- `ambientTint`, a translucent wash the chunk painter applies over background
+  and path, under your node widgets.
+
+`SagaMapConfig` also gained `copyWith`, so reaching `biomeIds` does not mean
+restating the geometry.
+
+### BREAKING — `SagaProgressRepository` gained `saveGlobalSeed`
+
+Adding a method to an `abstract interface class` breaks every implementation.
+Every implementation of `SagaProgressRepository` needs one more method:
+
+```dart
+@override
+Future<void> saveGlobalSeed(int seed) async {
+  await _prefs.setInt('saga_map.seed', seed);
+}
+```
+
+**If your `loadGlobalSeed` wrote a default as a side effect, move that write
+here.** That pattern is exactly why this is not optional: writing a seed on
+read makes "load" mean "load, and possibly change the whole map", and a load
+that has to run before another load is correct is not a contract anyone can
+reason about. `loadGlobalSeed` now says so explicitly: implementations must not
+persist as a side effect of loading.
+
+This could have been hidden behind a default body throwing
+`UnimplementedError` and shipped in 1.1.0 as non-breaking. It was not: a
+supertype method that throws in a subtype is the LSP violation the SOLID
+checklist names outright. One version of delay is cheaper than a permanent
+hole in the contract.
+
+Changing a stored seed regenerates the whole map — level positions, biomes and
+boss rewards all derive from it. Existing `SagaProgress` keeps its level ids,
+but those ids now point at different terrain.
 
 ### BREAKING — `flutter_svg` is no longer a dependency
 
@@ -59,177 +240,6 @@ The colour, image-asset and none modes are untouched.
 a host-supplied builder needs one. A `builder` config ignores `fit`,
 `alignment` and `overflowBehavior`: they describe placing an asset the package
 loaded, and it no longer loads this one.
-
-See [ADR-0008](docs/adrs/0008-flutter-svg-bagimliligini-ayirmak.md).
-
-### BREAKING — biome ids come from config
-
-The generator read the `const` global `kSagaBiomeIds` directly, so a host with
-four realms had no way in. `SagaMapConfig` now carries the list:
-
-```dart
-final config = SagaMapConfig.defaultConfig.copyWith(
-  biomeSpan: 5,
-  biomeIds: myRealms,
-);
-```
-
-**Omitting `biomeIds` generates the same ids as before** — it defaults to
-`kSagaBiomeIds`, which is not removed and not deprecated; it is now that
-default. An empty list throws an `ArgumentError` at generation rather than
-dividing by zero.
-
-Why this is breaking is semantic rather than structural: once a host supplies
-its own ids, `SagaBiomeThemeResolver` starts receiving ids it has never seen.
-`DefaultSagaBiomeThemeResolver` answers with the forest theme rather than
-throwing, and prints one debug-mode warning per unknown id — a wrong-green map
-still works, and the silence that would have hidden the mistake is gone.
-
-`SagaBiomeTheme` gained two optional fields for art direction beyond colour:
-
-- `assets`, an opaque `Map<String, String>` of art keys. The package never
-  loads these; it hands them back to your builders. Opaque on purpose — named
-  fields would freeze an asset taxonomy and a format the package does not own,
-  which is the same trap as the `flutter_svg` dependency below.
-- `ambientTint`, a translucent wash the chunk painter applies over background
-  and path, under your node widgets.
-
-`SagaMapConfig` also gained `copyWith`, so reaching `biomeIds` does not mean
-restating the geometry.
-
-See [ADR-0007](docs/adrs/0007-host-tanimli-biyomlar.md).
-
-### BREAKING — gates block progression
-
-`SagaMapGate` used to be a helper the package exported and never called:
-`clampTravelThroughGates` had exactly two references in `lib/`, its own
-definition and a doc comment. A gate did nothing unless the host wired it by
-hand, and even then it only slowed the character down — taps and unlocking
-never heard about it.
-
-Three new hooks close that. All three default to off, so a consumer that passes
-none of them keeps 1.x behaviour exactly.
-
-```dart
-// The one gate condition, all three consumers derived from it.
-bool gateOpen(int levelId) => levelId <= 29 || hasTicket;
-
-SagaInfiniteMapView(
-  gates: [SagaMapGate(pathPosition: 29, isOpen: hasTicket)],
-  interactionPolicy: SagaNodeInteractionPolicy(
-    isReachable: (level, progress) => gateOpen(level.id),
-  ),
-);
-
-const useCase = CompleteLevelUseCase(canUnlock: gateOpen);
-```
-
-- `SagaInfiniteMapView.gates` — the view applies `clampTravelThroughGates`
-  itself. A barrier you installed on the controller yourself still wins.
-- `SagaNodeInteractionPolicy.isReachable` — consulted before `canTap`, so a
-  vetoed node is disabled, skipped by Tab and announced as locked. A subclass
-  that overrides `canLongPress` without calling `canTap` bypasses it, as before.
-- `CompleteLevelUseCase.canUnlock` — vetoes opening the successor. The level
-  itself still completes and a boss reward still drops; only the successor and
-  `currentMaxUnlockedLevelId` stand still.
-
-`CompleteLevelResult` gained `unlockBlocked` so a host can tell "you finished
-the level" from "you finished it and the road ahead is still shut". It is
-always `false` when no `canUnlock` is injected.
-
-See [ADR-0005](docs/adrs/0005-kapiyi-ilerleme-engeline-baglamak.md).
-
-### BREAKING — boss levels moved by one
-
-`isBossLevel` is now `levelId >= 0 && levelId % 15 == 14`. It was
-`levelId > 0 && levelId % 15 == 0`.
-
-Ids are zero-based, so "every fifteenth level" — the 15th, 30th and 45th a
-player sees — is `id % 15 == 14`. The old formula landed on the 16th node and,
-because difficulty is `1 + id % 5`, handed the boss the easiest board in the
-cycle. The corrected rule aligns three systems at once: every boss id also
-satisfies `id % 5 == 4`, so a boss is always a difficulty-5 board.
-
-No signature changed, so this looks like a patch. It is not: the *meaning* of
-saved data changes.
-
-**Players may have been rewarded at ids 15/30/45 and never at 14/29/44; the
-package cannot migrate this because it never writes to your
-`InventoryRepository`.** Deciding whether to compensate — grant the missed
-drop, or leave it — is yours, and it has to be decided before you ship 2.0.0
-to an existing install base.
-
-To keep the 1.x placement exactly, inject the old rule:
-
-```dart
-const useCase = CompleteLevelUseCase(bossRule: legacyBossRule);
-
-bool legacyBossRule(int levelId) => levelId > 0 && levelId % 15 == 0;
-```
-
-That is why this release and the injectable rewards below ship together: the
-escape hatch has to exist in the same version as the change it undoes.
-
-See [ADR-0002](docs/adrs/0002-boss-seviye-formulunu-duzeltmek.md).
-
-### BREAKING — rewards are injectable
-
-`CompleteLevelUseCase` no longer calls `isBossLevel` and `kMvpLootTable`
-directly. Both are constructor parameters now, and both keep their old values
-as defaults, so `const CompleteLevelUseCase()` behaves exactly as it did in
-1.x.
-
-```dart
-const useCase = CompleteLevelUseCase(
-  bossRule: myBossRule,   // bool Function(int levelId), defaults to isBossLevel
-  lootTable: myTable,     // List<LootTableEntry>, defaults to kMvpLootTable
-);
-```
-
-`rollBossReward` gained an optional `table` parameter, also defaulting to
-`kMvpLootTable`, so existing calls compile unchanged.
-
-What did change behaviourally: an empty table, a negative weight or weights
-totalling `0` now throw an `ArgumentError` instead of silently rolling against
-`kMvpLootTable`. If you were relying on that fall back — you were not, it was
-unreachable with the built-in table — pass `kMvpLootTable` explicitly.
-
-`isBossLevel` stays public. Its reason for being public changed: it used to be
-the only way to ask the question, and it is now the default value of
-`bossRule`, which a default value has to be to stay overridable.
-
-See [ADR-0003](docs/adrs/0003-odul-sistemini-enjekte-edilebilir-kilmak.md).
-
-### BREAKING — `SagaProgressRepository` gained `saveGlobalSeed`
-
-Adding a method to an `abstract interface class` breaks every implementation.
-Every implementation of `SagaProgressRepository` needs one more method:
-
-```dart
-@override
-Future<void> saveGlobalSeed(int seed) async {
-  await _prefs.setInt('saga_map.seed', seed);
-}
-```
-
-**If your `loadGlobalSeed` wrote a default as a side effect, move that write
-here.** That pattern is exactly why this is not optional: writing a seed on
-read makes "load" mean "load, and possibly change the whole map", and a load
-that has to run before another load is correct is not a contract anyone can
-reason about. `loadGlobalSeed` now says so explicitly: implementations must not
-persist as a side effect of loading.
-
-This could have been hidden behind a default body throwing
-`UnimplementedError` and shipped in 1.1.0 as non-breaking. It was not: a
-supertype method that throws in a subtype is the LSP violation the SOLID
-checklist names outright. One version of delay is cheaper than a permanent
-hole in the contract.
-
-Changing a stored seed regenerates the whole map — level positions, biomes and
-boss rewards all derive from it. Existing `SagaProgress` keeps its level ids,
-but those ids now point at different terrain.
-
-See [ADR-0004](docs/adrs/0004-saga-progress-genisletilebilirligi.md).
 
 ## 1.1.0
 

@@ -558,6 +558,79 @@ SagaInfiniteMapView(
 )
 ```
 
+### Biomes
+
+The generator cycles through `SagaMapConfig.biomeIds`. It defaults to the
+built-in three, so omitting it produces exactly the biome sequence 1.x did.
+
+```dart
+const realms = <String>[
+  'sunspire', 'drownlands', 'ashreach', 'verdant', 'hollow',
+  'saltmarch', 'emberfall', 'stillwood', 'gloamvale', 'highcrown',
+];
+
+// Ten realms, five levels each: the cycle closes after 50 levels.
+final config = SagaMapConfig.defaultConfig.copyWith(
+  biomeSpan: 5,
+  biomeIds: realms,
+);
+```
+
+`biomeSpan` sets how many levels each id covers; the list length sets how many
+ids there are. Together they set the cycle:
+
+| `biomeSpan` | ids | biome changes every | cycle closes at |
+| --- | --- | --- | --- |
+| 50 | 3 (default) | 50 levels | 150 levels |
+| 5 | 10 | 5 levels | 50 levels |
+| 1 | 4 | every level | 4 levels |
+| 50 | 1 | never | never |
+
+Duplicates are kept, not deduplicated — `['forest', 'forest', 'desert']` is how
+you weight one biome twice as heavily. An empty list throws an `ArgumentError`
+at generation time.
+
+#### Theming your own ids
+
+`DefaultSagaBiomeThemeResolver` only knows the built-in three. Any other id
+falls back to the forest theme — and prints one debug-mode warning per unknown
+id, so a typo does not silently paint the world one colour. With your own
+realms, write your own resolver:
+
+```dart
+class RealmThemeResolver implements SagaBiomeThemeResolver {
+  const RealmThemeResolver();
+
+  @override
+  SagaBiomeTheme resolve(String biomeId) => SagaBiomeTheme(
+        backgroundColor: _background[biomeId] ?? const Color(0xFF2D5A27),
+        pathFillColor: const Color(0xFF1E3D1A),
+        pathBorderColor: const Color(0xFF0F2610),
+        shadowColor: const Color(0x40000000),
+
+        // Opaque art keys. The package never loads these; it carries them so a
+        // builder can. Your keys, your formats, your loader.
+        assets: {
+          'nodeSprite': 'assets/$biomeId/node.webp',
+          'pathStone': 'assets/$biomeId/stone.webp',
+        },
+
+        // A translucent wash painted over the chunk, under your node widgets.
+        ambientTint: _tint[biomeId],
+      );
+}
+```
+
+Reach the assets from a builder through the same resolver you pass the view:
+
+```dart
+chunkDecorationBuilder: (context, chunk) {
+  final theme = resolver.resolve(chunk.dominantBiomeId);
+  final sprite = theme.assets['pathStone'];
+  // …
+}
+```
+
 ### Gates
 
 A gate is the "ask 3 friends" or "spend a ticket" barrier. Whether it is open

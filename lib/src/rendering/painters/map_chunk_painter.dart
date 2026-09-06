@@ -51,7 +51,11 @@ class MapChunkPainter extends CustomPainter {
     // to the chunk edges and joins the next chunk's line there. The clip below
     // trims whatever falls outside.
     final split = ctx.splitPathAtProgress();
-    if (split.walked.isEmpty && split.upcoming.isEmpty) return;
+    if (split.walked.isEmpty && split.upcoming.isEmpty) {
+      // A pathless chunk is still part of the biome, so it still gets the wash.
+      _paintAmbientTint(canvas, bounds, theme);
+      return;
+    }
 
     final zoom = ctx.layout.zoom;
 
@@ -75,7 +79,18 @@ class MapChunkPainter extends CustomPainter {
       borderWidth: theme.pathBorderWidth * zoom,
       fillWidth: theme.pathInnerStrokeWidth * zoom,
     );
+
+    // The wash goes over background and path alike, still inside the clip.
+    // Node widgets are drawn above this layer and stay untinted.
+    _paintAmbientTint(canvas, bounds, theme);
     canvas.restore();
+  }
+
+  /// Paints [SagaBiomeTheme.ambientTint], if the biome sets one.
+  void _paintAmbientTint(Canvas canvas, Rect bounds, SagaBiomeTheme theme) {
+    final tint = theme.ambientTint;
+    if (tint == null) return;
+    canvas.drawRect(bounds, Paint()..color = tint);
   }
 
   void _strokePath(

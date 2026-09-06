@@ -1,3 +1,4 @@
+import '../biome_ids.dart';
 import 'saga_geometry.dart';
 
 /// Geometry parameters used by [SagaMapLevelGenerator].
@@ -16,12 +17,64 @@ class SagaMapConfig {
   /// integer division-by-zero.
   final int biomeSpan;
 
+  /// Biome ids the generator cycles through, in order.
+  ///
+  /// Defaults to the built-in three, [kSagaBiomeIds]. A host with its own
+  /// realms passes its own list and stops maintaining a parallel one.
+  ///
+  /// [biomeSpan] sets how many levels each id covers; the list length sets how
+  /// many ids there are. The full cycle closes after
+  /// `biomeSpan * biomeIds.length` levels:
+  ///
+  /// | `biomeSpan` | `biomeIds.length` | biome changes every | cycle closes at |
+  /// | --- | --- | --- | --- |
+  /// | 50 | 3 (default) | 50 levels | 150 levels |
+  /// | 5 | 10 | 5 levels | 50 levels |
+  /// | 1 | 4 | every level | 4 levels |
+  /// | 50 | 1 | never | never |
+  ///
+  /// Must not be empty: the generator indexes it modulo its length, and an
+  /// empty list is a division by zero. `SagaMapLevelGenerator` throws an
+  /// [ArgumentError] for one. The check lives there rather than in this
+  /// constructor because a `const` constructor cannot inspect a list, and an
+  /// assert would be stripped from exactly the release builds a host's own
+  /// list arrives in.
+  ///
+  /// Duplicate ids are allowed and are not deduplicated — repeating an id is
+  /// how you weight one biome more heavily, as in
+  /// `[forest, forest, desert]`. Each slot is one [biomeSpan] stretch.
+  ///
+  /// Ids the theme resolver does not recognise fall back to its default theme;
+  /// see [SagaBiomeThemeResolver].
+  final List<String> biomeIds;
+
   const SagaMapConfig({
     required this.minX,
     required this.maxX,
     required this.stepHeight,
     required this.biomeSpan,
+    this.biomeIds = kSagaBiomeIds,
   }) : assert(biomeSpan > 0, 'biomeSpan must be greater than 0');
+
+  /// A copy with the given fields replaced.
+  ///
+  /// The usual way to reach [biomeIds] without restating the geometry:
+  /// `SagaMapConfig.defaultConfig.copyWith(biomeIds: myRealms)`.
+  SagaMapConfig copyWith({
+    double? minX,
+    double? maxX,
+    double? stepHeight,
+    int? biomeSpan,
+    List<String>? biomeIds,
+  }) {
+    return SagaMapConfig(
+      minX: minX ?? this.minX,
+      maxX: maxX ?? this.maxX,
+      stepHeight: stepHeight ?? this.stepHeight,
+      biomeSpan: biomeSpan ?? this.biomeSpan,
+      biomeIds: biomeIds ?? this.biomeIds,
+    );
+  }
 
   /// Lateral band this config generates levels within.
   ///

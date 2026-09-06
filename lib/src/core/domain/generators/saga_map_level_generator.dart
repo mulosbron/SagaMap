@@ -1,4 +1,3 @@
-import '../biome_ids.dart';
 import '../models/level_data.dart';
 import '../models/saga_geometry.dart';
 import '../models/saga_map_config.dart';
@@ -24,6 +23,16 @@ class SagaMapLevelGenerator implements LevelGenerator {
     required int count,
   }) {
     assert(count >= 0, 'count must not be negative');
+    // A runtime guard, not an assert: `% biomeIds.length` on an empty list is
+    // an integer division by zero, and asserts are stripped from release
+    // builds, which is precisely where a host's own list arrives.
+    if (config.biomeIds.isEmpty) {
+      throw ArgumentError.value(
+        config.biomeIds,
+        'config.biomeIds',
+        'must not be empty',
+      );
+    }
 
     final mid = (config.minX + config.maxX) / 2;
     final bandHalf = (config.maxX - config.minX) / 4;
@@ -49,7 +58,7 @@ class SagaMapLevelGenerator implements LevelGenerator {
         return LevelData(
           id: levelId,
           position: SagaPoint(lateral, along),
-          biomeId: kSagaBiomeIds[biomeIndex % kSagaBiomeIds.length],
+          biomeId: config.biomeIds[biomeIndex % config.biomeIds.length],
           difficulty: 1 + (levelId % 5),
         );
       },

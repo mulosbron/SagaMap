@@ -8,6 +8,43 @@ A single breaking release. Every item below has a copy-pasteable escape hatch,
 and nothing deprecated in 1.1.0 was removed — those removals are scheduled for
 3.0.0.
 
+### BREAKING — biome ids come from config
+
+The generator read the `const` global `kSagaBiomeIds` directly, so a host with
+four realms had no way in. `SagaMapConfig` now carries the list:
+
+```dart
+final config = SagaMapConfig.defaultConfig.copyWith(
+  biomeSpan: 5,
+  biomeIds: myRealms,
+);
+```
+
+**Omitting `biomeIds` generates the same ids as before** — it defaults to
+`kSagaBiomeIds`, which is not removed and not deprecated; it is now that
+default. An empty list throws an `ArgumentError` at generation rather than
+dividing by zero.
+
+Why this is breaking is semantic rather than structural: once a host supplies
+its own ids, `SagaBiomeThemeResolver` starts receiving ids it has never seen.
+`DefaultSagaBiomeThemeResolver` answers with the forest theme rather than
+throwing, and prints one debug-mode warning per unknown id — a wrong-green map
+still works, and the silence that would have hidden the mistake is gone.
+
+`SagaBiomeTheme` gained two optional fields for art direction beyond colour:
+
+- `assets`, an opaque `Map<String, String>` of art keys. The package never
+  loads these; it hands them back to your builders. Opaque on purpose — named
+  fields would freeze an asset taxonomy and a format the package does not own,
+  which is the same trap as the `flutter_svg` dependency below.
+- `ambientTint`, a translucent wash the chunk painter applies over background
+  and path, under your node widgets.
+
+`SagaMapConfig` also gained `copyWith`, so reaching `biomeIds` does not mean
+restating the geometry.
+
+See [ADR-0007](docs/adrs/0007-host-tanimli-biyomlar.md).
+
 ### BREAKING — gates block progression
 
 `SagaMapGate` used to be a helper the package exported and never called:

@@ -127,4 +127,101 @@ void main() {
       }
     });
   });
+
+  group('SagaMapConfig.biomeIds', () {
+    const generator = SagaMapLevelGenerator();
+
+    List<String> biomesFor(SagaMapConfig config, int count) => generator
+        .generateLevels(
+          globalSeed: 42,
+          config: config,
+          startLevelId: 0,
+          count: count,
+        )
+        .map((level) => level.biomeId)
+        .toList();
+
+    test('omitting biomeIds generates exactly the 1.x sequence', () {
+      // The 1.x generator read `kSagaBiomeIds` directly. Anything else here is
+      // a silent re-theming of every existing map.
+      const config = SagaMapConfig.defaultConfig;
+      final generated = biomesFor(config, 400);
+
+      for (var levelId = 0; levelId < generated.length; levelId++) {
+        final expected = kSagaBiomeIds[
+            (levelId ~/ config.biomeSpan) % kSagaBiomeIds.length];
+        expect(generated[levelId], expected, reason: 'level $levelId');
+      }
+      expect(config.biomeIds, kSagaBiomeIds);
+    });
+
+    test('a ten-id list cycles through all ten', () {
+      final realms = [for (var i = 0; i < 10; i++) 'realm_$i'];
+      final config =
+          SagaMapConfig.defaultConfig.copyWith(biomeSpan: 5, biomeIds: realms);
+
+      final generated = biomesFor(config, 50);
+      expect(generated.toSet(), realms.toSet());
+      for (var levelId = 0; levelId < 50; levelId++) {
+        expect(generated[levelId], realms[levelId ~/ 5],
+            reason: 'level $levelId');
+      }
+    });
+
+    test('a one-id list puts every level in the same biome', () {
+      final config =
+          SagaMapConfig.defaultConfig.copyWith(biomeIds: const ['only']);
+      expect(biomesFor(config, 200).toSet(), {'only'});
+    });
+
+    test('an empty list throws instead of dividing by zero', () {
+      final config =
+          SagaMapConfig.defaultConfig.copyWith(biomeIds: const <String>[]);
+
+      expect(
+        () => generator.generateLevels(
+          globalSeed: 1,
+          config: config,
+          startLevelId: 0,
+          count: 1,
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('biomeSpan and list length together set the cycle length', () {
+      // span 5 x 10 ids: the cycle closes after 50 levels, and level 50 is
+      // back on the first realm.
+      final realms = [for (var i = 0; i < 10; i++) 'realm_$i'];
+      final config =
+          SagaMapConfig.defaultConfig.copyWith(biomeSpan: 5, biomeIds: realms);
+
+      final generated = biomesFor(config, 105);
+      expect(generated[0], 'realm_0');
+      expect(generated[49], 'realm_9');
+      expect(generated[50], 'realm_0');
+      expect(generated[100], 'realm_0');
+    });
+
+    test('duplicate ids weight a biome rather than being deduplicated', () {
+      final config = SagaMapConfig.defaultConfig.copyWith(
+        biomeSpan: 1,
+        biomeIds: const ['forest', 'forest', 'desert'],
+      );
+
+      expect(biomesFor(config, 6),
+          ['forest', 'forest', 'desert', 'forest', 'forest', 'desert']);
+    });
+
+    test('copyWith leaves the other fields alone', () {
+      const base = SagaMapConfig.defaultConfig;
+      final copy = base.copyWith(biomeIds: const ['a']);
+
+      expect(copy.minX, base.minX);
+      expect(copy.maxX, base.maxX);
+      expect(copy.stepHeight, base.stepHeight);
+      expect(copy.biomeSpan, base.biomeSpan);
+      expect(copy.biomeIds, const ['a']);
+    });
+  });
 }

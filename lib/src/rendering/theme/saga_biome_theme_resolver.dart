@@ -4,11 +4,25 @@ import '../../core/domain/biome_ids.dart';
 import 'saga_biome_theme.dart';
 
 /// Resolves [SagaBiomeTheme] from biome id.
+///
+/// Since `SagaMapConfig.biomeIds` is host-supplied, an implementation will be
+/// handed ids it has never seen. It must return *some* theme for every id —
+/// a resolver that throws takes the whole map down over a typo — and it should
+/// make that fallback visible in debug, not silent.
 abstract interface class SagaBiomeThemeResolver {
   SagaBiomeTheme resolve(String biomeId);
 }
 
 /// Built-in biome resolver with light/dark palettes.
+///
+/// Knows the three ids in [kSagaBiomeIds]. **Any other id falls back to the
+/// forest theme** rather than throwing: a map that is the wrong green still
+/// works, a map that crashes does not. In debug builds the first fallback for
+/// each unknown id prints a warning, once, so a mistyped id in a host's own
+/// `biomeIds` does not silently paint the whole world one colour.
+///
+/// A host with its own realms implements [SagaBiomeThemeResolver] rather than
+/// living with this fallback.
 class DefaultSagaBiomeThemeResolver implements SagaBiomeThemeResolver {
   final Brightness brightness;
 
@@ -23,11 +37,38 @@ class DefaultSagaBiomeThemeResolver implements SagaBiomeThemeResolver {
       case kBiomeIdGlacier:
         return isLight ? _glacierLight : _glacierDark;
       case kBiomeIdForest:
+        return isLight ? _forestLight : _forestDark;
       default:
+        _warnUnknownBiomeOnce(biomeId);
         return isLight ? _forestLight : _forestDark;
     }
   }
 }
+
+/// Ids already reported, so a resolve called once per chunk per frame does not
+/// turn one typo into a log flood.
+final Set<String> _reportedUnknownBiomeIds = <String>{};
+
+/// Prints one debug-mode warning per unknown biome id.
+///
+/// Silence here is the failure mode ADR-0007 calls out: the host believes its
+/// realms are themed and sees a uniformly forest-coloured map instead.
+void _warnUnknownBiomeOnce(String biomeId) {
+  assert(() {
+    if (_reportedUnknownBiomeIds.add(biomeId)) {
+      debugPrint(
+        'saga_map: DefaultSagaBiomeThemeResolver does not know the biome id '
+        '"$biomeId" and is falling back to the forest theme. Implement '
+        'SagaBiomeThemeResolver to theme your own SagaMapConfig.biomeIds.',
+      );
+    }
+    return true;
+  }());
+}
+
+/// Clears the "already warned" set. Test-only.
+@visibleForTesting
+void debugResetUnknownBiomeWarnings() => _reportedUnknownBiomeIds.clear();
 
 const SagaBiomeTheme _forestLight = SagaBiomeTheme(
   backgroundColor: Color(0xFF2D5A27),

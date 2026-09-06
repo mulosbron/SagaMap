@@ -5,139 +5,30 @@ All notable changes to this package are documented in this file.
 ## 2.0.0
 
 A single breaking release. Every item below has a copy-pasteable escape hatch,
-and nothing deprecated in 1.1.0 was removed — those removals are scheduled for
-3.0.0.
+and nothing deprecated in 1.1.0 was removed — those removals stay scheduled for
+3.0.0, so the deprecated builders survive the whole 2.x line.
 
-### BREAKING — `flutter_svg` is no longer a dependency
+Six breaking changes, in the order you will hit them:
 
-`SagaMapBackgroundConfig.svgAsset` and `.svgAssets` are removed, and with them
-the `flutter_svg` dependency and its transitive `vector_graphics`,
-`vector_graphics_compiler`, `path_parsing` and `xml`. The package's direct
-dependencies are now `equatable` and `fast_noise`, nothing else.
+| Change | What you do about it |
+| --- | --- |
+| Boss levels moved by one | Nothing, or inject `bossRule` to keep 1.x placement |
+| Rewards are injectable | Nothing; the defaults are the old values |
+| Gates block progression | Nothing; all three hooks default to off |
+| Biome ids come from config | Nothing; omitting `biomeIds` is the old sequence |
+| `saveGlobalSeed` added | Implement one method on your repository |
+| `flutter_svg` dropped | Take the dependency yourself and pass a `builder` |
 
-A background library had no business being a hard dependency of a layout
-package: it made every consumer carry an SVG decoder to draw a PNG, and it
-froze one artwork format into the API (ADR-0008).
+Only two of those need code from you. The other four are behaviour or contract
+changes whose defaults reproduce 1.x exactly.
 
-Replace an SVG background with a builder — the package positions and scrolls
-whatever it returns and loads nothing itself:
+**Nothing new was deprecated in 2.0.0.** The removals in this release are
+outright, because a deprecated `svgAsset` would have kept the `flutter_svg`
+dependency alive, which was the point of removing it.
 
-```yaml
-# your pubspec.yaml — the dependency moves to your app
-dependencies:
-  flutter_svg: ^2.2.4
-```
-
-```dart
-// before
-backgroundConfig: const SagaMapBackgroundConfig.svgAsset(
-  assetPath: 'assets/svg/map.svg',
-  fit: BoxFit.cover,
-)
-
-// after
-backgroundConfig: SagaMapBackgroundConfig.builder(
-  (context, chunkIndex) =>
-      SvgPicture.asset('assets/svg/map.svg', fit: BoxFit.cover),
-)
-```
-
-For `svgAssets`, index your own list off `chunkIndex` — you now choose the
-overflow behaviour instead of picking from the package's three:
-
-```dart
-backgroundConfig: SagaMapBackgroundConfig.builder(
-  (context, chunkIndex) => SvgPicture.asset(
-    assets[(chunkIndex ?? 0) % assets.length],
-    fit: BoxFit.cover,
-  ),
-)
-```
-
-The colour, image-asset and none modes are untouched.
-`buildBackgroundWidget` now takes a `BuildContext` as its first argument, since
-a host-supplied builder needs one. A `builder` config ignores `fit`,
-`alignment` and `overflowBehavior`: they describe placing an asset the package
-loaded, and it no longer loads this one.
-
-See [ADR-0008](docs/adrs/0008-flutter-svg-bagimliligini-ayirmak.md).
-
-### BREAKING — biome ids come from config
-
-The generator read the `const` global `kSagaBiomeIds` directly, so a host with
-four realms had no way in. `SagaMapConfig` now carries the list:
-
-```dart
-final config = SagaMapConfig.defaultConfig.copyWith(
-  biomeSpan: 5,
-  biomeIds: myRealms,
-);
-```
-
-**Omitting `biomeIds` generates the same ids as before** — it defaults to
-`kSagaBiomeIds`, which is not removed and not deprecated; it is now that
-default. An empty list throws an `ArgumentError` at generation rather than
-dividing by zero.
-
-Why this is breaking is semantic rather than structural: once a host supplies
-its own ids, `SagaBiomeThemeResolver` starts receiving ids it has never seen.
-`DefaultSagaBiomeThemeResolver` answers with the forest theme rather than
-throwing, and prints one debug-mode warning per unknown id — a wrong-green map
-still works, and the silence that would have hidden the mistake is gone.
-
-`SagaBiomeTheme` gained two optional fields for art direction beyond colour:
-
-- `assets`, an opaque `Map<String, String>` of art keys. The package never
-  loads these; it hands them back to your builders. Opaque on purpose — named
-  fields would freeze an asset taxonomy and a format the package does not own,
-  which is the same trap as the `flutter_svg` dependency below.
-- `ambientTint`, a translucent wash the chunk painter applies over background
-  and path, under your node widgets.
-
-`SagaMapConfig` also gained `copyWith`, so reaching `biomeIds` does not mean
-restating the geometry.
-
-See [ADR-0007](docs/adrs/0007-host-tanimli-biyomlar.md).
-
-### BREAKING — gates block progression
-
-`SagaMapGate` used to be a helper the package exported and never called:
-`clampTravelThroughGates` had exactly two references in `lib/`, its own
-definition and a doc comment. A gate did nothing unless the host wired it by
-hand, and even then it only slowed the character down — taps and unlocking
-never heard about it.
-
-Three new hooks close that. All three default to off, so a consumer that passes
-none of them keeps 1.x behaviour exactly.
-
-```dart
-// The one gate condition, all three consumers derived from it.
-bool gateOpen(int levelId) => levelId <= 29 || hasTicket;
-
-SagaInfiniteMapView(
-  gates: [SagaMapGate(pathPosition: 29, isOpen: hasTicket)],
-  interactionPolicy: SagaNodeInteractionPolicy(
-    isReachable: (level, progress) => gateOpen(level.id),
-  ),
-);
-
-const useCase = CompleteLevelUseCase(canUnlock: gateOpen);
-```
-
-- `SagaInfiniteMapView.gates` — the view applies `clampTravelThroughGates`
-  itself. A barrier you installed on the controller yourself still wins.
-- `SagaNodeInteractionPolicy.isReachable` — consulted before `canTap`, so a
-  vetoed node is disabled, skipped by Tab and announced as locked. A subclass
-  that overrides `canLongPress` without calling `canTap` bypasses it, as before.
-- `CompleteLevelUseCase.canUnlock` — vetoes opening the successor. The level
-  itself still completes and a boss reward still drops; only the successor and
-  `currentMaxUnlockedLevelId` stand still.
-
-`CompleteLevelResult` gained `unlockBlocked` so a host can tell "you finished
-the level" from "you finished it and the road ahead is still shut". It is
-always `false` when no `canUnlock` is injected.
-
-See [ADR-0005](docs/adrs/0005-kapiyi-ilerleme-engeline-baglamak.md).
+The one thing this release cannot do for you: **saved reward history**. Boss
+levels moved, and the package never wrote to your `InventoryRepository`, so it
+cannot migrate what it never owned. See the first section.
 
 ### BREAKING — boss levels moved by one
 
@@ -200,6 +91,83 @@ the only way to ask the question, and it is now the default value of
 
 See [ADR-0003](docs/adrs/0003-odul-sistemini-enjekte-edilebilir-kilmak.md).
 
+### BREAKING — gates block progression
+
+`SagaMapGate` used to be a helper the package exported and never called:
+`clampTravelThroughGates` had exactly two references in `lib/`, its own
+definition and a doc comment. A gate did nothing unless the host wired it by
+hand, and even then it only slowed the character down — taps and unlocking
+never heard about it.
+
+Three new hooks close that. All three default to off, so a consumer that passes
+none of them keeps 1.x behaviour exactly.
+
+```dart
+// The one gate condition, all three consumers derived from it.
+bool gateOpen(int levelId) => levelId <= 29 || hasTicket;
+
+SagaInfiniteMapView(
+  gates: [SagaMapGate(pathPosition: 29, isOpen: hasTicket)],
+  interactionPolicy: SagaNodeInteractionPolicy(
+    isReachable: (level, progress) => gateOpen(level.id),
+  ),
+);
+
+const useCase = CompleteLevelUseCase(canUnlock: gateOpen);
+```
+
+- `SagaInfiniteMapView.gates` — the view applies `clampTravelThroughGates`
+  itself. A barrier you installed on the controller yourself still wins.
+- `SagaNodeInteractionPolicy.isReachable` — consulted before `canTap`, so a
+  vetoed node is disabled, skipped by Tab and announced as locked. A subclass
+  that overrides `canLongPress` without calling `canTap` bypasses it, as before.
+- `CompleteLevelUseCase.canUnlock` — vetoes opening the successor. The level
+  itself still completes and a boss reward still drops; only the successor and
+  `currentMaxUnlockedLevelId` stand still.
+
+`CompleteLevelResult` gained `unlockBlocked` so a host can tell "you finished
+the level" from "you finished it and the road ahead is still shut". It is
+always `false` when no `canUnlock` is injected.
+
+See [ADR-0005](docs/adrs/0005-kapiyi-ilerleme-engeline-baglamak.md).
+
+### BREAKING — biome ids come from config
+
+The generator read the `const` global `kSagaBiomeIds` directly, so a host with
+four realms had no way in. `SagaMapConfig` now carries the list:
+
+```dart
+final config = SagaMapConfig.defaultConfig.copyWith(
+  biomeSpan: 5,
+  biomeIds: myRealms,
+);
+```
+
+**Omitting `biomeIds` generates the same ids as before** — it defaults to
+`kSagaBiomeIds`, which is not removed and not deprecated; it is now that
+default. An empty list throws an `ArgumentError` at generation rather than
+dividing by zero.
+
+Why this is breaking is semantic rather than structural: once a host supplies
+its own ids, `SagaBiomeThemeResolver` starts receiving ids it has never seen.
+`DefaultSagaBiomeThemeResolver` answers with the forest theme rather than
+throwing, and prints one debug-mode warning per unknown id — a wrong-green map
+still works, and the silence that would have hidden the mistake is gone.
+
+`SagaBiomeTheme` gained two optional fields for art direction beyond colour:
+
+- `assets`, an opaque `Map<String, String>` of art keys. The package never
+  loads these; it hands them back to your builders. Opaque on purpose — named
+  fields would freeze an asset taxonomy and a format the package does not own,
+  which is the same trap as the `flutter_svg` dependency below.
+- `ambientTint`, a translucent wash the chunk painter applies over background
+  and path, under your node widgets.
+
+`SagaMapConfig` also gained `copyWith`, so reaching `biomeIds` does not mean
+restating the geometry.
+
+See [ADR-0007](docs/adrs/0007-host-tanimli-biyomlar.md).
+
 ### BREAKING — `SagaProgressRepository` gained `saveGlobalSeed`
 
 Adding a method to an `abstract interface class` breaks every implementation.
@@ -230,6 +198,60 @@ boss rewards all derive from it. Existing `SagaProgress` keeps its level ids,
 but those ids now point at different terrain.
 
 See [ADR-0004](docs/adrs/0004-saga-progress-genisletilebilirligi.md).
+
+### BREAKING — `flutter_svg` is no longer a dependency
+
+`SagaMapBackgroundConfig.svgAsset` and `.svgAssets` are removed, and with them
+the `flutter_svg` dependency and its transitive `vector_graphics`,
+`vector_graphics_compiler`, `path_parsing` and `xml`. The package's direct
+dependencies are now `equatable` and `fast_noise`, nothing else.
+
+A background library had no business being a hard dependency of a layout
+package: it made every consumer carry an SVG decoder to draw a PNG, and it
+froze one artwork format into the API (ADR-0008).
+
+Replace an SVG background with a builder — the package positions and scrolls
+whatever it returns and loads nothing itself:
+
+```yaml
+# your pubspec.yaml — the dependency moves to your app
+dependencies:
+  flutter_svg: ^2.2.4
+```
+
+```dart
+// before
+backgroundConfig: const SagaMapBackgroundConfig.svgAsset(
+  assetPath: 'assets/svg/map.svg',
+  fit: BoxFit.cover,
+)
+
+// after
+backgroundConfig: SagaMapBackgroundConfig.builder(
+  (context, chunkIndex) =>
+      SvgPicture.asset('assets/svg/map.svg', fit: BoxFit.cover),
+)
+```
+
+For `svgAssets`, index your own list off `chunkIndex` — you now choose the
+overflow behaviour instead of picking from the package's three:
+
+```dart
+backgroundConfig: SagaMapBackgroundConfig.builder(
+  (context, chunkIndex) => SvgPicture.asset(
+    assets[(chunkIndex ?? 0) % assets.length],
+    fit: BoxFit.cover,
+  ),
+)
+```
+
+The colour, image-asset and none modes are untouched.
+`buildBackgroundWidget` now takes a `BuildContext` as its first argument, since
+a host-supplied builder needs one. A `builder` config ignores `fit`,
+`alignment` and `overflowBehavior`: they describe placing an asset the package
+loaded, and it no longer loads this one.
+
+See [ADR-0008](docs/adrs/0008-flutter-svg-bagimliligini-ayirmak.md).
 
 ## 1.1.0
 

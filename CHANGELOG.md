@@ -146,6 +146,37 @@ the only way to ask the question, and it is now the default value of
 
 See [ADR-0003](docs/adrs/0003-odul-sistemini-enjekte-edilebilir-kilmak.md).
 
+### BREAKING — `SagaProgressRepository` gained `saveGlobalSeed`
+
+Adding a method to an `abstract interface class` breaks every implementation.
+Every implementation of `SagaProgressRepository` needs one more method:
+
+```dart
+@override
+Future<void> saveGlobalSeed(int seed) async {
+  await _prefs.setInt('saga_map.seed', seed);
+}
+```
+
+**If your `loadGlobalSeed` wrote a default as a side effect, move that write
+here.** That pattern is exactly why this is not optional: writing a seed on
+read makes "load" mean "load, and possibly change the whole map", and a load
+that has to run before another load is correct is not a contract anyone can
+reason about. `loadGlobalSeed` now says so explicitly: implementations must not
+persist as a side effect of loading.
+
+This could have been hidden behind a default body throwing
+`UnimplementedError` and shipped in 1.1.0 as non-breaking. It was not: a
+supertype method that throws in a subtype is the LSP violation the SOLID
+checklist names outright. One version of delay is cheaper than a permanent
+hole in the contract.
+
+Changing a stored seed regenerates the whole map — level positions, biomes and
+boss rewards all derive from it. Existing `SagaProgress` keeps its level ids,
+but those ids now point at different terrain.
+
+See [ADR-0004](docs/adrs/0004-saga-progress-genisletilebilirligi.md).
+
 ## 1.1.0
 
 No breaking changes: a consumer on `^1.0.0` upgrades without touching its code.

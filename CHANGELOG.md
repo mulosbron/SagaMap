@@ -61,8 +61,6 @@ bool legacyBossRule(int levelId) => levelId > 0 && levelId % 15 == 0;
 That is why this release and the injectable rewards below ship together: the
 escape hatch has to exist in the same version as the change it undoes.
 
-See [ADR-0002](docs/adrs/0002-boss-seviye-formulunu-duzeltmek.md).
-
 ### BREAKING — rewards are injectable
 
 `CompleteLevelUseCase` no longer calls `isBossLevel` and `kMvpLootTable`
@@ -88,8 +86,6 @@ unreachable with the built-in table — pass `kMvpLootTable` explicitly.
 `isBossLevel` stays public. Its reason for being public changed: it used to be
 the only way to ask the question, and it is now the default value of
 `bossRule`, which a default value has to be to stay overridable.
-
-See [ADR-0003](docs/adrs/0003-odul-sistemini-enjekte-edilebilir-kilmak.md).
 
 ### BREAKING — gates block progression
 
@@ -129,8 +125,6 @@ const useCase = CompleteLevelUseCase(canUnlock: gateOpen);
 the level" from "you finished it and the road ahead is still shut". It is
 always `false` when no `canUnlock` is injected.
 
-See [ADR-0005](docs/adrs/0005-kapiyi-ilerleme-engeline-baglamak.md).
-
 ### BREAKING — biome ids come from config
 
 The generator read the `const` global `kSagaBiomeIds` directly, so a host with
@@ -166,8 +160,6 @@ still works, and the silence that would have hidden the mistake is gone.
 `SagaMapConfig` also gained `copyWith`, so reaching `biomeIds` does not mean
 restating the geometry.
 
-See [ADR-0007](docs/adrs/0007-host-tanimli-biyomlar.md).
-
 ### BREAKING — `SagaProgressRepository` gained `saveGlobalSeed`
 
 Adding a method to an `abstract interface class` breaks every implementation.
@@ -196,8 +188,6 @@ hole in the contract.
 Changing a stored seed regenerates the whole map — level positions, biomes and
 boss rewards all derive from it. Existing `SagaProgress` keeps its level ids,
 but those ids now point at different terrain.
-
-See [ADR-0004](docs/adrs/0004-saga-progress-genisletilebilirligi.md).
 
 ### BREAKING — `flutter_svg` is no longer a dependency
 
@@ -250,8 +240,6 @@ The colour, image-asset and none modes are untouched.
 a host-supplied builder needs one. A `builder` config ignores `fit`,
 `alignment` and `overflowBehavior`: they describe placing an asset the package
 loaded, and it no longer loads this one.
-
-See [ADR-0008](docs/adrs/0008-flutter-svg-bagimliligini-ayirmak.md).
 
 ## 1.1.0
 

@@ -390,7 +390,8 @@ rejects taps. Override the label to localise:
 
 ```dart
 MapChunkWidget(
-  semanticsLabelBuilder: (level, progress) => 'Bölüm ${level.id}',
+  // Ids are zero-based; a player hears the number, so announce `id + 1`.
+  semanticsLabelBuilder: (level, progress) => 'Niveau ${level.id + 1}',
   // ...
 )
 ```

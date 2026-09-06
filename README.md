@@ -131,7 +131,7 @@ Wherever a player reads the number, you must display `id + 1`.
 | Context | What to use | Example |
 | --- | --- | --- |
 | Storage | `level.id` | Saved progress uses `0` for the first node |
-| Logic | `level.id` | Generator seeds, boss math (`id % 15 == 0`) |
+| Logic | `level.id` | Generator seeds, boss math (`id % 15 == 14`) |
 | UI | `id + 1` | "Level 1", screen-reader announcements |
 
 ```dart
@@ -142,7 +142,13 @@ Text(
 )
 ```
 
-The function `isBossLevel(levelId)` is public because callers need to know if a level was a boss to display the appropriate icon before it is played.
+The function `isBossLevel(levelId)` is public because callers need to know if a
+level was a boss to display the appropriate icon before it is played, and
+because it is the default value of `CompleteLevelUseCase.bossRule` — a default
+has to be nameable to be overridable.
+
+Because ids are zero-based, "every fifteenth level" is `id % 15 == 14`. That
+also makes every boss a difficulty-5 board, since difficulty is `1 + id % 5`.
 
 ## Versioning
 
@@ -156,7 +162,6 @@ A change is breaking (requires a major version bump) if it breaks:
 **Deprecation policy:** Nothing marked `@Deprecated` is removed in the same major version. It will emit a warning until the next major release.
 
 **Upcoming breaking changes in 2.0.0:**
-- Boss milestones land on `id % 5 == 4` instead of `id % 15 == 0` (ADR-0002).
 - Drops `flutter_svg` from the core package (ADR-0008).
 
 ## Public API Design

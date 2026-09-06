@@ -8,6 +8,39 @@ A single breaking release. Every item below has a copy-pasteable escape hatch,
 and nothing deprecated in 1.1.0 was removed — those removals are scheduled for
 3.0.0.
 
+### BREAKING — boss levels moved by one
+
+`isBossLevel` is now `levelId >= 0 && levelId % 15 == 14`. It was
+`levelId > 0 && levelId % 15 == 0`.
+
+Ids are zero-based, so "every fifteenth level" — the 15th, 30th and 45th a
+player sees — is `id % 15 == 14`. The old formula landed on the 16th node and,
+because difficulty is `1 + id % 5`, handed the boss the easiest board in the
+cycle. The corrected rule aligns three systems at once: every boss id also
+satisfies `id % 5 == 4`, so a boss is always a difficulty-5 board.
+
+No signature changed, so this looks like a patch. It is not: the *meaning* of
+saved data changes.
+
+**Players may have been rewarded at ids 15/30/45 and never at 14/29/44; the
+package cannot migrate this because it never writes to your
+`InventoryRepository`.** Deciding whether to compensate — grant the missed
+drop, or leave it — is yours, and it has to be decided before you ship 2.0.0
+to an existing install base.
+
+To keep the 1.x placement exactly, inject the old rule:
+
+```dart
+const useCase = CompleteLevelUseCase(bossRule: legacyBossRule);
+
+bool legacyBossRule(int levelId) => levelId > 0 && levelId % 15 == 0;
+```
+
+That is why this release and the injectable rewards below ship together: the
+escape hatch has to exist in the same version as the change it undoes.
+
+See [ADR-0002](docs/adrs/0002-boss-seviye-formulunu-duzeltmek.md).
+
 ### BREAKING — rewards are injectable
 
 `CompleteLevelUseCase` no longer calls `isBossLevel` and `kMvpLootTable`

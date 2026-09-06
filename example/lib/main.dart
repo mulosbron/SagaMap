@@ -40,6 +40,35 @@ const SagaSpriteSheet _heroSheet = SagaSpriteSheet(
   frameCount: 6,
 );
 
+/// A 2.0.0 showcase: the reward rules are injected, not baked in.
+///
+/// Every fifth level a player sees is a boss here. Ids are zero-based, so that
+/// is `% 5 == 4` — the same shape as the corrected built-in `isBossLevel`,
+/// which is `% 15 == 14`.
+bool _frequentBossRule(int levelId) => levelId >= 0 && levelId % 5 == 4;
+
+/// The table those bosses roll against. Nothing here comes from the package.
+const List<LootTableEntry> _demoLootTable = <LootTableEntry>[
+  LootTableEntry(
+    itemId: 'demo_acorn',
+    itemName: 'Lucky Acorn',
+    rarity: InventoryRarity.common,
+    weight: 70,
+  ),
+  LootTableEntry(
+    itemId: 'demo_lantern',
+    itemName: "Wanderer's Lantern",
+    rarity: InventoryRarity.rare,
+    weight: 25,
+  ),
+  LootTableEntry(
+    itemId: 'demo_sunspire',
+    itemName: 'Sunspire Crown',
+    rarity: InventoryRarity.legendary,
+    weight: 5,
+  ),
+];
+
 /// Which artwork supplies the map background.
 enum DemoBackground { none, colour, svg, image, multiSvg }
 
@@ -105,6 +134,11 @@ class _SagaMapDemoState extends State<SagaMapDemo>
   /// Which episode (chunk) the viewport is centred on. Driven by [onChunkEnter],
   /// a 1.1.0 listener that fires as the map scrolls into a new chunk.
   int _currentEpisode = 1;
+
+  /// Swaps the package's boss rule and loot table for the demo's own (2.0.0).
+  /// Everything downstream — the node shape, the boss band, the drop-rate
+  /// sheet and the reward itself — follows from this one flag.
+  bool _customRewards = false;
 
   /// The last level the character physically walked over, reported by
   /// [onLevelReached] (1.1.0) rather than inferred from completion.
@@ -254,7 +288,10 @@ class _SagaMapDemoState extends State<SagaMapDemo>
   /// The use-case keeps the better of the old and new star counts, unlocks the
   /// next level, and mints a boss reward only on a first clear.
   void _completeLevel(int levelId) {
-    const useCase = CompleteLevelUseCase();
+    final useCase = CompleteLevelUseCase(
+      bossRule: _bossRule,
+      lootTable: _lootTable,
+    );
     final result = useCase.execute(
       currentProgress: _progress,
       levelId: levelId,
@@ -276,6 +313,15 @@ class _SagaMapDemoState extends State<SagaMapDemo>
     });
   }
 
+  /// The boss rule currently in force, package default or the demo's own.
+  SagaBossRule get _bossRule =>
+      _customRewards ? _frequentBossRule : isBossLevel;
+
+  /// The table currently in force. Paired with [_bossRule]: swapping one
+  /// without the other is how a host ends up disclosing odds it never rolls.
+  List<LootTableEntry> get _lootTable =>
+      _customRewards ? _demoLootTable : kMvpLootTable;
+
   /// Progress lookup the map uses to style each node.
   LevelProgress? _progressFor(LevelData level) => _progress.levels[level.id];
 
@@ -288,9 +334,10 @@ class _SagaMapDemoState extends State<SagaMapDemo>
     final bookmarked =
         (_progressFor(level)?.extra['bookmarked'] as bool?) ?? false;
 
-    // Odds only make sense where a reward actually rolls: boss levels.
-    final odds =
-        isBossLevel(level.id) ? kMvpLootTable : const <LootTableEntry>[];
+    // Odds only make sense where a reward actually rolls: boss levels. Both
+    // halves come from the injected pair, so the disclosed rates cannot drift
+    // away from what the use case actually rolls.
+    final odds = _bossRule(level.id) ? _lootTable : const <LootTableEntry>[];
 
     showDialog<void>(
       context: context,
@@ -427,7 +474,7 @@ class _SagaMapDemoState extends State<SagaMapDemo>
     final progress = _progressFor(level);
     final state = progress?.state ?? LevelCompletionState.locked;
     final isCurrent = level.id == _progress.currentMaxUnlockedLevelId;
-    final isBoss = isBossLevel(level.id);
+    final isBoss = _bossRule(level.id);
 
     final Color fill;
     final Color border;
@@ -562,7 +609,7 @@ class _SagaMapDemoState extends State<SagaMapDemo>
       // 1.1.0: a boss band aligned to the level itself, not to raw pixels. It
       // spans the chunk's full width and ignores the path's lateral wander.
       for (final level in chunk.levels)
-        if (isBossLevel(level.id))
+        if (_bossRule(level.id))
           SagaMapDecoration.atLevel(
             levelId: level.id,
             height: 46,
@@ -867,6 +914,14 @@ class _SagaMapDemoState extends State<SagaMapDemo>
                 ),
                 _backgroundPicker(update),
                 _section('Rules'),
+                SwitchListTile(
+                  title: const Text('Custom rewards'),
+                  subtitle: const Text(
+                    'Injected bossRule + lootTable: a boss every 5th level',
+                  ),
+                  value: _customRewards,
+                  onChanged: (v) => update(() => _customRewards = v),
+                ),
                 SwitchListTile(
                   title: Text('Gate closed at level $_gateLevel'),
                   subtitle: const Text('Holds the character on the near side'),

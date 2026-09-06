@@ -141,7 +141,7 @@ void main() {
 
       final first = useCase.execute(
         currentProgress: SagaProgress.initial(),
-        levelId: 15,
+        levelId: 14,
         globalSeed: 99,
       );
       expect(first.reward, isNotNull);
@@ -149,7 +149,7 @@ void main() {
       // Replaying the boss must not re-mint the reward.
       final replay = useCase.execute(
         currentProgress: first.nextProgress,
-        levelId: 15,
+        levelId: 14,
         globalSeed: 99,
       );
       expect(replay.reward, isNull);
@@ -208,7 +208,14 @@ void main() {
         levelId: 9,
         globalSeed: 99,
       );
+      // The 15th level a player sees, zero-based.
       final boss = useCase.execute(
+        currentProgress: initial,
+        levelId: 14,
+        globalSeed: 99,
+      );
+      // Where 1.x wrongly put the boss: the 16th node, difficulty 1.
+      final formerBoss = useCase.execute(
         currentProgress: initial,
         levelId: 15,
         globalSeed: 99,
@@ -216,6 +223,27 @@ void main() {
 
       expect(nonBoss.reward, isNull);
       expect(boss.reward, isNotNull);
+      expect(formerBoss.reward, isNull);
+    });
+
+    test('the 1.x boss placement can be restored with bossRule', () {
+      // The escape hatch ADR-0002 promises: a host that already paid out at
+      // ids 15/30/45 injects the old rule and nothing moves under its players.
+      const legacy = CompleteLevelUseCase(bossRule: _legacyBossRule);
+      final initial = SagaProgress.initial();
+
+      expect(
+        legacy.execute(currentProgress: initial, levelId: 15, globalSeed: 99).reward,
+        isNotNull,
+      );
+      expect(
+        legacy.execute(currentProgress: initial, levelId: 14, globalSeed: 99).reward,
+        isNull,
+      );
+      expect(
+        legacy.execute(currentProgress: initial, levelId: 0, globalSeed: 99).reward,
+        isNull,
+      );
     });
   });
 
@@ -420,3 +448,6 @@ bool _everySeventh(int levelId) => levelId > 0 && levelId % 7 == 0;
 bool _always(int levelId) => true;
 
 bool _never(int levelId) => false;
+
+/// The 1.0.0 / 1.1.0 boss formula, kept as the documented downgrade path.
+bool _legacyBossRule(int levelId) => levelId > 0 && levelId % 15 == 0;

@@ -408,6 +408,47 @@ if (result.reward != null) {
 }
 ```
 
+### Custom rewards
+
+Both halves of the reward decision are injected. `bossRule` picks which levels
+drop; `lootTable` picks what they drop from. Omit either and you get the
+package's own default, so `const CompleteLevelUseCase()` behaves as it always
+did.
+
+```dart
+const myTable = <LootTableEntry>[
+  LootTableEntry(
+    itemId: 'ember_shard',
+    itemName: 'Ember Shard',
+    rarity: InventoryRarity.common,
+    weight: 70,
+  ),
+  LootTableEntry(
+    itemId: 'sunspire_crown',
+    itemName: 'Sunspire Crown',
+    rarity: InventoryRarity.legendary,
+    weight: 30,
+  ),
+];
+
+const useCase = CompleteLevelUseCase(
+  // Every tenth level a player sees. Ids are zero-based, so that is `% 10 == 9`.
+  bossRule: myBossRule,
+  lootTable: myTable,
+);
+
+bool myBossRule(int levelId) => levelId >= 0 && levelId % 10 == 9;
+```
+
+`bossRule` is a `SagaBossRule` — a plain `bool Function(int levelId)` — so a
+tear-off, a closure or a `const` top-level function all work. It is consulted
+before the first-clear guard, so a reward is still minted only once per level.
+
+An empty table, a negative weight, or weights totalling `0` throw an
+`ArgumentError` at roll time. There is deliberately no silent fall back to
+`kMvpLootTable`: handing out the package's items while you believe your own
+table is live is the hardest kind of bug to find.
+
 ### Disclosing drop rates
 
 When showing loot probabilities in your UI, derive them directly from the loot table rather than hardcoding percentages. This ensures the disclosed rates cannot drift apart from the weights used by the actual roll logic.

@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'loot_table_odds.dart';
 import 'models/inventory_item.dart';
 
 /// Weighted loot entry used by reward roll logic.
@@ -41,25 +42,45 @@ const List<LootTableEntry> kMvpLootTable = [
       weight: 12),
 ];
 
+/// Decides whether a level is a boss encounter.
+///
+/// The default is [isBossLevel]; a host injects its own through
+/// `CompleteLevelUseCase.bossRule` to move, widen or remove boss milestones
+/// without forking the use case.
+typedef SagaBossRule = bool Function(int levelId);
+
 /// Returns true if the level is treated as a boss milestone.
 ///
 /// Note: this logic lands on the 16th node; corrected in 2.0.0 (ADR-0002).
+///
+/// This is the default value of `CompleteLevelUseCase.bossRule`, which is why
+/// it stays public: it has to be nameable to be overridable.
 bool isBossLevel(int levelId) => levelId > 0 && levelId % 15 == 0;
 
 /// Rolls a deterministic reward for boss levels.
 ///
 /// Deterministic and unguarded — calling it twice for the same level mints the same item twice.
 /// `CompleteLevelUseCase.execute` applies the first-clear guard; a direct caller must apply its own.
+///
+/// [table] defaults to [kMvpLootTable]. An empty table, a negative weight or a
+/// total weight of `0` throws an [ArgumentError] rather than falling back to
+/// the built-in table: silently handing out the package's own items while the
+/// host believes its own table is live is the hardest kind of bug to diagnose.
+///
+/// The seed is `levelId ^ globalSeed`, so the same `(levelId, globalSeed, table)`
+/// always yields the same item.
 InventoryItem rollBossReward({
   required int levelId,
   required int globalSeed,
+  List<LootTableEntry> table = kMvpLootTable,
   DateTime? now,
 }) {
-  final totalWeight =
-      kMvpLootTable.fold<int>(0, (sum, entry) => sum + entry.weight);
+  // Validates empty, negative and zero-total tables in one place, shared with
+  // the odds extension so the roll and a disclosure screen cannot disagree.
+  final totalWeight = table.totalWeight;
   final rng = Random(levelId ^ globalSeed);
   var roll = rng.nextInt(totalWeight);
-  for (final entry in kMvpLootTable) {
+  for (final entry in table) {
     if (roll < entry.weight) {
       return InventoryItem(
         itemId: entry.itemId,
@@ -71,12 +92,11 @@ InventoryItem rollBossReward({
     }
     roll -= entry.weight;
   }
-  final fallback = kMvpLootTable.first;
-  return InventoryItem(
-    itemId: fallback.itemId,
-    itemName: fallback.itemName,
-    rarity: fallback.rarity,
-    obtainedFromLevelId: levelId,
-    obtainedAt: now ?? DateTime.now(),
+  // Unreachable: `roll` is drawn from `[0, totalWeight)` and the loop subtracts
+  // exactly `totalWeight` across all entries. Kept as a loud failure rather
+  // than the old silent first-entry fallback, which would have masked a table
+  // mutated underneath the roll.
+  throw StateError(
+    'Loot roll fell through a table of total weight $totalWeight.',
   );
 }

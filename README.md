@@ -161,9 +161,6 @@ A change is breaking (requires a major version bump) if it breaks:
 
 **Deprecation policy:** Nothing marked `@Deprecated` is removed in the same major version. It will emit a warning until the next major release.
 
-**Upcoming breaking changes in 2.0.0:**
-- Drops `flutter_svg` from the core package (ADR-0008).
-
 ## Public API Design
 
 Only import this file from your app:
@@ -183,12 +180,72 @@ The package keeps a "showroom + kitchen" boundary:
 
 ### Background layer
 
+The package positions and scrolls the background; it never loads it. Four ways
+to supply one:
+
 ```dart
-backgroundConfig: const SagaMapBackgroundConfig.svgAsset(
-  assetPath: 'assets/svg/map_horizontal.svg',
+// Nothing — the biome theme paints the chunk.
+backgroundConfig: const SagaMapBackgroundConfig.none()
+
+// A flat colour.
+backgroundConfig: const SagaMapBackgroundConfig.color(color: Color(0xFF24451F))
+
+// A raster asset the package loads with Image.asset. One, or one per chunk:
+backgroundConfig: const SagaMapBackgroundConfig.imageAsset(
+  assetPath: 'assets/map/world.webp',
   fit: BoxFit.cover,
 )
+backgroundConfig: const SagaMapBackgroundConfig.imageAssets(
+  assetPaths: ['assets/map/world_1.png', 'assets/map/world_2.png'],
+  overflowBehavior: SagaMapBackgroundOverflowBehavior.loop,
+)
+
+// Anything else — you build the widget, the package places it.
+backgroundConfig: SagaMapBackgroundConfig.builder(
+  (context, chunkIndex) => const DecoratedBox(
+    decoration: BoxDecoration(
+      gradient: LinearGradient(colors: [Color(0xFF1B3B1A), Color(0xFF0D1F0F)]),
+    ),
+  ),
+)
 ```
+
+**SVG** is a `builder` like anything else. As of 2.0.0 the package does not
+depend on `flutter_svg`; add it to your own app and return an `SvgPicture`:
+
+```yaml
+# your pubspec.yaml
+dependencies:
+  flutter_svg: ^2.2.4
+```
+
+```dart
+import 'package:flutter_svg/flutter_svg.dart';
+
+backgroundConfig: SagaMapBackgroundConfig.builder(
+  (context, chunkIndex) => SvgPicture.asset(
+    'assets/svg/map_vertical.svg',
+    fit: BoxFit.cover,
+  ),
+)
+```
+
+The builder receives the chunk index, which is how you vary artwork across
+chunks — including choosing your own behaviour once the chunks outrun the
+artwork, rather than picking from the package's three:
+
+```dart
+backgroundConfig: SagaMapBackgroundConfig.builder(
+  (context, chunkIndex) => SvgPicture.asset(
+    assets[(chunkIndex ?? 0) % assets.length],
+    fit: BoxFit.cover,
+  ),
+)
+```
+
+A `builder` config ignores `fit`, `alignment` and `overflowBehavior` — those
+describe how the package would place an asset it loaded, and here it loads
+nothing. Size and align the widget yourself. A `null` builder renders nothing.
 
 ### Orientation
 

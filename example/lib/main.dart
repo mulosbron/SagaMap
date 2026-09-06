@@ -9,6 +9,7 @@
 //   cd example && flutter run
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:saga_map/saga_map.dart';
 
 void main() => runApp(const SagaMapDemoApp());
@@ -446,11 +447,15 @@ class _SagaMapDemoState extends State<SagaMapDemo>
       case DemoBackground.colour:
         return const SagaMapBackgroundConfig.color(color: Color(0xFF24451F));
       case DemoBackground.svg:
-        return SagaMapBackgroundConfig.svgAsset(
-          assetPath: horizontal
-              ? 'assets/svg/map_horizontal.svg'
-              : 'assets/svg/map_vertical.svg',
-          fit: BoxFit.cover,
+        // 2.0.0: the package no longer depends on flutter_svg. SVG is now the
+        // host's business — this app carries the dependency and hands back a
+        // widget, and the package positions and scrolls it without knowing
+        // what it is.
+        final asset = horizontal
+            ? 'assets/svg/map_horizontal.svg'
+            : 'assets/svg/map_vertical.svg';
+        return SagaMapBackgroundConfig.builder(
+          (context, chunkIndex) => SvgPicture.asset(asset, fit: BoxFit.cover),
         );
       case DemoBackground.image:
         return SagaMapBackgroundConfig.imageAsset(
@@ -460,13 +465,19 @@ class _SagaMapDemoState extends State<SagaMapDemo>
           fit: BoxFit.cover,
         );
       case DemoBackground.multiSvg:
-        return const SagaMapBackgroundConfig.svgAssets(
-          assetPaths: [
-            'assets/svg/map_vertical.svg',
-            'assets/svg/map_horizontal.svg',
-          ],
-          fit: BoxFit.cover,
-          overflowBehavior: SagaMapBackgroundOverflowBehavior.loop,
+        // The builder is handed the chunk index, which is how a host
+        // reproduces what the removed `svgAssets` constructor did — including
+        // choosing its own overflow behaviour, here a loop.
+        const assets = [
+          'assets/svg/map_vertical.svg',
+          'assets/svg/map_horizontal.svg',
+        ];
+        return SagaMapBackgroundConfig.builder(
+          (context, chunkIndex) => SvgPicture.asset(
+            assets[((chunkIndex ?? 0) % assets.length + assets.length) %
+                assets.length],
+            fit: BoxFit.cover,
+          ),
         );
     }
   }

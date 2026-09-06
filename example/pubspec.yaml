@@ -10,6 +10,9 @@ dependencies:
     path: ../
   flutter:
     sdk: flutter
+  # The package dropped flutter_svg in 2.0.0. The SVG background modes in this
+  # demo are the host's own doing now, so the dependency lives here.
+  flutter_svg: ^2.2.4
 
 # For information on the generic Dart part of this file, see the
 # following page: https://www.dartlang.org/tools/pub/pubspec

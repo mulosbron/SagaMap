@@ -15,8 +15,6 @@ dependencies:
   # equatable + fast_noise: ProceduralBiomeGenerator.
   equatable: ^2.0.5
   fast_noise: ^2.0.0
-  # flutter_svg: SagaMapBackgroundConfig.svgAsset.
-  flutter_svg: ^2.2.4
 
 dev_dependencies:
   flutter_test:

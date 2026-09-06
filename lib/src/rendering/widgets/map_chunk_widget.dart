@@ -276,6 +276,7 @@ class MapChunkWidget extends StatelessWidget {
               children: [
                 Positioned.fill(
                   child: backgroundConfig.buildBackgroundWidget(
+                    context,
                     chunkIndex: chunkIndex,
                   ),
                 ),

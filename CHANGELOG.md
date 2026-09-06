@@ -2,6 +2,40 @@
 
 All notable changes to this package are documented in this file.
 
+## 2.0.0
+
+A single breaking release. Every item below has a copy-pasteable escape hatch,
+and nothing deprecated in 1.1.0 was removed — those removals are scheduled for
+3.0.0.
+
+### BREAKING — rewards are injectable
+
+`CompleteLevelUseCase` no longer calls `isBossLevel` and `kMvpLootTable`
+directly. Both are constructor parameters now, and both keep their old values
+as defaults, so `const CompleteLevelUseCase()` behaves exactly as it did in
+1.x.
+
+```dart
+const useCase = CompleteLevelUseCase(
+  bossRule: myBossRule,   // bool Function(int levelId), defaults to isBossLevel
+  lootTable: myTable,     // List<LootTableEntry>, defaults to kMvpLootTable
+);
+```
+
+`rollBossReward` gained an optional `table` parameter, also defaulting to
+`kMvpLootTable`, so existing calls compile unchanged.
+
+What did change behaviourally: an empty table, a negative weight or weights
+totalling `0` now throw an `ArgumentError` instead of silently rolling against
+`kMvpLootTable`. If you were relying on that fall back — you were not, it was
+unreachable with the built-in table — pass `kMvpLootTable` explicitly.
+
+`isBossLevel` stays public. Its reason for being public changed: it used to be
+the only way to ask the question, and it is now the default value of
+`bossRule`, which a default value has to be to stay overridable.
+
+See [ADR-0003](docs/adrs/0003-odul-sistemini-enjekte-edilebilir-kilmak.md).
+
 ## 1.1.0
 
 No breaking changes: a consumer on `^1.0.0` upgrades without touching its code.

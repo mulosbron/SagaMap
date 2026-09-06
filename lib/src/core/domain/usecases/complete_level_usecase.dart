@@ -20,8 +20,29 @@ class CompleteLevelResult {
 }
 
 /// Marks a level complete, unlocks the next level and rolls boss rewards.
+///
+/// The reward rules are injected, not baked in. [bossRule] decides which levels
+/// drop, [lootTable] decides what they drop from, and both default to the
+/// package's own values — `const CompleteLevelUseCase()` behaves exactly as it
+/// did before either existed. A host with its own economy passes its own two
+/// and never touches this class (ADR-0003).
 class CompleteLevelUseCase {
-  const CompleteLevelUseCase();
+  const CompleteLevelUseCase({
+    this.bossRule = isBossLevel,
+    this.lootTable = kMvpLootTable,
+  });
+
+  /// Which levels drop a boss reward. Defaults to [isBossLevel].
+  ///
+  /// Consulted once per completion, before the first-clear guard.
+  final SagaBossRule bossRule;
+
+  /// Weighted table the reward is rolled from. Defaults to [kMvpLootTable].
+  ///
+  /// Must be non-empty, free of negative weights and total more than `0`;
+  /// anything else throws an [ArgumentError] at roll time rather than falling
+  /// back to the built-in table.
+  final List<LootTableEntry> lootTable;
 
   /// Applies the completion transition for [levelId].
   ///
@@ -96,14 +117,18 @@ class CompleteLevelUseCase {
     // (client-predictable) reward and mints a duplicate item every time, which
     // a host promoting inventory to a server would see as an integrity hole.
     final firstClear = previous?.state != LevelCompletionState.completed;
-    if (!isBossLevel(levelId) || !firstClear) {
+    if (!bossRule(levelId) || !firstClear) {
       return CompleteLevelResult(nextProgress: nextProgress);
     }
 
     return CompleteLevelResult(
       nextProgress: nextProgress,
-      reward:
-          rollBossReward(levelId: levelId, globalSeed: globalSeed, now: now),
+      reward: rollBossReward(
+        levelId: levelId,
+        globalSeed: globalSeed,
+        table: lootTable,
+        now: now,
+      ),
     );
   }
 }

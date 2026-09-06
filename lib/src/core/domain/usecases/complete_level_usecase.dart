@@ -10,6 +10,7 @@ class CompleteLevelResult {
   const CompleteLevelResult({
     required this.nextProgress,
     this.reward,
+    this.unlockBlocked = false,
   });
 
   final SagaProgress nextProgress;
@@ -17,6 +18,16 @@ class CompleteLevelResult {
   /// Returned, **not persisted**.
   /// The caller must write it to its `InventoryRepository`; dropping this value silently loses the item.
   final InventoryItem? reward;
+
+  /// The level completed, but `canUnlock` refused to open its successor.
+  ///
+  /// Without reading this a host cannot tell "you finished the level" from
+  /// "you finished the level and the road ahead is still shut" — both look
+  /// like a completion that went nowhere. Read it to show the player why:
+  /// a closed gate, an unbought chapter, a locked episode.
+  ///
+  /// Always `false` when no `canUnlock` is injected.
+  final bool unlockBlocked;
 }
 
 /// Marks a level complete, unlocks the next level and rolls boss rewards.
@@ -30,6 +41,7 @@ class CompleteLevelUseCase {
   const CompleteLevelUseCase({
     this.bossRule = isBossLevel,
     this.lootTable = kMvpLootTable,
+    this.canUnlock,
   });
 
   /// Which levels drop a boss reward. Defaults to [isBossLevel].
@@ -43,6 +55,28 @@ class CompleteLevelUseCase {
   /// anything else throws an [ArgumentError] at roll time rather than falling
   /// back to the built-in table.
   final List<LootTableEntry> lootTable;
+
+  /// Vetoes unlocking the successor. Given the id about to be unlocked,
+  /// returning `false` completes the level but leaves the next one shut — the
+  /// gate stays closed.
+  ///
+  /// `null`, the default, is 1.x behaviour: the successor always unlocks.
+  ///
+  /// This and [execute]'s `enforceUnlockOrder` guard opposite directions.
+  /// `enforceUnlockOrder` looks backwards and rejects completing a level the
+  /// player has not reached; `canUnlock` looks forwards and refuses to open
+  /// the one after. A host can use either, both or neither.
+  ///
+  /// A veto does not undo the completion: the level's own record still becomes
+  /// [LevelCompletionState.completed], and a boss reward still drops, because
+  /// the player did clear it. Only the successor and
+  /// [SagaProgress.currentMaxUnlockedLevelId] stand still, and
+  /// [CompleteLevelResult.unlockBlocked] says so.
+  ///
+  /// Derive it from the same predicate as
+  /// `SagaNodeInteractionPolicy.isReachable`, so a node the player can tap is
+  /// never a node whose successor silently refuses to open.
+  final bool Function(int levelId)? canUnlock;
 
   /// Applies the completion transition for [levelId].
   ///
@@ -92,24 +126,32 @@ class CompleteLevelUseCase {
     );
 
     final unlockLevelId = levelId + 1;
-    final existingNext = levels[unlockLevelId];
-    if (existingNext == null) {
-      levels[unlockLevelId] = LevelProgress(
-        levelId: unlockLevelId,
-        state: LevelCompletionState.unlocked,
-        stars: 0,
-      );
-    } else if (existingNext.state == LevelCompletionState.locked) {
-      // A host that seeds every level as locked up front would otherwise keep
-      // the successor locked forever, while currentMaxUnlockedLevelId claimed
-      // it was open — the map would stop responding after one completion.
-      levels[unlockLevelId] =
-          existingNext.copyWith(state: LevelCompletionState.unlocked);
+    // The gate is asked once, about the level it would open. A veto leaves the
+    // successor exactly as it was — it is not demoted, because a gate closing
+    // behind a player who already passed it would erase real progress.
+    final unlockBlocked = !(canUnlock?.call(unlockLevelId) ?? true);
+
+    if (!unlockBlocked) {
+      final existingNext = levels[unlockLevelId];
+      if (existingNext == null) {
+        levels[unlockLevelId] = LevelProgress(
+          levelId: unlockLevelId,
+          state: LevelCompletionState.unlocked,
+          stars: 0,
+        );
+      } else if (existingNext.state == LevelCompletionState.locked) {
+        // A host that seeds every level as locked up front would otherwise keep
+        // the successor locked forever, while currentMaxUnlockedLevelId claimed
+        // it was open — the map would stop responding after one completion.
+        levels[unlockLevelId] =
+            existingNext.copyWith(state: LevelCompletionState.unlocked);
+      }
     }
 
     final currentUnlocked = currentProgress.currentMaxUnlockedLevelId;
     final nextProgress = currentProgress.copyWith(
-      currentMaxUnlockedLevelId: math.max(unlockLevelId, currentUnlocked),
+      currentMaxUnlockedLevelId:
+          unlockBlocked ? currentUnlocked : math.max(unlockLevelId, currentUnlocked),
       levels: levels,
     );
 
@@ -118,11 +160,15 @@ class CompleteLevelUseCase {
     // a host promoting inventory to a server would see as an integrity hole.
     final firstClear = previous?.state != LevelCompletionState.completed;
     if (!bossRule(levelId) || !firstClear) {
-      return CompleteLevelResult(nextProgress: nextProgress);
+      return CompleteLevelResult(
+        nextProgress: nextProgress,
+        unlockBlocked: unlockBlocked,
+      );
     }
 
     return CompleteLevelResult(
       nextProgress: nextProgress,
+      unlockBlocked: unlockBlocked,
       reward: rollBossReward(
         levelId: levelId,
         globalSeed: globalSeed,

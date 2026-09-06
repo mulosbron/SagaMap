@@ -15,6 +15,7 @@ import '../background/saga_map_background.dart';
 import '../character/saga_character.dart';
 import '../decoration/saga_map_decoration.dart';
 import '../character/saga_character_controller.dart';
+import '../character/saga_map_gate.dart';
 import '../contracts/saga_map_render_context.dart';
 import '../contracts/saga_chunk_context.dart';
 import '../controllers/saga_infinite_map_controller.dart';
@@ -197,6 +198,28 @@ class SagaInfiniteMapView extends StatefulWidget {
   /// Fast scrolls may skip intermediate chunks or levels; this only emits the latest reached level.
   final ValueChanged<LevelData>? onLevelReached;
 
+  /// Barriers on the path. The view applies [clampTravelThroughGates] itself,
+  /// so a closed gate stops the character without the host wiring anything.
+  ///
+  /// Whether a gate is open stays the host's call — tickets, friends and
+  /// purchases are game economy, not map geometry. The package only enforces
+  /// the consequence.
+  ///
+  /// [SagaMapGate.pathPosition] is on the same zero-based scale as
+  /// [LevelData.id]: a gate at `14.0` sits on the 15th level a player sees, and
+  /// one at `13.5` sits between the 14th and the 15th.
+  ///
+  /// Empty, the default, is 1.x behaviour: nothing is clamped.
+  ///
+  /// A gate only stops the walk. To also stop taps and unlocking, pass the same
+  /// condition to `SagaNodeInteractionPolicy.isReachable` and
+  /// `CompleteLevelUseCase.canUnlock`.
+  ///
+  /// If the character controller already carries a host-installed
+  /// [SagaCharacterController.barrier], that one wins and these gates are not
+  /// applied — an explicit barrier is assumed to be deliberate.
+  final List<SagaMapGate> gates;
+
   const SagaInfiniteMapView({
     super.key,
     required this.controller,
@@ -234,6 +257,7 @@ class SagaInfiniteMapView extends StatefulWidget {
     this.parallaxFactor = 0.4,
     this.onChunkEnter,
     this.onLevelReached,
+    this.gates = const <SagaMapGate>[],
   })  : assert(
           decorationBuilder == null || chunkDecorationBuilder == null,
           'Cannot provide both decorationBuilder and chunkDecorationBuilder.',
@@ -266,6 +290,17 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
   /// animation is not restarted when it crosses a seam.
   final GlobalKey _characterKey = GlobalKey();
 
+  /// Applies [SagaInfiniteMapView.gates] to a requested move.
+  ///
+  /// Kept as an object rather than a closure so the gate list can be swapped
+  /// without changing the function's identity, which is what lets
+  /// [_syncGateBarrier] tell the view's barrier from a host's.
+  final _SagaGateBarrier _gateBarrier = _SagaGateBarrier();
+
+  /// A single stable tear-off of [_gateBarrier]; a fresh `.clamp` each time
+  /// would defeat the identity checks.
+  late final double Function(double, double) _gateBarrierFn = _gateBarrier.clamp;
+
   /// Mirrors the character controller's moving flag. Held separately so the
   /// view rebuilds when travel starts and stops, not on every frame of it.
   bool _characterMoving = false;
@@ -294,6 +329,7 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
     _scrollController.addListener(_onScroll);
     widget.controller.addListener(_onControllerChanged);
     _attachCharacter(null, widget.character?.controller);
+    _syncGateBarrier(null, widget.character?.controller);
     widget.cameraController?.attach(
       onScroll: _scrollToPathPosition,
       characterPosition: _currentCharacterPosition,
@@ -318,6 +354,10 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
       oldWidget.character?.controller,
       widget.character?.controller,
     );
+    _syncGateBarrier(
+      oldWidget.character?.controller,
+      widget.character?.controller,
+    );
     if (oldWidget.controller != widget.controller) {
       oldWidget.controller.removeListener(_onControllerChanged);
       widget.controller.addListener(_onControllerChanged);
@@ -339,6 +379,37 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
     next?.addListener(_onCharacterChanged);
     _characterMoving = next?.isMoving ?? false;
     _checkLevelReached();
+  }
+
+  /// Keeps [SagaInfiniteMapView.gates] wired to the character controller.
+  ///
+  /// Called on every rebuild rather than only on controller swaps, because the
+  /// gate list changes far more often than the controller does — opening a
+  /// gate is a normal game event.
+  ///
+  /// A barrier the host installed itself is left alone in both directions: the
+  /// view only ever installs and removes its own.
+  void _syncGateBarrier(
+    SagaCharacterController? previous,
+    SagaCharacterController? next,
+  ) {
+    _gateBarrier.gates = widget.gates;
+
+    if (previous != null &&
+        !identical(previous, next) &&
+        identical(previous.barrier, _gateBarrierFn)) {
+      previous.barrier = null;
+    }
+
+    if (next == null) return;
+    if (widget.gates.isEmpty) {
+      // Emptying the list has to lift the clamp, not freeze the last one.
+      if (identical(next.barrier, _gateBarrierFn)) next.barrier = null;
+      return;
+    }
+    if (next.barrier == null || identical(next.barrier, _gateBarrierFn)) {
+      next.barrier = _gateBarrierFn;
+    }
   }
 
   void _onCharacterChanged() {
@@ -540,7 +611,13 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
   @override
   void dispose() {
     widget.cameraController?.detach(_scrollToPathPosition);
-    widget.character?.controller?.removeListener(_onCharacterChanged);
+    final controller = widget.character?.controller;
+    controller?.removeListener(_onCharacterChanged);
+    // The controller usually outlives the view; leaving a barrier pointing at
+    // a disposed view's gate list would clamp a map that no longer has gates.
+    if (controller != null && identical(controller.barrier, _gateBarrierFn)) {
+      controller.barrier = null;
+    }
     _kickStart?.cancel();
     widget.controller.removeListener(_onControllerChanged);
     _scrollController.removeListener(_onScroll);
@@ -850,4 +927,17 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
         ? SizedBox(width: 160, child: trailer)
         : trailer;
   }
+}
+
+/// The view's own gate barrier.
+///
+/// Pulled out of the widget so gate handling is one small, named thing rather
+/// than another branch inside a 650-line `build`, and so its identity is stable
+/// while [gates] changes underneath it.
+class _SagaGateBarrier {
+  List<SagaMapGate> gates = const <SagaMapGate>[];
+
+  /// How far a move from [from] towards [to] may actually get.
+  double clamp(double from, double to) =>
+      clampTravelThroughGates(gates, from, to);
 }

@@ -203,30 +203,33 @@ class _SagaMapDemoState extends State<SagaMapDemo>
     );
   }
 
-  /// Builds the character controller and hooks up the gate.
+  /// Builds the character controller.
   ///
-  /// `barrier` is how a gate stops travel: the controller asks it how far a
-  /// requested move may actually go, and a closed gate shortens the answer to
-  /// its near side. Whether the gate is open stays the host's decision.
+  /// No barrier is wired here any more: since 2.0.0 the view applies
+  /// [clampTravelThroughGates] itself from its `gates` list. Whether the gate
+  /// is open stays the host's decision — see [_gates] and [_gateOpen].
   SagaCharacterController _buildCharacterController() {
-    final controller = SagaCharacterController(
+    return SagaCharacterController(
       vsync: this,
       gait: _gait,
       stepDuration: const Duration(milliseconds: 380),
       stepPause: const Duration(milliseconds: 80),
     );
-    controller.barrier = (from, to) => clampTravelThroughGates(
-          [
-            SagaMapGate(
-              pathPosition: _gateLevel.toDouble(),
-              isOpen: !_gateClosed,
-            ),
-          ],
-          from,
-          to,
-        );
-    return controller;
   }
+
+  /// The demo's one gate, handed straight to the view.
+  List<SagaMapGate> get _gates => [
+        SagaMapGate(
+          pathPosition: _gateLevel.toDouble(),
+          isOpen: !_gateClosed,
+        ),
+      ];
+
+  /// The single gate condition all three 2.0.0 hooks are derived from.
+  ///
+  /// Deriving them from one predicate is the point: a node the player can tap
+  /// but whose successor never unlocks reads as a broken map.
+  bool _gateOpen(int levelId) => !_gateClosed || levelId < _gateLevel;
 
   /// Rebuilds the map for a new seed, resetting progress with it.
   void _reseed(int seed) {
@@ -280,6 +283,7 @@ class _SagaMapDemoState extends State<SagaMapDemo>
       setState(() => _status = 'A closed gate blocks the way at $_gateLevel');
       return;
     }
+
     _completeLevel(level.id);
   }
 
@@ -291,6 +295,9 @@ class _SagaMapDemoState extends State<SagaMapDemo>
     final useCase = CompleteLevelUseCase(
       bossRule: _bossRule,
       lootTable: _lootTable,
+      // The gate refuses to open the successor. The level itself still
+      // completes and a boss reward still drops — the player did clear it.
+      canUnlock: _gateOpen,
     );
     final result = useCase.execute(
       currentProgress: _progress,
@@ -307,6 +314,9 @@ class _SagaMapDemoState extends State<SagaMapDemo>
       if (reward != null) {
         _inventory.add(reward);
         _status = 'Boss cleared — found ${reward.itemName}!';
+      } else if (result.unlockBlocked) {
+        // 2.0.0: the completion stands, the road ahead does not open.
+        _status = 'Level $levelId complete — the gate ahead is still shut';
       } else {
         _status = 'Level $levelId complete';
       }
@@ -769,11 +779,18 @@ class _SagaMapDemoState extends State<SagaMapDemo>
           _pinchZoom ? const SagaMapZoomConfig(min: 0.6, max: 2.4) : null,
       onZoomChanged: (zoom) => setState(() => _zoom = zoom),
 
+      // The view clamps travel through these itself (2.0.0); the host no
+      // longer installs a barrier on the controller.
+      gates: _gates,
+
       // Interaction.
       progressResolver: _progressFor,
-      interactionPolicy: const SagaNodeInteractionPolicy(
+      interactionPolicy: SagaNodeInteractionPolicy(
         emitTapForLockedNode: false,
         emitTapForCompletedNode: true,
+        // Nodes past a closed gate stop responding entirely: disabled,
+        // skipped by Tab and announced as locked (2.0.0).
+        isReachable: (level, progress) => _gateOpen(level.id),
       ),
       onLevelTap: _goToLevel,
       nodeBuilder: _buildNode,

@@ -35,8 +35,12 @@ class SagaCharacterController extends ChangeNotifier {
   /// Clamps a requested move so it stops at a closed gate in the way.
   ///
   /// Given the start and target, returns how far the character may actually
-  /// travel. `null` means no barriers. Wire it from a gate list with
-  /// [clampTravelThroughGates].
+  /// travel. `null` means no barriers.
+  ///
+  /// You rarely set this by hand: pass a gate list to
+  /// `SagaInfiniteMapView.gates` and the view applies
+  /// [clampTravelThroughGates] for you. Set it only for a barrier gates cannot
+  /// express — the view then leaves yours in place rather than replacing it.
   double Function(double from, double to)? barrier;
 
   final AnimationController _animation;

@@ -558,17 +558,67 @@ SagaInfiniteMapView(
 )
 ```
 
-A gate holds the character back until the host opens it — the "ask 3 friends" or
-"spend a ticket" barrier. Whether it is open is your call; the library just
-stops the character:
+### Gates
+
+A gate is the "ask 3 friends" or "spend a ticket" barrier. Whether it is open
+stays your call — that is game economy, not map geometry. What changed in 2.0.0
+is that the package now applies the consequence, in all three places a player
+would notice it.
+
+Pass the gate list to the view and the character stops on the near side; you no
+longer wire `clampTravelThroughGates` yourself:
 
 ```dart
-character.barrier = (from, to) => clampTravelThroughGates(
-  [SagaMapGate(pathPosition: 30, isOpen: hasTicket)],
-  from,
-  to,
-);
+SagaInfiniteMapView(
+  gates: [SagaMapGate(pathPosition: 29, isOpen: hasTicket)],
+  // …
+)
 ```
+
+That alone only stops the walk. A gate that stops the *journey* needs all three
+hooks, derived from one predicate so they cannot disagree:
+
+```dart
+// The one condition. Ids are zero-based, so this shuts the road after the
+// 30th level a player sees.
+bool gateOpen(int levelId) => levelId <= 29 || hasTicket;
+
+SagaInfiniteMapView(
+  // 1. The character halts before the gate.
+  gates: [SagaMapGate(pathPosition: 29, isOpen: hasTicket)],
+
+  // 2. Nodes past it stop responding: disabled, skipped by Tab, announced as
+  //    locked to a screen reader.
+  interactionPolicy: SagaNodeInteractionPolicy(
+    isReachable: (level, progress) => gateOpen(level.id),
+  ),
+  // …
+);
+
+// 3. Clearing level 29 no longer opens level 30.
+const useCase = CompleteLevelUseCase(canUnlock: gateOpen);
+
+final result = useCase.execute(
+  currentProgress: progress,
+  levelId: 29,
+  globalSeed: 42,
+);
+if (result.unlockBlocked) {
+  showTicketPrompt();   // completed, but the road ahead is still shut
+}
+```
+
+A veto never undoes a completion: the level itself is still marked completed and
+a boss reward still drops, because the player did clear it. Only the successor
+and `currentMaxUnlockedLevelId` stand still, and `unlockBlocked` says so.
+
+`canUnlock` and `enforceUnlockOrder` guard opposite directions.
+`enforceUnlockOrder` looks backwards and rejects completing a level the player
+never reached; `canUnlock` looks forwards and refuses to open the next one. Use
+either, both or neither.
+
+All three hooks default to off — `gates: const []`, `isReachable: null`,
+`canUnlock: null` — which is exactly 1.x behaviour.
 
 ### Storing your own data
 

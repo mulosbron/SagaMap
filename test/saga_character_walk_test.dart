@@ -442,4 +442,127 @@ void main() {
       expect(find.byKey(const ValueKey('hero')), findsOneWidget);
     });
   });
+
+  group('gates the view applies itself', () {
+    /// Pumps a map carrying [gates], returning the character controller and a
+    /// setter that swaps the gate list and rebuilds — the host never calls
+    /// `clampTravelThroughGates`.
+    Future<(SagaCharacterController, void Function(List<SagaMapGate>))> pumpGated(
+      WidgetTester tester,
+      List<SagaMapGate> gates,
+    ) async {
+      tester.view.devicePixelRatio = 1.0;
+      tester.view.physicalSize = const Size(400, 800);
+      addTearDown(tester.view.reset);
+
+      final mapController = _mapController();
+      addTearDown(mapController.dispose);
+      late SagaCharacterController character;
+      late void Function(List<SagaMapGate>) setGates;
+      var current = gates;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (context, setState) {
+                setGates = (next) => setState(() => current = next);
+                return _TickerHost(
+                  build: (context, vsync) {
+                    character = SagaCharacterController(
+                      vsync: vsync,
+                      stepDuration: const Duration(milliseconds: 40),
+                      stepPause: Duration.zero,
+                      curve: Curves.linear,
+                    );
+                    return SagaInfiniteMapView(
+                      controller: mapController,
+                      chunkExtent: 600,
+                      chunkSpanNormalized:
+                          _config.spanForLevelCount(_levelsPerChunk),
+                      lateralBounds: _config.lateralBounds,
+                      biomeThemeResolver: const DefaultSagaBiomeThemeResolver(),
+                      gates: current,
+                      character: SagaCharacter(
+                        controller: character,
+                        builder: (context, state) =>
+                            const SizedBox.expand(key: ValueKey('hero')),
+                      ),
+                      nodeBuilder: (context, level, layout) =>
+                          SizedBox.expand(key: ValueKey('node-${level.id}')),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      addTearDown(character.dispose);
+      return (character, setGates);
+    }
+
+    testWidgets('a closed gate stops the walk without host wiring',
+        (tester) async {
+      final (character, _) =
+          await pumpGated(tester, const [SagaMapGate(pathPosition: 4)]);
+
+      unawaited(character.moveTo(8));
+      await tester.pumpAndSettle();
+
+      expect(character.pathPosition, lessThan(4));
+      expect(character.pathPosition, greaterThan(3.9));
+    });
+
+    testWidgets('opening the gate lets the walk through', (tester) async {
+      final (character, setGates) =
+          await pumpGated(tester, const [SagaMapGate(pathPosition: 4)]);
+
+      unawaited(character.moveTo(8));
+      await tester.pumpAndSettle();
+      expect(character.pathPosition, lessThan(4));
+
+      setGates(const [SagaMapGate(pathPosition: 4, isOpen: true)]);
+      await tester.pumpAndSettle();
+
+      unawaited(character.moveTo(8));
+      await tester.pumpAndSettle();
+      expect(character.pathPosition, 8);
+    });
+
+    testWidgets('emptying the list lifts the clamp', (tester) async {
+      final (character, setGates) =
+          await pumpGated(tester, const [SagaMapGate(pathPosition: 4)]);
+
+      setGates(const <SagaMapGate>[]);
+      await tester.pumpAndSettle();
+
+      unawaited(character.moveTo(8));
+      await tester.pumpAndSettle();
+      expect(character.pathPosition, 8);
+    });
+
+    testWidgets('no gates is 1.x behaviour', (tester) async {
+      final (character, _) = await pumpGated(tester, const <SagaMapGate>[]);
+      expect(character.barrier, isNull);
+
+      unawaited(character.moveTo(6));
+      await tester.pumpAndSettle();
+      expect(character.pathPosition, 6);
+    });
+
+    testWidgets('a host-installed barrier wins over the gate list',
+        (tester) async {
+      // An explicit barrier is assumed deliberate; the view does not overwrite
+      // it, and does not tear it down on the way out either.
+      final (character, _) =
+          await pumpGated(tester, const [SagaMapGate(pathPosition: 4)]);
+      character.barrier = (from, to) => to > 2 ? 2 : to;
+
+      unawaited(character.moveTo(8));
+      await tester.pumpAndSettle();
+      expect(character.pathPosition, 2);
+    });
+  });
 }

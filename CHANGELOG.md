@@ -8,6 +8,46 @@ A single breaking release. Every item below has a copy-pasteable escape hatch,
 and nothing deprecated in 1.1.0 was removed — those removals are scheduled for
 3.0.0.
 
+### BREAKING — gates block progression
+
+`SagaMapGate` used to be a helper the package exported and never called:
+`clampTravelThroughGates` had exactly two references in `lib/`, its own
+definition and a doc comment. A gate did nothing unless the host wired it by
+hand, and even then it only slowed the character down — taps and unlocking
+never heard about it.
+
+Three new hooks close that. All three default to off, so a consumer that passes
+none of them keeps 1.x behaviour exactly.
+
+```dart
+// The one gate condition, all three consumers derived from it.
+bool gateOpen(int levelId) => levelId <= 29 || hasTicket;
+
+SagaInfiniteMapView(
+  gates: [SagaMapGate(pathPosition: 29, isOpen: hasTicket)],
+  interactionPolicy: SagaNodeInteractionPolicy(
+    isReachable: (level, progress) => gateOpen(level.id),
+  ),
+);
+
+const useCase = CompleteLevelUseCase(canUnlock: gateOpen);
+```
+
+- `SagaInfiniteMapView.gates` — the view applies `clampTravelThroughGates`
+  itself. A barrier you installed on the controller yourself still wins.
+- `SagaNodeInteractionPolicy.isReachable` — consulted before `canTap`, so a
+  vetoed node is disabled, skipped by Tab and announced as locked. A subclass
+  that overrides `canLongPress` without calling `canTap` bypasses it, as before.
+- `CompleteLevelUseCase.canUnlock` — vetoes opening the successor. The level
+  itself still completes and a boss reward still drops; only the successor and
+  `currentMaxUnlockedLevelId` stand still.
+
+`CompleteLevelResult` gained `unlockBlocked` so a host can tell "you finished
+the level" from "you finished it and the road ahead is still shut". It is
+always `false` when no `canUnlock` is injected.
+
+See [ADR-0005](docs/adrs/0005-kapiyi-ilerleme-engeline-baglamak.md).
+
 ### BREAKING — boss levels moved by one
 
 `isBossLevel` is now `levelId >= 0 && levelId % 15 == 14`. It was

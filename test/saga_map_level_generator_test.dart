@@ -28,6 +28,34 @@ void main() {
       }
     });
 
+    test('different seeds generate different level positions', () {
+      // The seed is the map. Changing it has to move the terrain, or
+      // `saveGlobalSeed` would be a no-op with a migration warning attached.
+      const generator = SagaMapLevelGenerator();
+
+      final first = generator.generateLevels(
+        globalSeed: 42,
+        config: SagaMapConfig.defaultConfig,
+        startLevelId: 0,
+        count: 8,
+      );
+      final second = generator.generateLevels(
+        globalSeed: 43,
+        config: SagaMapConfig.defaultConfig,
+        startLevelId: 0,
+        count: 8,
+      );
+
+      bool hasDifferentPositions = false;
+      for (var i = 0; i < first.length; i++) {
+        if (first[i].position.x != second[i].position.x) {
+          hasDifferentPositions = true;
+          break;
+        }
+      }
+      expect(hasDifferentPositions, isTrue);
+    });
+
     test('a level is identical regardless of which chunk requested it', () {
       const generator = SagaMapLevelGenerator();
       const config = SagaMapConfig.defaultConfig;

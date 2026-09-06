@@ -381,6 +381,33 @@ means:
 Do not use `Object.hash` for anything you persist or regenerate: it mixes in
 `identityHashCode(Object)`, which is randomised per program run.
 
+### Regenerating the map
+
+The whole map derives from one seed: level positions, biomes and boss rewards.
+Persist a new one and the world is a different world.
+
+```dart
+await repository.saveGlobalSeed(12345);
+
+// Regenerate against the stored seed. Everything downstream follows.
+final seed = await repository.loadGlobalSeed();
+final levels = generator.generateLevels(
+  globalSeed: seed,
+  config: SagaMapConfig.defaultConfig,
+  startLevelId: 0,
+  count: 50,
+);
+```
+
+Saved progress survives, but it means something different afterwards: a
+`SagaProgress` keeps its level ids, and those ids now point at different
+terrain. Level 12 is still complete; it is no longer the same level 12. Reseed
+on a new game, not on an existing one, unless you intend exactly that.
+
+`loadGlobalSeed` must not write. If your implementation used to persist a
+default seed on first read, that write belongs in `saveGlobalSeed` — a load
+that changes the map is not a load.
+
 ### Domain utilities
 
 ```dart

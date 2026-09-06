@@ -8,55 +8,117 @@ void main() {
   group('SagaMapBackgroundConfig', () {
     const paths = ['a.png', 'b.png', 'c.png'];
 
-    String? resolve(
+    /// Builds the background inside a real element, because a host-supplied
+    /// builder is handed a [BuildContext] and there is no honest way to fake
+    /// one. The asset modes never look at it.
+    ///
+    /// The result is inspected, not mounted: these tests are about which asset
+    /// the config picks, and mounting an `Image` would try to decode a file
+    /// that does not exist. Pass `mount: true` where the rendered output is
+    /// the point.
+    Future<Widget> build(
+      WidgetTester tester,
+      SagaMapBackgroundConfig config, {
+      int? chunkIndex,
+      bool mount = false,
+    }) async {
+      late Widget built;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) {
+              built =
+                  config.buildBackgroundWidget(context, chunkIndex: chunkIndex);
+              return mount ? built : const SizedBox.shrink();
+            },
+          ),
+        ),
+      );
+      return built;
+    }
+
+    Future<String?> resolve(
+      WidgetTester tester,
       SagaMapBackgroundConfig config,
       int chunkIndex,
-    ) {
-      final widget = config.buildBackgroundWidget(chunkIndex: chunkIndex);
+    ) async {
+      final widget = await build(tester, config, chunkIndex: chunkIndex);
       return widget is Image ? (widget.image as AssetImage).assetName : null;
     }
 
-    test('indexes assets directly while they last', () {
+    testWidgets('indexes assets directly while they last', (tester) async {
       const config = SagaMapBackgroundConfig.imageAssets(assetPaths: paths);
-      expect(resolve(config, 0), 'a.png');
-      expect(resolve(config, 2), 'c.png');
+      expect(await resolve(tester, config, 0), 'a.png');
+      expect(await resolve(tester, config, 2), 'c.png');
     });
 
-    test('loop wraps past the end', () {
+    testWidgets('loop wraps past the end', (tester) async {
       const config = SagaMapBackgroundConfig.imageAssets(
         assetPaths: paths,
         overflowBehavior: SagaMapBackgroundOverflowBehavior.loop,
       );
-      expect(resolve(config, 3), 'a.png');
-      expect(resolve(config, 7), 'b.png');
+      expect(await resolve(tester, config, 3), 'a.png');
+      expect(await resolve(tester, config, 7), 'b.png');
     });
 
-    test('clampLast repeats the final asset', () {
+    testWidgets('clampLast repeats the final asset', (tester) async {
       const config = SagaMapBackgroundConfig.imageAssets(
         assetPaths: paths,
         overflowBehavior: SagaMapBackgroundOverflowBehavior.clampLast,
       );
-      expect(resolve(config, 3), 'c.png');
-      expect(resolve(config, 99), 'c.png');
+      expect(await resolve(tester, config, 3), 'c.png');
+      expect(await resolve(tester, config, 99), 'c.png');
     });
 
-    test('empty renders nothing past the end', () {
+    testWidgets('empty renders nothing past the end', (tester) async {
       const config = SagaMapBackgroundConfig.imageAssets(
         assetPaths: paths,
         overflowBehavior: SagaMapBackgroundOverflowBehavior.empty,
       );
-      expect(config.buildBackgroundWidget(chunkIndex: 3), isA<SizedBox>());
+      expect(await build(tester, config, chunkIndex: 3), isA<SizedBox>());
     });
 
-    test('none and colour modes need no asset', () {
+    testWidgets('none and colour modes need no asset', (tester) async {
       expect(
-        const SagaMapBackgroundConfig.none().buildBackgroundWidget(),
+        await build(tester, const SagaMapBackgroundConfig.none()),
         isA<SizedBox>(),
       );
       expect(
-        const SagaMapBackgroundConfig.color(color: Colors.red)
-            .buildBackgroundWidget(),
+        await build(
+          tester,
+          const SagaMapBackgroundConfig.color(color: Colors.red),
+        ),
         isA<ColoredBox>(),
+      );
+    });
+
+    testWidgets('a host-built background is returned as given', (tester) async {
+      // The package loads nothing here; it positions whatever comes back.
+      // This is what replaces the removed svgAsset constructors: an SVG is now
+      // `SvgPicture.asset` from the host's own flutter_svg.
+      final config = SagaMapBackgroundConfig.builder(
+        (context, chunkIndex) => Text('chunk $chunkIndex'),
+      );
+
+      await build(tester, config, chunkIndex: 4, mount: true);
+      expect(find.text('chunk 4'), findsOneWidget);
+    });
+
+    testWidgets('the builder can vary its artwork by chunk', (tester) async {
+      // What `svgAssets` used to do, now expressible without the package
+      // owning an overflow policy.
+      final config = SagaMapBackgroundConfig.builder(
+        (context, chunkIndex) => Text(paths[(chunkIndex ?? 0) % paths.length]),
+      );
+
+      await build(tester, config, chunkIndex: 4, mount: true);
+      expect(find.text('b.png'), findsOneWidget);
+    });
+
+    testWidgets('a null builder renders nothing', (tester) async {
+      expect(
+        await build(tester, const SagaMapBackgroundConfig.builder(null)),
+        isA<SizedBox>(),
       );
     });
   });

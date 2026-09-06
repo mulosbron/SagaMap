@@ -8,6 +8,60 @@ A single breaking release. Every item below has a copy-pasteable escape hatch,
 and nothing deprecated in 1.1.0 was removed — those removals are scheduled for
 3.0.0.
 
+### BREAKING — `flutter_svg` is no longer a dependency
+
+`SagaMapBackgroundConfig.svgAsset` and `.svgAssets` are removed, and with them
+the `flutter_svg` dependency and its transitive `vector_graphics`,
+`vector_graphics_compiler`, `path_parsing` and `xml`. The package's direct
+dependencies are now `equatable` and `fast_noise`, nothing else.
+
+A background library had no business being a hard dependency of a layout
+package: it made every consumer carry an SVG decoder to draw a PNG, and it
+froze one artwork format into the API (ADR-0008).
+
+Replace an SVG background with a builder — the package positions and scrolls
+whatever it returns and loads nothing itself:
+
+```yaml
+# your pubspec.yaml — the dependency moves to your app
+dependencies:
+  flutter_svg: ^2.2.4
+```
+
+```dart
+// before
+backgroundConfig: const SagaMapBackgroundConfig.svgAsset(
+  assetPath: 'assets/svg/map.svg',
+  fit: BoxFit.cover,
+)
+
+// after
+backgroundConfig: SagaMapBackgroundConfig.builder(
+  (context, chunkIndex) =>
+      SvgPicture.asset('assets/svg/map.svg', fit: BoxFit.cover),
+)
+```
+
+For `svgAssets`, index your own list off `chunkIndex` — you now choose the
+overflow behaviour instead of picking from the package's three:
+
+```dart
+backgroundConfig: SagaMapBackgroundConfig.builder(
+  (context, chunkIndex) => SvgPicture.asset(
+    assets[(chunkIndex ?? 0) % assets.length],
+    fit: BoxFit.cover,
+  ),
+)
+```
+
+The colour, image-asset and none modes are untouched.
+`buildBackgroundWidget` now takes a `BuildContext` as its first argument, since
+a host-supplied builder needs one. A `builder` config ignores `fit`,
+`alignment` and `overflowBehavior`: they describe placing an asset the package
+loaded, and it no longer loads this one.
+
+See [ADR-0008](docs/adrs/0008-flutter-svg-bagimliligini-ayirmak.md).
+
 ### BREAKING — biome ids come from config
 
 The generator read the `const` global `kSagaBiomeIds` directly, so a host with

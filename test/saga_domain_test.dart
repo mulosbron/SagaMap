@@ -87,26 +87,61 @@ void main() {
   });
 
   group('loot table', () {
-    test('marks every fifteenth level a boss, except level zero', () {
+    test('marks the 15th, 30th and 45th level a boss (zero-based ids 14, 29, 44)',
+        () {
+      expect(isBossLevel(14), isTrue);
+      expect(isBossLevel(29), isTrue);
+      expect(isBossLevel(44), isTrue);
+
+      // The 1st and the 16th level a player sees are ordinary boards. Id 15 is
+      // where the 1.x formula wrongly put the boss.
       expect(isBossLevel(0), isFalse);
-      expect(isBossLevel(15), isTrue);
-      expect(isBossLevel(30), isTrue);
-      expect(isBossLevel(14), isFalse);
+      expect(isBossLevel(15), isFalse);
+
+      // The old `levelId > 0` guard also excluded negatives; `>= 0` keeps that.
+      expect(isBossLevel(-1), isFalse);
+      expect(isBossLevel(-15), isFalse);
+    });
+
+    test('every boss lands on the hardest board in the difficulty cycle', () {
+      // Difficulty is `1 + id % 5`. A boss on the easiest board is exactly the
+      // symptom the 1.x formula produced, and an invariant is the only thing
+      // that keeps it from creeping back.
+      for (var id = 0; id < 1000; id++) {
+        if (!isBossLevel(id)) continue;
+        expect(1 + (id % 5), 5, reason: 'boss id $id');
+        expect(id % 5, 4, reason: 'boss id $id');
+      }
+    });
+
+    test('bosses fall exactly every fifteen levels', () {
+      final bosses = [
+        for (var id = 0; id < 1000; id++)
+          if (isBossLevel(id)) id,
+      ];
+
+      // (999 - 14) / 15 + 1
+      expect(bosses.length, 66);
+      expect(bosses.first, 14);
+      expect(bosses.last, 989);
+      for (var i = 1; i < bosses.length; i++) {
+        expect(bosses[i] - bosses[i - 1], 15);
+      }
     });
 
     test('rolls the same reward for the same level and seed', () {
       final now = DateTime.utc(2026, 1, 1);
-      final first = rollBossReward(levelId: 15, globalSeed: 42, now: now);
-      final second = rollBossReward(levelId: 15, globalSeed: 42, now: now);
+      final first = rollBossReward(levelId: 14, globalSeed: 42, now: now);
+      final second = rollBossReward(levelId: 14, globalSeed: 42, now: now);
 
       expect(first.itemId, second.itemId);
-      expect(first.obtainedFromLevelId, 15);
+      expect(first.obtainedFromLevelId, 14);
       expect(first.obtainedAt, now);
     });
 
     test('only ever rolls items from the table', () {
       final ids = kMvpLootTable.map((entry) => entry.itemId).toSet();
-      for (var levelId = 15; levelId <= 600; levelId += 15) {
+      for (var levelId = 14; levelId <= 600; levelId += 15) {
         final reward = rollBossReward(levelId: levelId, globalSeed: 3);
         expect(ids, contains(reward.itemId));
       }

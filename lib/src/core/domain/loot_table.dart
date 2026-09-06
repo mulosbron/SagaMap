@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'loot_table_odds.dart';
+import 'models/level_data.dart';
 import 'models/inventory_item.dart';
 
 /// Weighted loot entry used by reward roll logic.
@@ -49,13 +50,28 @@ const List<LootTableEntry> kMvpLootTable = [
 /// without forking the use case.
 typedef SagaBossRule = bool Function(int levelId);
 
-/// Returns true if the level is treated as a boss milestone.
+/// Whether [levelId] is a boss level.
 ///
-/// Note: this logic lands on the 16th node; corrected in 2.0.0 (ADR-0002).
+/// Ids are zero-based (see [LevelData.id]), so "every fifteenth level" — the
+/// 15th, 30th and 45th a player sees — is `id % 15 == 14`, not `id % 15 == 0`.
+/// The old formula landed on the 16th node and, because difficulty is
+/// `1 + id % 5`, handed the boss the easiest board in the cycle.
+///
+/// The corrected milestone aligns three systems for free: `id % 15 == 14`
+/// implies `id % 5 == 4`, so every boss is also a difficulty-5 board.
+///
+/// Negative ids are never boss levels.
 ///
 /// This is the default value of `CompleteLevelUseCase.bossRule`, which is why
-/// it stays public: it has to be nameable to be overridable.
-bool isBossLevel(int levelId) => levelId > 0 && levelId % 15 == 0;
+/// it stays public: it has to be nameable to be overridable. To keep the 1.x
+/// placement, inject the old rule instead of forking the use case:
+///
+/// ```dart
+/// const useCase = CompleteLevelUseCase(bossRule: legacyBossRule);
+///
+/// bool legacyBossRule(int levelId) => levelId > 0 && levelId % 15 == 0;
+/// ```
+bool isBossLevel(int levelId) => levelId >= 0 && levelId % 15 == 14;
 
 /// Rolls a deterministic reward for boss levels.
 ///

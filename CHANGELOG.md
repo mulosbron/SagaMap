@@ -214,6 +214,8 @@ SagaInfiniteMapView(
   ),
 );
 
+// `const` works because `gateOpen` is a top-level function; a closure or a
+// method tear-off would need `final` here.
 const useCase = CompleteLevelUseCase(canUnlock: gateOpen);
 ```
 
@@ -448,7 +450,9 @@ These keep working and only emit a warning; they are scheduled for removal in
 
 Pre-announced breaking changes, so hosts can plan:
 
-- Boss milestones move to `id % 5 == 4` from `id % 15 == 0` (ADR-0002).
+- Boss milestones move to `id % 15 == 14` from `id % 15 == 0` (ADR-0002).
+  (The 1.1.0 note said `id % 5 == 4`, which is the difficulty alignment the new
+  rule happens to guarantee, not the rule itself.)
 - `flutter_svg` is dropped from the core package (ADR-0008).
 
 ## 1.0.0

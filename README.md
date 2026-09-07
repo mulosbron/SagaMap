@@ -5,7 +5,7 @@
 It provides:
 
 - responsive layout policies
-- background layers (SVG, image, solid color, multi-segment)
+- background layers (image, solid colour, multi-segment, or any widget you build)
 - interaction policy/handler primitives
 - level generation and progression utilities
 - a character that walks the path, in any visual format
@@ -268,7 +268,9 @@ Sizes are expressed along the path axis, never as width/height:
   vertical, width when horizontal).
 - `chunkSpanNormalized` — normalized span the chunk covers along that axis. It
   must equal `stepHeight * levelsPerChunk`; use
-  `SagaMapConfig.spanForLevelCount()` rather than hardcoding it.
+  `config.spanForLevelCount(levelsPerChunk)` on your `SagaMapConfig` rather
+  than hardcoding it. (It is an instance method, not a static one — it reads
+  the config's own `stepHeight`.)
 - `maxLateralExtentPolicy` — caps the *lateral* axis only, so it never shortens
   the direction the path travels in.
 
@@ -808,6 +810,8 @@ SagaInfiniteMapView(
 );
 
 // 3. Clearing level 29 no longer opens level 30.
+// `const` works because `gateOpen` is a top-level function; a closure or a
+// method tear-off would need `final` here.
 const useCase = CompleteLevelUseCase(canUnlock: gateOpen);
 
 final result = useCase.execute(

@@ -456,6 +456,25 @@ means:
 Do not use `Object.hash` for anything you persist or regenerate: it mixes in
 `identityHashCode(Object)`, which is randomised per program run.
 
+#### What determinism costs: client-rolled loot is advisory
+
+A boss reward is a pure function of `(levelId, globalSeed, table)`, and
+`saveGlobalSeed` makes the seed writable. A player who can reach the stored seed
+can work out offline — before clearing the boss — which seed drops the item they
+want, write that seed, and then clear it.
+
+This is not a hole to patch. It is the same property that makes a bug
+reproducible and a golden test stable, seen from the other side; mixing in
+something unpredictable would buy integrity the package cannot enforce anyway
+and would cost determinism outright (ADR-0009).
+
+So, plainly: **the reward this package rolls is advisory, not authoritative.**
+
+- Inventory that never leaves the device — nothing to defend, ignore this.
+- Inventory promoted to a server — roll the reward *on that server* and treat
+  `rollBossReward` as a preview of what a boss would give. The first-clear guard
+  in `CompleteLevelUseCase.execute` is a convenience, not a security boundary.
+
 ### Regenerating the map
 
 The whole map derives from one seed: level positions, biomes and boss rewards.

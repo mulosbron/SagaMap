@@ -19,6 +19,7 @@ Her ADR aynı şablonu izler — **Title · Status · Context · Decision · Con
 | [0006](0006-builder-baglami-ve-seviye-hizali-dekor.md) | `SagaChunkContext` + `atLevel` dekor | Accepted | 1.1.0 | T-05, T-10, T-15 |
 | [0007](0007-host-tanimli-biyomlar.md) | `SagaMapConfig.biomeIds` + tema asset kancası | Accepted | 2.0.0 | T-11 |
 | [0008](0008-flutter-svg-bagimliligini-ayirmak.md) | `flutter_svg` bağımlılığını düşür | Accepted | 2.0.0 | T-20 |
+| [0009](0009-istemci-tarafi-odul-guven-siniri.md) | İstemcide yuvarlanan ödül tavsiye niteliğindedir | Accepted | 2.0.0 | T-14 |
 
 ## Durum akışı
 

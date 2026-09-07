@@ -17,8 +17,10 @@ Desktop.ini
 .claude/
 *.lock
 pubspec.lock
-docs/
+docs/scratch/
+docs/reports/
 # Staging trash bin & dev artifacts
+.old/
 x/
 sast/
 sast-skills/

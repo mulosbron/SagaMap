@@ -24,17 +24,30 @@ All notable changes to this package are documented in this file.
 
 ### Fixed — value-object defects
 
-- `LootTableEntry` is compared by value. `LootTableOdds.probabilityOf` looks an
-  entry up with `contains`, which was reference equality: asking about a
-  field-identical copy threw instead of answering.
-- `LevelProgress` is compared by value too. The view diffs resolved progress
-  against cached progress, so a host resolver returning a fresh instance per
-  call reported a change on every sweep.
-- `LevelProgress.copyWith(lastPlayedAt:)` and
+Three of these are breaking: rows 11 and 13 of the table below.
+
+- **BREAKING.** `LevelProgress.copyWith(lastPlayedAt:)` and
   `SagaMapResponsiveConfig.copyWith(maxLateralExtentPolicy:)` take a getter
   (`() => null`) instead of a value, so `null` can mean "clear this" rather than
   only "leave it alone" — the documented unconstrained lateral extent was
-  unreachable once set. **Breaking** for callers that passed either directly.
+  unreachable once set.
+
+  *Escape hatch:* wrap the value you were passing.
+
+  ```dart
+  progress.copyWith(lastPlayedAt: () => stamp);   // was: lastPlayedAt: stamp
+  progress.copyWith(lastPlayedAt: () => null);    // now expressible at all
+  ```
+
+- **BREAKING.** `LootTableEntry` is compared by value.
+  `LootTableOdds.probabilityOf` looks an entry up with `contains`, which was
+  reference equality: asking about a field-identical copy threw instead of
+  answering. Code that relied on two equal entries being distinct — using them
+  as separate `Set` or `Map` keys — now sees one.
+- **BREAKING.** `LevelProgress` is compared by value too. The view diffs
+  resolved progress against cached progress, so a host resolver returning a
+  fresh instance per call reported a change on every sweep. Same caveat: equal
+  records are now one key, not two.
 - An empty `levels` map is documented as meaning uninitialised rather than made
   to round-trip: since an unrecorded level now reads as locked, loading one
   faithfully would produce a map on which nothing is tappable.
@@ -47,6 +60,22 @@ extension point for host-supplied renderers" while nothing in the package
 depended on the type, so a host wanting its own path painter had to fork the
 widget. Pass nothing and the built-in look is unchanged. Nodes stay on
 `nodeBuilder`, which is documented on the interface now rather than implied.
+
+### Added — `progressListenable`, for the host that never rebuilds
+
+`SagaInfiniteMapView.progressListenable` takes anything that notifies when
+`progressResolver`'s answers may have moved: a `ChangeNotifier` game state, a
+`ValueNotifier<SagaProgress>`, a `Listenable.merge` of several.
+
+It exists because the sweep's other trigger has a hole in it. Progress is
+re-resolved when the host rebuilds the view *with a new widget instance*, and a
+host that stores the view in a field or puts it under a `const` subtree hands
+Flutter the same instance every time — the framework then skips the update
+entirely and `didUpdateWidget` never runs. That host, the one being careful
+about rebuilds, never saw progress refresh at all.
+
+The view only listens; it never disposes what it is given. The full "when is
+progress re-resolved" contract is on the field's doc comment.
 
 ### Performance — progress is resolved when it can have changed
 
@@ -70,6 +99,18 @@ chunk's levels are replaced, and not otherwise.
 - `didUpdateWidget` branched on `image` and `clip` but not `sheet`, so a swap to
   a smaller sheet left the frame index past the end.
 
+### Fixed — chunk contexts describe the chunk beside them
+
+A chunk whose level list was replaced while its resolved progress stayed
+identical kept the context it already had, so the host's decoration and header
+builders were handed the *previous* world's `LevelData` while the widget beside
+them drew the new one. The refresh now fires on a replaced list as well as
+changed progress.
+
+A chunk evicted while still on screen was drawn blank rather than from its
+cached levels, because the cache pruning that bounded memory deleted the very
+context the fallback reads. Such chunks are kept until their reload lands.
+
 ### Fixed — four view lifecycle defects
 
 - A swapped `SagaMapCameraController` was never attached, so every call on the
@@ -78,7 +119,9 @@ chunk's levels are replaced, and not otherwise.
 - Episode headers were absent from every scroll-offset computation, so each one
   shifted the map by a header per chunk and camera targets landed short by a
   growing margin. Declare the header's size with the new
-  `SagaInfiniteMapView.episodeHeaderExtent`.
+  `SagaInfiniteMapView.episodeHeaderExtent`; a constructor assert catches an
+  extent with no builder to fill it. `onChunkEnter` counts the same headers, so
+  it no longer names a chunk the player is nowhere near deep into a scroll.
 - The character vanished standing exactly on the last level of the last chunk:
   the final point has no segment leaving it, so it resolved to no pose while
   `ownsPathPosition` still claimed the position and no other chunk drew it.
@@ -170,23 +213,33 @@ locked.
 If you relied on the old behaviour, supply a `progressResolver` that returns an
 unlocked `LevelProgress` for the levels you want open.
 
-A single breaking release. Every item below has a copy-pasteable escape hatch,
-and nothing deprecated in 1.1.0 was removed — those removals stay scheduled for
-3.0.0, so the deprecated builders survive the whole 2.x line.
+A single breaking release, and nothing deprecated in 1.1.0 was removed — those
+removals stay scheduled for 3.0.0, so the deprecated builders survive the whole
+2.x line.
 
-Six breaking changes, in the order you will hit them:
+Seventeen breaking changes. Six need code from you; the rest are behaviour or
+contract changes, and the "what you do about it" column says when the answer is
+nothing.
 
-| Change | What you do about it |
-| --- | --- |
-| Boss levels moved by one | Nothing, or inject `bossRule` to keep 1.x placement |
-| Rewards are injectable | Nothing; the defaults are the old values |
-| Gates block progression | Nothing; all three hooks default to off |
-| Biome ids come from config | Nothing; omitting `biomeIds` is the old sequence |
-| `saveGlobalSeed` added | Implement one method on your repository |
-| `flutter_svg` dropped | Take the dependency yourself and pass a `builder` |
-
-Only two of those need code from you. The other four are behaviour or contract
-changes whose defaults reproduce 1.x exactly.
+| # | Change | What you do about it |
+| --- | --- | --- |
+| 1 | Boss levels moved by one | Nothing, or inject `bossRule` to keep 1.x placement |
+| 2 | Rewards are injectable | Nothing; the defaults are the old values |
+| 3 | Gates block progression | Nothing; all three hooks default to off |
+| 4 | Biome ids come from config | Nothing; omitting `biomeIds` is the old sequence |
+| 5 | `saveGlobalSeed` added | **Implement one method on your repository** |
+| 6 | `flutter_svg` dropped | **Take the dependency yourself and pass a `builder`** |
+| 7 | `enforceUnlockOrder` defaults on | Nothing, or pass `false` where you jump ahead |
+| 8 | An unrecorded level is now locked | Nothing, or return an unlocked `LevelProgress` |
+| 9 | The unlock pointer is reconciled against its records | **1.x saves: see Migration below** |
+| 10 | `SagaProgress` is no longer `const` | **Drop `const` at the call site** |
+| 11 | `copyWith` getter signatures for nullable fields | **Pass `() => value` instead of `value`** |
+| 12 | `buildBackgroundWidget` takes a `BuildContext` | **Pass the context through** |
+| 13 | `LootTableEntry` and `LevelProgress` compare by value | Nothing; identity comparisons become equality |
+| 14 | Assert-only divisor guards are now runtime exceptions | Nothing, unless your config was already invalid |
+| 15 | A gate exactly on a move's destination now blocks | Nothing; this is what a gate was documented to do |
+| 16 | `stableHash` output changed above 2^32 and for negatives | Nothing; nothing has shipped under the old output |
+| 17 | A width in no breakpoint interval resolves differently | Nothing; the old answer was always desktop |
 
 `SagaProgress`'s constructor is no longer `const`: it now defensively copies
 `levels` and `extra` as unmodifiable maps, so mutating a returned map throws
@@ -201,6 +254,69 @@ dependency alive, which was the point of removing it.
 The one thing this release cannot do for you: **saved reward history**. Boss
 levels moved, and the package never wrote to your `InventoryRepository`, so it
 cannot migrate what it never owned. See the first section.
+
+### BREAKING — assert-only divisor guards became runtime exceptions
+
+`biomeSpan`, `chunkSpanNormalized`, the zoom range and sprite-sheet columns were
+divisors and clamp bounds guarded only by `assert`. Asserts are stripped from
+release builds, and a host's own configuration arrives in exactly those builds,
+so a zero or negative value divided by zero or produced `NaN` deep inside the
+painter — a blank or scrambled map with no error attached to it.
+
+Each is now a runtime guard at the point of use, throwing in every build mode.
+
+**What changes for you:** a misconfiguration that used to draw an empty map now
+**throws in release**. If you were shipping an invalid config and had not
+noticed — a `chunkSpanNormalized` of `0`, a zoom range with `min > max`, a
+sprite sheet with `0` columns — the failure moves from silent to loud. Validate
+your configuration values before you construct the widget; the exceptions name
+the field.
+
+### BREAKING — a gate exactly on a move's destination now blocks
+
+Both gate branches were strictly open on the destination side, so a gate sitting
+exactly on a move's destination was skipped: the character landed on it, and the
+next move skipped it again from the origin side. Two moves crossed the only
+progression barrier the package enforces itself.
+
+The destination bound is closed now, and `moveTo` re-asks the barrier per step,
+so a gate that closes mid-walk stops the character where it closed.
+
+**What changes for you:** if you placed gates on integer level positions and
+built around them being passable, they now block. That was always the documented
+contract; the code did not keep it.
+
+### BREAKING — a width in no breakpoint interval resolves to the widest it is past
+
+The built-in breakpoint bounds are inclusive integers while `resolveBreakpoint`
+takes a `double`, so `450.5` — split-screen, a resized web window, browser zoom,
+a device reporting `411.42857142857144` — matched no interval and fell through
+to a hard-coded desktop. The narrowest screens the package supports were given
+desktop sizing and touch targets a quarter smaller.
+
+A width in no interval now resolves to the widest breakpoint it is past, which
+closes the seams for host-supplied bounds too without asking them to be restated
+as half-open.
+
+**What changes for you:** nothing to write. Fractional widths that used to
+resolve to desktop now resolve to the breakpoint they are actually in, which is
+the answer you configured.
+
+### Added — `retainedChunkIndices` and the chunk cache bound
+
+`SagaInfiniteMapController.retainedChunkIndices` is new public API. The view
+kept a second, unbounded per-chunk cache that `maxRetainedChunks` never reached,
+so the documented memory bound measured only the controller's half; the view
+prunes in step with eviction through this getter. `reloadingChunkIndices` is its
+complement, so a chunk evicted while still visible is drawn from cached levels
+until its reload lands rather than blank.
+
+**Known limitation.** `maxRetainedChunks` bounds the cache at load time but not
+during a scroll: chunks requested since the last eviction are protected from it,
+and that protected set is only cleared once the cache is back under budget, so
+once a scrolling view is over budget with everything requested, eviction stops.
+Leaving it unset (the default) retains everything, which is the documented
+behaviour either way.
 
 ### BREAKING — boss levels moved by one
 
@@ -414,8 +530,9 @@ backgroundConfig: SagaMapBackgroundConfig.builder(
 ```
 
 The colour, image-asset and none modes are untouched.
-`buildBackgroundWidget` now takes a `BuildContext` as its first argument, since
-a host-supplied builder needs one. A `builder` config ignores `fit`,
+**BREAKING.** `buildBackgroundWidget` now takes a `BuildContext` as its first
+argument, since a host-supplied builder needs one. *Escape hatch:* pass the
+context you already have — `config.buildBackgroundWidget(context, ...)`. A `builder` config ignores `fit`,
 `alignment` and `overflowBehavior`: they describe placing an asset the package
 loaded, and it no longer loads this one.
 

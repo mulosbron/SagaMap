@@ -1,11 +1,5 @@
 include: package:flutter_lints/flutter.yaml
 
-analyzer:
-  exclude:
-    # Scratch bin for files pending manual deletion. Gitignored, but the
-    # analyzer walks the package root regardless of git.
-    - x/**
-
 linter:
   rules:
     prefer_single_quotes: true

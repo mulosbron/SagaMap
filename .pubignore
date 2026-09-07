@@ -1,0 +1,10 @@
+# The example's demo artwork is two megabytes of PNG — three quarters of the
+# published archive — for a demo nobody runs from a pub cache. It stays in the
+# git repository, where anyone who wants to run the example is already looking.
+example/assets/
+example/build/
+example/android/
+
+# Test goldens and their failure artifacts are for this repository's CI, not
+# for consumers.
+test/golden/failures/

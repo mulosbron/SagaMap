@@ -20,6 +20,7 @@ Her ADR aynı şablonu izler — **Title · Status · Context · Decision · Con
 | [0007](0007-host-tanimli-biyomlar.md) | `SagaMapConfig.biomeIds` + tema asset kancası | Accepted | 2.0.0 | T-11 |
 | [0008](0008-flutter-svg-bagimliligini-ayirmak.md) | `flutter_svg` bağımlılığını düşür | Accepted | 2.0.0 | T-20 |
 | [0009](0009-istemci-tarafi-odul-guven-siniri.md) | İstemcide yuvarlanan ödül tavsiye niteliğindedir | Accepted | 2.0.0 | T-14 |
+| [0010](0010-equatable-ve-fast-noise-bagimliliklarini-tutmak.md) | `equatable` + `fast_noise` tutuluyor | Accepted | 2.0.0 | T-25 |
 
 ## Durum akışı
 

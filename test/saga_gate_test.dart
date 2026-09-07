@@ -22,6 +22,42 @@ class _TickerHostState extends State<_TickerHost>
 
 void main() {
   group('clampTravelThroughGates', () {
+    // Integer gate positions are what the README teaches. Before 2.0.0 both
+    // branches were strictly open on the destination side, so a gate placed on
+    // the destination was skipped, the character landed on top of it, and the
+    // next move skipped it again on the origin side. Two moves, gate bypassed.
+    group('integer gate placement (regression)', () {
+      const gates = [SagaMapGate(pathPosition: 29)];
+
+      test('a gate on the destination blocks', () {
+        expect(clampTravelThroughGates(gates, 28, 29), lessThan(29));
+      });
+
+      test('a gate on the origin still blocks the next move', () {
+        expect(clampTravelThroughGates(gates, 29, 30), lessThan(29));
+      });
+
+      test('an open gate on the destination passes freely', () {
+        const open = [SagaMapGate(pathPosition: 29, isOpen: true)];
+        expect(clampTravelThroughGates(open, 28, 29), 29);
+        expect(clampTravelThroughGates(open, 29, 30), 30);
+      });
+
+      test('the nearest of two closed gates wins', () {
+        const two = [
+          SagaMapGate(pathPosition: 29),
+          SagaMapGate(pathPosition: 25),
+        ];
+        final reached = clampTravelThroughGates(two, 24, 30);
+        expect(reached, lessThan(25));
+        expect(reached, greaterThan(24.9));
+      });
+
+      test('a gate behind the character does not pull it back', () {
+        expect(clampTravelThroughGates(gates, 35, 36), 36);
+      });
+    });
+
     test('a closed gate stops a forward move on its near side', () {
       const gates = [SagaMapGate(pathPosition: 5)];
       final reached = clampTravelThroughGates(gates, 2, 9);
@@ -143,6 +179,38 @@ void main() {
       unawaited(controller.moveTo(9));
       await tester.pumpAndSettle();
       expect(controller.pathPosition, 9);
+    });
+
+    testWidgets('a gate that closes mid-walk stops the character',
+        (tester) async {
+      // The barrier is re-asked before every step, so a host that closes a gate
+      // while the character is already walking gets it stopped where it stands
+      // rather than at the destination it was cleared for.
+      late SagaCharacterController controller;
+      var gates = const <SagaMapGate>[];
+      await tester.pumpWidget(
+        _TickerHost(
+          build: (context, vsync) {
+            controller = SagaCharacterController(
+              vsync: vsync,
+              stepDuration: const Duration(milliseconds: 20),
+              stepPause: Duration.zero,
+              barrier: (from, to) => clampTravelThroughGates(gates, from, to),
+            );
+            return const SizedBox.shrink();
+          },
+        ),
+      );
+      addTearDown(controller.dispose);
+
+      final journey = controller.moveTo(9);
+      await tester.pump(const Duration(milliseconds: 30));
+      gates = const [SagaMapGate(pathPosition: 4)];
+      await tester.pumpAndSettle();
+      await journey;
+
+      expect(controller.pathPosition, lessThan(4));
+      expect(controller.pathPosition, greaterThan(3.9));
     });
 
     testWidgets('a gate does not block a move that ends before it',

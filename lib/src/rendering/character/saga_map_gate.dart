@@ -31,8 +31,15 @@ class SagaMapGate {
 /// the way.
 ///
 /// Only gates between the two positions block, and only in the direction of
-/// travel — walking backwards is never gated. The character halts fractionally
-/// before a forward gate so it stands on the near side, not on top of it.
+/// travel. The character halts fractionally before a forward gate so it stands
+/// on the near side, not on top of it.
+///
+/// Both branches are **closed on the destination side**: a gate placed exactly
+/// on the destination blocks. The forward branch additionally blocks a gate
+/// placed exactly on the origin, nudging the character back to the near side
+/// rather than letting it walk off a gate it should never have been standing
+/// on. Integer gate positions are the shape the README teaches, so they are the
+/// shape that has to work.
 double clampTravelThroughGates(
   Iterable<SagaMapGate> gates,
   double from,
@@ -46,18 +53,18 @@ double clampTravelThroughGates(
     for (final gate in gates) {
       if (gate.isOpen) continue;
       final at = gate.pathPosition;
-      if (at > from && at < limit) {
+      if (at >= from && at <= limit) {
         limit = at - stopMargin;
       }
     }
-    return limit < from ? from : limit;
+    return limit;
   }
 
   var limit = to;
   for (final gate in gates) {
     if (gate.isOpen) continue;
     final at = gate.pathPosition;
-    if (at < from && at > limit) {
+    if (at < from && at >= limit) {
       limit = at + stopMargin;
     }
   }

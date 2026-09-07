@@ -449,8 +449,9 @@ void main() {
     /// `clampTravelThroughGates`.
     Future<(SagaCharacterController, void Function(List<SagaMapGate>))> pumpGated(
       WidgetTester tester,
-      List<SagaMapGate> gates,
-    ) async {
+      List<SagaMapGate> gates, {
+      void Function(LevelData)? onLevelReached,
+    }) async {
       tester.view.devicePixelRatio = 1.0;
       tester.view.physicalSize = const Size(400, 800);
       addTearDown(tester.view.reset);
@@ -483,6 +484,7 @@ void main() {
                       lateralBounds: _config.lateralBounds,
                       biomeThemeResolver: const DefaultSagaBiomeThemeResolver(),
                       gates: current,
+                      onLevelReached: onLevelReached,
                       character: SagaCharacter(
                         controller: character,
                         builder: (context, state) =>
@@ -513,6 +515,35 @@ void main() {
 
       expect(character.pathPosition, lessThan(4));
       expect(character.pathPosition, greaterThan(3.9));
+    });
+
+    // The README recipe verbatim: an integer gate, `hasTicket == false`, and a
+    // host that walks forward one level at a time. Before 2.0.0 the first
+    // `advance()` landed the character *on* the gate and the second walked
+    // straight through it, taking `onLevelReached` with it.
+    testWidgets('an integer gate survives two consecutive advances',
+        (tester) async {
+      final reached = <int>[];
+      final (character, _) = await pumpGated(
+        tester,
+        const [SagaMapGate(pathPosition: 4)],
+        onLevelReached: (level) => reached.add(level.id),
+      );
+
+      unawaited(character.moveTo(3));
+      await tester.pumpAndSettle();
+      expect(character.pathPosition, 3);
+
+      unawaited(character.advance());
+      await tester.pumpAndSettle();
+      expect(character.pathPosition, lessThan(4));
+
+      unawaited(character.advance());
+      await tester.pumpAndSettle();
+      expect(character.pathPosition, lessThan(4));
+
+      expect(reached, isNot(contains(4)));
+      expect(reached, isNot(contains(5)));
     });
 
     testWidgets('opening the gate lets the walk through', (tester) async {

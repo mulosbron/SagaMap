@@ -118,10 +118,8 @@ class SagaCharacterController extends ChangeNotifier {
   /// setting, to place the character instead.
   Future<void> moveTo(double position, {bool animate = true}) async {
     // A closed gate shortens the journey to its near side.
-    final target = barrier?.call(_position, position) ?? position;
-
     if (!animate) {
-      jumpTo(target);
+      jumpTo(barrier?.call(_position, position) ?? position);
       return;
     }
 
@@ -130,7 +128,13 @@ class SagaCharacterController extends ChangeNotifier {
     _moving = true;
     notifyListeners();
 
-    while (_position != target) {
+    // The barrier is re-asked before every step, not once against the whole
+    // journey: a gate that closes while the character is walking has to stop it
+    // where it stands, not at the destination it was cleared for.
+    while (true) {
+      final target = barrier?.call(_position, position) ?? position;
+      if (_position == target) break;
+
       final next = _nextStop(target);
       await _animateStep(next);
       if (_journey != journey) return; // superseded or stopped

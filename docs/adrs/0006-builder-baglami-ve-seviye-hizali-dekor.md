@@ -142,4 +142,4 @@ Eski `SagaMapDecorationBuilder` imzası `@Deprecated` işaretlenir ama **kaldır
 ## Related
 
 - Görev: T-05, T-10, T-15
-- `docs/reports/05-c4-genisleme-noktalari.md` (dikişler karnesi)
+- `.old/docs/reports/05-c4-genisleme-noktalari.md` (dikişler karnesi)

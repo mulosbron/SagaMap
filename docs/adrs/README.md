@@ -27,7 +27,7 @@ Her ADR aynı şablonu izler — **Title · Status · Context · Decision · Con
 Her ADR `Proposed` başlar. Uygulanan görev birleştirildiğinde `Accepted`,
 vazgeçilirse `Rejected`, sonraki bir kararla değişirse `Superseded by ADR-XXXX`
 olur. Sürüm yayımlanmadan önce ilgili ADR'lerin durumu güncellenmelidir
-(bkz. `../reports/04-surumleme-ve-gecis-plani.md` §7).
+(bkz. `../../.old/docs/reports/04-surumleme-ve-gecis-plani.md` §7).
 
 ## Yeni ADR
 

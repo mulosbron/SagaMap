@@ -105,4 +105,4 @@ değerleri değişir ve `SagaBiomeThemeResolver` bilinmeyen kimliklerle karşıl
 
 - Görev: T-11
 - ADR-0006 (builder bağlamı) — `biomeId`'nin host'a ulaşmasını sağlar
-- Bulgu: OCP-3 (`docs/reports/01-solid-uyumluluk-denetimi.md`)
+- Bulgu: OCP-3 (`.old/docs/reports/01-solid-uyumluluk-denetimi.md`)

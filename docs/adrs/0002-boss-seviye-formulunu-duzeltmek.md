@@ -70,7 +70,7 @@ Bu değişiklik **kırıcıdır ve 2.0.0'ı gerektirir.** Hiçbir imza değişme
 hiçbir alan taşınmadığı için semver açısından "yama" gibi görünür; değildir.
 Mevcut oyuncuların kayıtlı ödül geçmişi bir seviye kayar — kayıtlı verinin
 *anlamı* değişir. Bu, bu paketin sürümleme politikasında majör bir değişikliktir
-(bkz. `docs/reports/04-surumleme-ve-gecis-plani.md` §2).
+(bkz. `.old/docs/reports/04-surumleme-ve-gecis-plani.md` §2).
 
 Ertelenmesi reddedildi. Paketin tek bilinen tüketicisi var ve düzeltmenin maliyeti
 bugün mümkün olan en düşük noktada; her yeni tüketici bu borcu büyütür.

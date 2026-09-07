@@ -113,4 +113,4 @@ soyutlama düzeyi.
 ## Related
 
 - Görev: T-06
-- Bulgu: DIP-2, OCP-4 (`docs/reports/01-solid-uyumluluk-denetimi.md`)
+- Bulgu: DIP-2, OCP-4 (`.old/docs/reports/01-solid-uyumluluk-denetimi.md`)

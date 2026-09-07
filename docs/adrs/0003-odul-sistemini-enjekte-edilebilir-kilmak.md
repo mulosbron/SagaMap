@@ -117,4 +117,4 @@ tipi zaten tam yetkili bir stratejidir.
 
 - ADR-0002 (boss formülü) — aynı sürümde çıkar
 - Görev: T-04, T-12, T-13, T-14
-- Bulgu: DIP-1, OCP-1, OCP-2, SRP-1 (`docs/reports/01-solid-uyumluluk-denetimi.md`)
+- Bulgu: DIP-1, OCP-1, OCP-2, SRP-1 (`.old/docs/reports/01-solid-uyumluluk-denetimi.md`)

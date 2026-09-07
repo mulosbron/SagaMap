@@ -104,5 +104,5 @@ tam olarak yasakladığı şeydir. Bir sürüm gecikme, kalıcı bir LSP ihlalin
 ## Related
 
 - Görev: T-03, T-09, T-16, T-18
-- Bulgu: ISP-1 (`docs/reports/01-solid-uyumluluk-denetimi.md`)
-- `docs/reports/04-surumleme-ve-gecis-plani.md` §5 (T-09 sürüm kararı)
+- Bulgu: ISP-1 (`.old/docs/reports/01-solid-uyumluluk-denetimi.md`)
+- `.old/docs/reports/04-surumleme-ve-gecis-plani.md` §5 (T-09 sürüm kararı)

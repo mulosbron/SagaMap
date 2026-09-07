@@ -152,6 +152,12 @@ class SagaMapResponsiveConfig {
   );
 
   /// Returns a copy with updated policy values.
+  ///
+  /// [maxLateralExtentPolicy] is nullable — `null` means "unconstrained" — so
+  /// it is passed as a getter rather than a value: omit it to keep the current
+  /// policy, pass `() => null` to lift the constraint deliberately. Without
+  /// that split, `null` meant "leave it alone" and the documented
+  /// unconstrained state was unreachable once a policy had been set.
   SagaMapResponsiveConfig copyWith({
     List<SagaMapBreakpoint>? breakpoints,
     SagaMapValuePolicy? nodeSizePolicy,
@@ -159,7 +165,7 @@ class SagaMapResponsiveConfig {
     SagaMapValuePolicy? zoomPolicy,
     SagaMapValuePolicy? interactionRadiusPolicy,
     SagaMapValuePolicy? cameraPaddingPolicy,
-    SagaMapValuePolicy? maxLateralExtentPolicy,
+    SagaMapValuePolicy? Function()? maxLateralExtentPolicy,
     SagaMapValuePolicy? scrollSensitivityPolicy,
     SagaMapPathAxis? pathAxis,
   }) {
@@ -171,8 +177,9 @@ class SagaMapResponsiveConfig {
       interactionRadiusPolicy:
           interactionRadiusPolicy ?? this.interactionRadiusPolicy,
       cameraPaddingPolicy: cameraPaddingPolicy ?? this.cameraPaddingPolicy,
-      maxLateralExtentPolicy:
-          maxLateralExtentPolicy ?? this.maxLateralExtentPolicy,
+      maxLateralExtentPolicy: maxLateralExtentPolicy == null
+          ? this.maxLateralExtentPolicy
+          : maxLateralExtentPolicy(),
       scrollSensitivityPolicy:
           scrollSensitivityPolicy ?? this.scrollSensitivityPolicy,
       pathAxis: pathAxis ?? this.pathAxis,

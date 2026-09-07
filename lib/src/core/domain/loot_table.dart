@@ -17,6 +17,25 @@ class LootTableEntry {
     required this.rarity,
     required this.weight,
   });
+
+  /// Compared by value, because callers look entries *up*.
+  ///
+  /// `LootTableOdds.probabilityOf` finds an entry with `contains`, which
+  /// without this is reference equality: a field-for-field copy of a table
+  /// entry — the natural thing to write when asking "what are the odds on the
+  /// crown?" — threw instead of answering. The package's own test passed the
+  /// same instance back in, so the gap never showed.
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is LootTableEntry &&
+          other.itemId == itemId &&
+          other.itemName == itemName &&
+          other.rarity == rarity &&
+          other.weight == weight;
+
+  @override
+  int get hashCode => Object.hash(itemId, itemName, rarity, weight);
 }
 
 /// Default MVP boss-drop table.

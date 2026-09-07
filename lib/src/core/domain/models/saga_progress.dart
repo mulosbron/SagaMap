@@ -3,6 +3,16 @@ import 'level_progress.dart';
 /// Aggregate progression model for all known levels.
 class SagaProgress {
   final int currentMaxUnlockedLevelId;
+
+  /// Per-level records, keyed by level id. Unmodifiable.
+  ///
+  /// **Empty means uninitialised.** `fromJson` reads an empty map as a fresh
+  /// save and returns [SagaProgress.initial]'s levels instead, so `levels: {}`
+  /// does not survive a round trip — unlike [extra] beside it, which does.
+  /// That asymmetry is deliberate: since 2.0.0 a level with no record reads as
+  /// locked, so an empty map loaded faithfully is a map on which nothing can be
+  /// tapped. A host that needs "no levels" as a real state should carry that
+  /// flag in [extra].
   final Map<int, LevelProgress> levels;
 
   /// Host-owned data the package stores but never interprets.
@@ -96,6 +106,13 @@ class SagaProgress {
       extra = Map<String, dynamic>.from(extraRaw);
     }
 
+    // An empty level map means "uninitialised", not "deliberately empty", and
+    // does not round-trip as one. That is the deliberate choice of the two the
+    // asymmetry with `extra` invites — `extra: {}` survives, `levels: {}` does
+    // not. Since 2.0.0 a level with no record reads as locked, so loading an
+    // empty map faithfully would produce a map on which nothing is tappable:
+    // an unplayable save is a worse answer to a truncated file than a fresh
+    // one. Hosts that need "no levels" as a state should carry it in `extra`.
     final resolvedLevels =
         levels.isNotEmpty ? levels : SagaProgress.initial().levels;
 

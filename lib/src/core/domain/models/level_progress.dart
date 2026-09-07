@@ -88,19 +88,69 @@ class LevelProgress {
   }
 
   /// Returns a copy with overridden fields.
+  ///
+  /// [lastPlayedAt] is nullable, so `null` cannot mean both "leave it alone"
+  /// and "clear it". It is passed as a getter to keep the two apart: omit it to
+  /// keep the current value, pass `() => null` to clear it deliberately.
+  ///
+  /// ```dart
+  /// progress.copyWith(stars: 3);                     // date untouched
+  /// progress.copyWith(lastPlayedAt: () => null);     // date cleared
+  /// progress.copyWith(lastPlayedAt: () => DateTime.now());
+  /// ```
   LevelProgress copyWith({
     int? levelId,
     LevelCompletionState? state,
     int? stars,
-    DateTime? lastPlayedAt,
+    DateTime? Function()? lastPlayedAt,
     Map<String, dynamic>? extra,
   }) {
     return LevelProgress(
       levelId: levelId ?? this.levelId,
       state: state ?? this.state,
       stars: stars ?? this.stars,
-      lastPlayedAt: lastPlayedAt ?? this.lastPlayedAt,
+      lastPlayedAt: lastPlayedAt == null ? this.lastPlayedAt : lastPlayedAt(),
       extra: extra ?? Map<String, dynamic>.from(this.extra),
     );
   }
+
+  /// Compared by value.
+  ///
+  /// The view diffs the progress it resolved against the progress it cached to
+  /// decide whether a chunk needs rebuilding. Without this that diff is
+  /// reference equality, so a host resolver that builds a fresh `LevelProgress`
+  /// per call — the obvious way to write one — reported a change on every
+  /// sweep and rebuilt a chunk that had not moved.
+  ///
+  /// [extra] is compared shallowly, by its own entries' equality: it is
+  /// host-owned JSON, and a deep walk of arbitrary nested maps is not something
+  /// a per-frame diff can afford.
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! LevelProgress) return false;
+    if (other.levelId != levelId ||
+        other.state != state ||
+        other.stars != stars ||
+        other.lastPlayedAt != lastPlayedAt ||
+        other.extra.length != extra.length) {
+      return false;
+    }
+    for (final entry in extra.entries) {
+      if (!other.extra.containsKey(entry.key) ||
+          other.extra[entry.key] != entry.value) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        levelId,
+        state,
+        stars,
+        lastPlayedAt,
+        extra.length,
+      );
 }

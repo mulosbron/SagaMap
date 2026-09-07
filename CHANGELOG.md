@@ -4,6 +4,23 @@ All notable changes to this package are documented in this file.
 
 ## 2.0.0
 
+### Fixed — value-object defects
+
+- `LootTableEntry` is compared by value. `LootTableOdds.probabilityOf` looks an
+  entry up with `contains`, which was reference equality: asking about a
+  field-identical copy threw instead of answering.
+- `LevelProgress` is compared by value too. The view diffs resolved progress
+  against cached progress, so a host resolver returning a fresh instance per
+  call reported a change on every sweep.
+- `LevelProgress.copyWith(lastPlayedAt:)` and
+  `SagaMapResponsiveConfig.copyWith(maxLateralExtentPolicy:)` take a getter
+  (`() => null`) instead of a value, so `null` can mean "clear this" rather than
+  only "leave it alone" — the documented unconstrained lateral extent was
+  unreachable once set. **Breaking** for callers that passed either directly.
+- An empty `levels` map is documented as meaning uninitialised rather than made
+  to round-trip: since an unrecorded level now reads as locked, loading one
+  faithfully would produce a map on which nothing is tappable.
+
 ### Added — a path renderer you can inject
 
 `MapChunkWidget.pathRenderer` and `SagaInfiniteMapView.pathRenderer` take a

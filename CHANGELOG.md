@@ -95,15 +95,64 @@ accepted any level id. `execute` still takes it as an optional override for the
 one call that deliberately jumps ahead.
 
 A negative `levelId` is now refused whatever the guard says, and
-`SagaProgress.fromJson` clamps `currentMaxUnlockedLevelId` to at most one past
-the highest recorded level, so a tampered save cannot hand itself the pointer
-the guard rests on. `fromJson` sanitises rather than trusts, and says so.
+`SagaProgress.fromJson` reconciles `currentMaxUnlockedLevelId` against the
+records beside it — a pointer must be justified by its own record or by a
+completion below it, never by a record for some unrelated level — so a tampered
+save cannot hand itself the pointer the guard rests on. `fromJson` sanitises
+rather than trusts, and says so. If you have 1.x saves in the wild, read
+**Migration — 1.x saves** below before shipping.
 
 `rollBossReward` stays public — hosts need it for previews and their own
 economies — with its unguarded-mint contract spelled out in full rather than in
 one line. The snapshot-based first-clear guard in `execute` is documented on
 `CompleteLevelResult.reward` and pinned by a test; closing it structurally needs
 the deferred `InventoryRepository` injection (ADR-0003, 2.1.0).
+
+### Migration — 1.x saves
+
+**Read this before you ship 2.0.0 to an install base.** Two changes in this
+release meet in one place, and together they can make a returning player look
+like they lost their progress.
+
+1. `SagaProgress.fromJson` now reconciles `currentMaxUnlockedLevelId` against
+   the records beside it. The pointer may reach one past the highest
+   **completed** level, or stand where the payload records the pointed-at level
+   as `unlocked`/`completed` in its own right. A pointer justified by neither is
+   clamped down.
+2. `enforceUnlockOrder` is on by default, so every level above that pointer then
+   refuses to complete.
+
+1.x read a missing level record as "unlocked if it sits below the pointer", so a
+1.x host was free to persist a pointer of `20` beside records for levels `0`,
+`1` and `2` only. Loaded by 2.0.0, that save's pointer becomes `3`.
+
+**If your 1.x build wrote a record for every level the player reached, you are
+not affected** — those saves reconcile to the same pointer they stored.
+
+The escape hatch, run once at upgrade time:
+
+```dart
+// Only for a payload you know your own 1.x build wrote. It trusts the stored
+// pointer, which is exactly the guarantee `fromJson` withholds.
+final migrated = SagaProgress.migrateFrom1x(savedJson);
+await repository.saveProgress(migrated);   // persist, then never call it again
+```
+
+It backfills every id in `[0, currentMaxUnlockedLevelId]` that has no record as
+`unlocked`, grants no stars and completes nothing — it restores exactly the
+reachability the 1.x reading gave. `maxBackfill` (default `10000`) bounds the
+work an absurd stored pointer can cause.
+
+To find out whether you are affected at all, ask `fromJson` — clamping is silent
+by default, but not unreportable:
+
+```dart
+SagaProgress.fromJson(savedJson, onClamp: (clamp) {
+  if (clamp.lostGround) {
+    analytics.log('saga_pointer_clamped', {'from': clamp.storedPointer});
+  }
+});
+```
 
 ### Breaking — an unrecorded level is now locked
 

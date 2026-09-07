@@ -161,6 +161,24 @@ A change is breaking (requires a major version bump) if it breaks:
 
 **Deprecation policy:** Nothing marked `@Deprecated` is removed in the same major version. It will emit a warning until the next major release.
 
+### Upgrading from 1.x
+
+2.0.0 is a breaking release; the full list, each item with a copy-pasteable
+escape hatch, is in [`CHANGELOG.md`](CHANGELOG.md).
+
+**One item needs a decision before you ship, not after.** 1.x read a level with
+no saved record as unlocked if it sat below `currentMaxUnlockedLevelId`, so a
+1.x host could persist a pointer far ahead of a sparse `levels` map. 2.0.0 reads
+an unrecorded level as locked and reconciles the pointer against the records
+beside it, so such a save loads with a lower pointer — and with
+`enforceUnlockOrder` now on by default, the levels above it refuse to complete.
+To the player that is lost progress.
+
+`SagaProgress.migrateFrom1x` is the one-time conversion, and
+`SagaProgress.fromJson`'s `onClamp` callback tells you whether you are affected
+at all. See
+[**Migration — 1.x saves**](CHANGELOG.md#migration--1x-saves) in the changelog.
+
 ## Public API Design
 
 Only import this file from your app:

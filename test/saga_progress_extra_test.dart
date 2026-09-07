@@ -55,13 +55,15 @@ void main() {
       );
 
       // The empty-levels payload falls back to the initial state, whose only
-      // record is level 0, so the ceiling is 1 there too.
+      // record is level 0 and it is `unlocked`, not completed. Since A-02 the
+      // ceiling rests on completions, so a fresh save has cleared nothing and
+      // the ceiling is 0.
       expect(
         SagaProgress.fromJson({
           'currentMaxUnlockedLevelId': 9999,
           'levels': <String, dynamic>{},
         }).currentMaxUnlockedLevelId,
-        1,
+        0,
       );
     });
 
@@ -211,6 +213,165 @@ void main() {
       final updatedLevel = result.nextProgress.levels[1]!;
       expect(updatedLevel.stars, 3);
       expect(updatedLevel.extra, equals({'app.score': 9000}));
+    });
+  });
+
+  group('A-02 — the ceiling rests on completed records only', () {
+    test('a fake locked record cannot lift the unlock pointer', () {
+      // The audit ran this payload against the shipped code: the pointer
+      // survived at 999999 and CompleteLevelUseCase(), with the order guard
+      // on, happily completed level 999998. Folding over every key made the
+      // presence of a record — any record, in any state — proof of progress.
+      final progress = SagaProgress.fromJson({
+        'currentMaxUnlockedLevelId': 999999,
+        'levels': {
+          '0': {'levelId': 0, 'state': 'unlocked', 'stars': 0},
+          '999998': {'levelId': 999998, 'state': 'locked', 'stars': 0},
+        },
+      });
+
+      expect(progress.currentMaxUnlockedLevelId, 0);
+
+      final result = const CompleteLevelUseCase().execute(
+        currentProgress: progress,
+        levelId: 999998,
+        globalSeed: 7,
+      );
+      expect(result.outcome, CompleteLevelOutcome.rejectedUnreached);
+      // The forged record still loads — sanitising never drops a host's data —
+      // but it stays `locked` and buys nothing.
+      expect(
+        result.nextProgress.levels[999998]?.state,
+        LevelCompletionState.locked,
+      );
+    });
+
+    test('a record for some other level does not lift the pointer', () {
+      final progress = SagaProgress.fromJson({
+        'currentMaxUnlockedLevelId': 9,
+        'levels': {
+          '0': {'levelId': 0, 'state': 'completed', 'stars': 1},
+          '5': {'levelId': 5, 'state': 'unlocked', 'stars': 0},
+        },
+      });
+      // Nothing justifies 9: level 5's record is not a claim about level 9,
+      // and one completed level (0) opens exactly one successor.
+      expect(progress.currentMaxUnlockedLevelId, 1);
+    });
+
+    test('no completed record means a ceiling of zero', () {
+      final progress = SagaProgress.fromJson({
+        'currentMaxUnlockedLevelId': 4,
+        'levels': {
+          '0': {'levelId': 0, 'state': 'unlocked', 'stars': 0},
+        },
+      });
+      expect(progress.currentMaxUnlockedLevelId, 0);
+    });
+
+    test('a deliberately jumped pointer with its own record survives', () {
+      // The chapter-skip host: it opened level 5 itself and wrote the record
+      // saying so. Folding over completions alone would have erased that on
+      // the next load, so the pointer stands when the payload justifies it at
+      // the pointer itself.
+      final progress = SagaProgress.fromJson({
+        'currentMaxUnlockedLevelId': 5,
+        'levels': {
+          '0': {'levelId': 0, 'state': 'completed', 'stars': 1},
+          '5': {'levelId': 5, 'state': 'unlocked', 'stars': 0},
+        },
+      });
+      expect(progress.currentMaxUnlockedLevelId, 5);
+    });
+
+    test('an honest save is untouched', () {
+      final progress = SagaProgress.fromJson({
+        'currentMaxUnlockedLevelId': 2,
+        'levels': {
+          '0': {'levelId': 0, 'state': 'completed', 'stars': 3},
+          '1': {'levelId': 1, 'state': 'completed', 'stars': 2},
+          '2': {'levelId': 2, 'state': 'unlocked', 'stars': 0},
+        },
+      });
+      expect(progress.currentMaxUnlockedLevelId, 2);
+    });
+  });
+
+  group('A-01 — a sparse 1.x save', () {
+    // 1.x read a missing record as "unlocked if below the pointer", so a host
+    // could persist a pointer of 20 beside three records. 2.0.0 reads a
+    // missing record as locked; the pointer is reconciled and the player, to
+    // whom the pointer *is* the progress, sees it vanish.
+    Map<String, dynamic> sparse() => {
+          'currentMaxUnlockedLevelId': 20,
+          'levels': {
+            '0': {'levelId': 0, 'state': 'completed', 'stars': 3},
+            '1': {'levelId': 1, 'state': 'completed', 'stars': 2},
+            '2': {'levelId': 2, 'state': 'completed', 'stars': 1},
+          },
+          'extra': {'lastWorld': 'verdant'},
+        };
+
+    test('drops the pointer on a plain load — and says so', () {
+      final clamps = <SagaProgressClamp>[];
+      final progress = SagaProgress.fromJson(sparse(), onClamp: clamps.add);
+
+      expect(progress.currentMaxUnlockedLevelId, 3);
+      expect(clamps, hasLength(1));
+      expect(clamps.single.storedPointer, 20);
+      expect(clamps.single.clampedTo, 3);
+      expect(clamps.single.completedCeiling, 3);
+      expect(clamps.single.lostGround, isTrue);
+    });
+
+    test('every level above the new pointer then refuses to complete', () {
+      final progress = SagaProgress.fromJson(sparse());
+      final result = const CompleteLevelUseCase().execute(
+        currentProgress: progress,
+        levelId: 12,
+        globalSeed: 1,
+      );
+      expect(result.outcome, CompleteLevelOutcome.rejectedUnreached);
+    });
+
+    test('migrateFrom1x keeps the pointer and backfills reachability', () {
+      final progress = SagaProgress.migrateFrom1x(sparse());
+
+      expect(progress.currentMaxUnlockedLevelId, 20);
+      expect(progress.levels.keys.length, 21);
+      expect(progress.levels[2]?.state, LevelCompletionState.completed);
+      expect(progress.levels[2]?.stars, 1);
+      expect(progress.levels[12]?.state, LevelCompletionState.unlocked);
+      expect(progress.levels[12]?.stars, 0);
+      expect(progress.extra['lastWorld'], 'verdant');
+
+      // And the migrated save survives its own round trip through fromJson,
+      // because level 20 is now recorded rather than merely pointed at.
+      final clamps = <SagaProgressClamp>[];
+      final reloaded =
+          SagaProgress.fromJson(progress.toJson(), onClamp: clamps.add);
+      expect(reloaded.currentMaxUnlockedLevelId, 20);
+      expect(clamps, isEmpty);
+    });
+
+    test('migrateFrom1x bounds a hostile pointer', () {
+      final progress = SagaProgress.migrateFrom1x(
+        {'currentMaxUnlockedLevelId': 2000000000, 'levels': {}},
+        maxBackfill: 50,
+      );
+      expect(progress.currentMaxUnlockedLevelId, 50);
+      expect(progress.levels.keys.length, 51);
+    });
+
+    test('a clean load reports no clamp', () {
+      final clamps = <SagaProgressClamp>[];
+      SagaProgress.fromJson({
+        'currentMaxUnlockedLevelId': 1,
+        'levels': {
+          '0': {'levelId': 0, 'state': 'completed', 'stars': 1},
+        },
+      }, onClamp: clamps.add);
+      expect(clamps, isEmpty);
     });
   });
 }

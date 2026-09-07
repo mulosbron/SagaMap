@@ -45,6 +45,38 @@ const String _savedBy110 = '''
 }
 ''';
 
+/// A second 1.1.0 payload, written the way 1.x actually let a host write one:
+/// a pointer far ahead of a **sparse** `levels` map. 1.x read a missing record
+/// as "unlocked if it sits below the pointer", so persisting a record per level
+/// was never required.
+///
+/// The frozen fixture above cannot exercise this: its pointer is 16 and its
+/// highest record is 16, so the 2.0.0 reconciliation is a no-op there and the
+/// version gate never sees the hazard it exists to guard.
+const String _sparseSavedBy110 = '''
+{
+  "currentMaxUnlockedLevelId": 20,
+  "levels": {
+    "0": {
+      "levelId": 0,
+      "state": "completed",
+      "stars": 3
+    },
+    "1": {
+      "levelId": 1,
+      "state": "completed",
+      "stars": 2
+    },
+    "2": {
+      "levelId": 2,
+      "state": "completed",
+      "stars": 1
+    }
+  },
+  "extra": {"lastWorld": "verdant"}
+}
+''';
+
 /// The 1.0.0 / 1.1.0 boss formula, the documented way back.
 bool _legacyBossRule(int levelId) => levelId > 0 && levelId % 15 == 0;
 
@@ -188,6 +220,55 @@ void main() {
       expect(colour.kind, SagaMapBackgroundKind.color);
       expect(image.kind, SagaMapBackgroundKind.imageAsset);
       expect(image.assetPath, 'assets/world.png');
+    });
+  });
+
+  group('a sparse 1.x save has a named way across (A-01)', () {
+    final json = jsonDecode(_sparseSavedBy110) as Map<String, dynamic>;
+
+    test('a plain load reconciles the pointer, and does not do it silently',
+        () {
+      final clamps = <SagaProgressClamp>[];
+      final progress = SagaProgress.fromJson(json, onClamp: clamps.add);
+
+      // Three completions open exactly one successor, so 20 becomes 3. That is
+      // the behaviour the CHANGELOG's "Migration — 1.x saves" section names;
+      // what must never come back is it happening with nothing reported.
+      expect(progress.currentMaxUnlockedLevelId, 3);
+      expect(clamps, hasLength(1));
+      expect(clamps.single.storedPointer, 20);
+      expect(clamps.single.lostGround, isTrue);
+    });
+
+    test('and with the order guard on, every level above it shuts', () {
+      final progress = SagaProgress.fromJson(json);
+      final result = const CompleteLevelUseCase().execute(
+        currentProgress: progress,
+        levelId: 11,
+        globalSeed: 3,
+      );
+      expect(result.outcome, CompleteLevelOutcome.rejectedUnreached);
+    });
+
+    test('migrateFrom1x is the escape hatch, and it is exported', () {
+      final progress = SagaProgress.migrateFrom1x(json);
+
+      expect(progress.currentMaxUnlockedLevelId, 20);
+      expect(progress.levels[11]?.state, LevelCompletionState.unlocked);
+      expect(progress.levels[0]?.stars, 3);
+      expect(progress.extra['lastWorld'], 'verdant');
+
+      // The player can play on, and the migrated save no longer clamps.
+      final result = const CompleteLevelUseCase().execute(
+        currentProgress: progress,
+        levelId: 11,
+        globalSeed: 3,
+      );
+      expect(result.outcome, CompleteLevelOutcome.applied);
+
+      final clamps = <SagaProgressClamp>[];
+      SagaProgress.fromJson(progress.toJson(), onClamp: clamps.add);
+      expect(clamps, isEmpty);
     });
   });
 

@@ -30,7 +30,7 @@ const _levels = <LevelData>[
 
 /// Progress with stars and a host-owned `bookmarked` flag in `extra` — the
 /// 1.1.0 field the library persists but never interprets.
-final _progress = const SagaProgress(
+final _progress = SagaProgress(
   currentMaxUnlockedLevelId: 2,
   levels: {
     0: LevelProgress(

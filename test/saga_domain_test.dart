@@ -149,7 +149,8 @@ void main() {
   });
 
   group('loot table', () {
-    test('marks the 15th, 30th and 45th level a boss (zero-based ids 14, 29, 44)',
+    test(
+        'marks the 15th, 30th and 45th level a boss (zero-based ids 14, 29, 44)',
         () {
       expect(isBossLevel(14), isTrue);
       expect(isBossLevel(29), isTrue);
@@ -428,6 +429,31 @@ void main() {
         loaded.copyWith(currentMaxUnlockedLevelId: 9),
       );
       expect((await repository.loadProgress()).currentMaxUnlockedLevelId, 9);
+    });
+
+    test('mutating a loaded progress map throws instead of corrupting state',
+        () async {
+      final repository = InMemorySagaProgressRepository();
+      final loaded = await repository.loadProgress();
+
+      // levels and extra are defensively copied and unmodifiable, so a host
+      // cannot silently rewrite persisted state by mutating the returned map.
+      expect(
+        () => loaded.levels[999] = LevelProgress(
+          levelId: 999,
+          state: LevelCompletionState.unlocked,
+        ),
+        throwsUnsupportedError,
+      );
+      expect(
+        () => loaded.extra['app.hacked'] = true,
+        throwsUnsupportedError,
+      );
+
+      // The store is untouched either way.
+      final again = await repository.loadProgress();
+      expect(again.levels.containsKey(999), isFalse);
+      expect(again.extra.containsKey('app.hacked'), isFalse);
     });
 
     test('an explicit seed is honoured', () async {

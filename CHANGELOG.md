@@ -22,6 +22,12 @@ Six breaking changes, in the order you will hit them:
 Only two of those need code from you. The other four are behaviour or contract
 changes whose defaults reproduce 1.x exactly.
 
+`SagaProgress`'s constructor is no longer `const`: it now defensively copies
+`levels` and `extra` as unmodifiable maps, so mutating a returned map throws
+instead of silently corrupting persisted state (matching the inventory
+repository's `List.unmodifiable` guarantee). Any `const SagaProgress(...)` call
+site must drop the `const` keyword.
+
 **Nothing new was deprecated in 2.0.0.** The removals in this release are
 outright, because a deprecated `svgAsset` would have kept the `flutter_svg`
 dependency alive, which was the point of removing it.

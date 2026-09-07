@@ -11,16 +11,22 @@ class SagaProgress {
   /// Keep it small; it is serialised on every save.
   final Map<String, dynamic> extra;
 
-  const SagaProgress({
+  /// Defensively copies [levels] and [extra] as unmodifiable maps, so a caller
+  /// mutating a returned map cannot silently rewrite "persisted" state — it
+  /// throws instead. This mirrors the inventory repository's
+  /// `List.unmodifiable` guarantee. The cost is that the constructor is no
+  /// longer `const`.
+  SagaProgress({
     required this.currentMaxUnlockedLevelId,
-    required this.levels,
-    this.extra = const {},
-  });
+    required Map<int, LevelProgress> levels,
+    Map<String, dynamic> extra = const {},
+  })  : levels = Map<int, LevelProgress>.unmodifiable(levels),
+        extra = Map<String, dynamic>.unmodifiable(extra);
 
   /// Creates the baseline progress with level `0` unlocked.
   /// Note that level `0` is the first level.
   factory SagaProgress.initial() {
-    return const SagaProgress(
+    return SagaProgress(
       currentMaxUnlockedLevelId: 0,
       levels: {
         0: LevelProgress(

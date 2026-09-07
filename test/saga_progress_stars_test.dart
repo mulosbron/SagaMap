@@ -9,7 +9,7 @@ void main() {
     });
 
     test('only unlocked levels -> totalStars == 0', () {
-      final progressOnlyUnlocked = const SagaProgress(
+      final progressOnlyUnlocked = SagaProgress(
         currentMaxUnlockedLevelId: 2,
         levels: {
           0: LevelProgress(
@@ -27,7 +27,7 @@ void main() {
     });
 
     test('range boundaries are inclusive/exclusive correctly', () {
-      final progress = const SagaProgress(
+      final progress = SagaProgress(
         currentMaxUnlockedLevelId: 5,
         levels: {
           0: LevelProgress(
@@ -50,7 +50,7 @@ void main() {
 
     test('isRangePerfect is false when one level is missing or not perfect',
         () {
-      final progress = const SagaProgress(
+      final progress = SagaProgress(
         currentMaxUnlockedLevelId: 5,
         levels: {
           0: LevelProgress(

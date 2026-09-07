@@ -4,6 +4,20 @@ All notable changes to this package are documented in this file.
 
 ## 2.0.0
 
+### Fixed — sprite sheets no longer corrupt art silently
+
+- `SagaSpritePainter` used only half of `applyBoxFit`'s answer. A cropping fit
+  (`cover`, `fitWidth`, `fitHeight`) works by sampling less than the whole
+  frame; ignoring the source rect squashed the frame into the box instead of
+  cropping it, so those fits quietly distorted every sprite.
+- A clip is now checked against the sheet that has to supply it. Constructing
+  `SagaSpriteAnimation` with a clip that overruns the sheet throws an
+  `ArgumentError`; swapping to one mid-play reports the error and keeps drawing
+  a frame the sheet actually has, rather than sampling outside it under nothing
+  but a debug assert.
+- `didUpdateWidget` branched on `image` and `clip` but not `sheet`, so a swap to
+  a smaller sheet left the frame index past the end.
+
 ### Fixed — four view lifecycle defects
 
 - A swapped `SagaMapCameraController` was never attached, so every call on the

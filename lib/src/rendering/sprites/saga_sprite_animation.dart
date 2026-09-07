@@ -57,6 +57,26 @@ class SagaSpriteAnimation extends StatefulWidget {
     this.onCompleted,
   });
 
+  /// The clip's frame range, checked against the sheet that has to supply it.
+  ///
+  /// A clip and a sheet are independent values that only meet here, so this is
+  /// the first point where "frame 40 of a 12-frame sheet" is even a question.
+  /// It throws rather than asserts: an assert is stripped from release builds,
+  /// which is exactly where sampling outside the sheet shows up as corrupt art
+  /// instead of a crash.
+  ArgumentError? _clipError() {
+    final last = clip.from + clip.count - 1;
+    if (clip.from >= sheet.frameCount || last >= sheet.frameCount) {
+      return ArgumentError.value(
+        clip,
+        'clip',
+        'covers frames ${clip.from}..$last of a sheet that has '
+            '${sheet.frameCount} (0..${sheet.frameCount - 1})',
+      );
+    }
+    return null;
+  }
+
   @override
   State<SagaSpriteAnimation> createState() => _SagaSpriteAnimationState();
 }
@@ -77,6 +97,8 @@ class _SagaSpriteAnimationState extends State<SagaSpriteAnimation>
   @override
   void initState() {
     super.initState();
+    final error = widget._clipError();
+    if (error != null) throw error;
     _frame = widget.clip.from;
     _ticker = createTicker(_onTick);
   }
@@ -94,12 +116,34 @@ class _SagaSpriteAnimationState extends State<SagaSpriteAnimation>
     if (oldWidget.image != widget.image) {
       _resolveImage();
     }
-    if (oldWidget.clip != widget.clip) {
+    if (oldWidget.clip != widget.clip || oldWidget.sheet != widget.sheet) {
       // A different clip is a different animation; restarting is the only
       // sensible reading of "now play this instead".
+      //
+      // The sheet counts too. Swapping to a sheet with fewer frames while the
+      // clip stayed the same left `_frame` past the end, guarded only by a
+      // debug assert in `frameRect` — so a release build sampled outside the
+      // sheet and drew whatever pixels happened to be there.
       _elapsed = Duration.zero;
       _completed = false;
       _frame = widget.clip.from;
+
+      // Reported rather than thrown here. Throwing out of didUpdateWidget
+      // leaves a half-updated element behind — a live ticker with no tree —
+      // and the honest answer to "this clip does not fit that sheet" mid-play
+      // is to say so loudly and keep drawing a frame that exists, not to take
+      // the app down on a swap.
+      final error = widget._clipError();
+      if (error != null) {
+        _frame = widget.clip.from.clamp(0, widget.sheet.frameCount - 1);
+        FlutterError.reportError(
+          FlutterErrorDetails(
+            exception: error,
+            library: 'saga_map',
+            context: ErrorDescription('swapping a sprite sheet or clip'),
+          ),
+        );
+      }
     }
     _syncTicker();
   }
@@ -189,6 +233,13 @@ class _SagaSpriteAnimationState extends State<SagaSpriteAnimation>
     super.dispose();
   }
 
+  /// The frame actually drawn, always one the current sheet has.
+  ///
+  /// The ticker recomputes `_frame` from the clip on every tick, so clamping
+  /// once at the swap is not enough — a clip naming frame 3 of a two-frame
+  /// sheet would walk straight back out of range on the next tick.
+  int get _paintedFrame => _frame.clamp(0, widget.sheet.frameCount - 1);
+
   @override
   Widget build(BuildContext context) {
     final image = _image;
@@ -200,7 +251,7 @@ class _SagaSpriteAnimationState extends State<SagaSpriteAnimation>
       painter: SagaSpritePainter(
         image: image,
         imageScale: _imageScale,
-        sourceRect: widget.sheet.frameRect(_frame),
+        sourceRect: widget.sheet.frameRect(_paintedFrame),
         flipHorizontally: widget.flipHorizontally,
         filterQuality: widget.filterQuality,
         fit: widget.fit,
@@ -236,14 +287,22 @@ class SagaSpritePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (size.isEmpty) return;
 
+    final fitted = applyBoxFit(fit, sourceRect.size, size);
+
+    // applyBoxFit returns *two* rects and only one of them was being used. A
+    // cropping fit (cover, fitWidth, fitHeight) works by sampling less than the
+    // whole frame; ignoring the source half meant the frame was squashed into
+    // the destination instead of cropped, so every cropping BoxFit silently
+    // distorted the art rather than doing what it says.
+    final sampled = Alignment.center.inscribe(fitted.source, sourceRect);
+
     final source = Rect.fromLTWH(
-      sourceRect.left * imageScale,
-      sourceRect.top * imageScale,
-      sourceRect.width * imageScale,
-      sourceRect.height * imageScale,
+      sampled.left * imageScale,
+      sampled.top * imageScale,
+      sampled.width * imageScale,
+      sampled.height * imageScale,
     );
 
-    final fitted = applyBoxFit(fit, sourceRect.size, size);
     final destination = Alignment.center.inscribe(
       fitted.destination,
       Offset.zero & size,

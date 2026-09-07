@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# The Flutter version is pinned, not floated. Goldens are pixel comparisons and
+# a framework upgrade can shift antialiasing by a hair — a floating version
+# turns that into a red build on an unrelated pull request, on a day nobody
+# touched the renderer.
+env:
+  FLUTTER_VERSION: 3.41.6
+
+jobs:
+  analyze-and-test:
+    name: analyze + test (vm)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+      - run: flutter pub get
+      - run: dart format --output=none --set-exit-if-changed lib test
+      - run: flutter analyze
+      - run: flutter test
+
+      # Goldens are the one failure a log cannot explain, so keep the images.
+      - name: Upload golden failures
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-failures
+          path: test/**/failures/
+          if-no-files-found: ignore
+
+  web:
+    name: test (chrome)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+      - run: flutter pub get
+      # stableHash has to agree on vm and on web, where an int is a double and
+      # a 64-bit shift has no meaning — the defect that made one seed generate
+      # two different worlds. A VM-only run cannot see it.
+      #
+      # Addressed by path, not by `--tags platform-parity` alone: the tag
+      # filter still *loads* every suite under the browser, and the ones that
+      # touch dart:io fail to load before any filtering happens.
+      #
+      # Not verified on the machine this was written on — Chrome would not
+      # launch for the test runner there, for any suite including a trivial
+      # one. The first CI run is the real check.
+      - run: flutter test --platform chrome test/saga_stable_hash_test.dart
+
+  publishable:
+    name: pub publish --dry-run
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+      - run: flutter pub get
+      # A gate, not a formality: 2.0.0 shipped with a package that would not
+      # have published, and with an archive three quarters demo artwork.
+      - run: flutter pub publish --dry-run

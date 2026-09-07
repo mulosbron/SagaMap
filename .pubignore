@@ -1,10 +1,117 @@
+# NOTE: pub reads this file *instead of* .gitignore, not in addition to it.
+# Everything .gitignore excludes has to be repeated here or it ships — the
+# first version of this file omitted them and turned a 2 MB archive into 28 MB
+# of build cache.
+
+# --- Additions on top of .gitignore, for the published archive only ---
+
 # The example's demo artwork is two megabytes of PNG — three quarters of the
-# published archive — for a demo nobody runs from a pub cache. It stays in the
-# git repository, where anyone who wants to run the example is already looking.
+# archive — for a demo nobody runs out of a pub cache. It stays in the git
+# repository, where anyone wanting to run the example already is.
 example/assets/
-example/build/
 example/android/
 
-# Test goldens and their failure artifacts are for this repository's CI, not
-# for consumers.
-test/golden/failures/
+# ADRs and task boards: useful in the repository, noise in a published package
+# — and pub warns about the plural "docs" directory name besides. The README
+# links them on GitHub for anyone who wants the reasoning.
+docs/
+
+# --- Mirrored from .gitignore ---
+
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+*.tmp
+*.bak
+.DS_Store
+Thumbs.db
+Desktop.ini
+.atom/
+.buildlog/
+.history
+.svn/
+.cursor/
+.agents/
+.claude/
+*.lock
+pubspec.lock
+docs/scratch/
+docs/reports/
+# Staging trash bin & dev artifacts
+.old/
+x/
+sast/
+sast-skills/
+AGENTS.md
+CLAUDE.md
+CHARACTER_DESIGN.md
+# old saga
+saga/
+
+# Golden test diff artifacts, regenerated on every failure.
+test/**/failures/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# VS Code
+.vscode/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+
+# Android related
+**/android/**/gradle-wrapper.jar
+**/android/.gradle
+**/android/captures/
+**/android/gradlew
+**/android/gradlew.bat
+**/android/local.properties
+**/android/**/GeneratedPluginRegistrant.java
+
+# iOS/XCode related
+**/ios/**/*.mode1v3
+**/ios/**/*.mode2v3
+**/ios/**/*.moved-aside
+**/ios/**/*.pbxuser
+**/ios/**/*.perspectivev3
+**/ios/**/*sync/
+**/ios/**/.sconsign.dblite
+**/ios/**/.tags*
+**/ios/**/.vagrant/
+**/ios/**/DerivedData/
+**/ios/**/Icon?
+**/ios/**/Pods/
+**/ios/**/.symlinks/
+**/ios/**/profile
+**/ios/**/xcuserdata
+**/ios/.generated/
+**/ios/Flutter/App.framework
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Flutter.podspec
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/ephemeral
+**/ios/Flutter/app.flx
+**/ios/Flutter/app.zip
+**/ios/Flutter/flutter_assets/
+**/ios/Flutter/flutter_export_environment.sh
+**/ios/ServiceDefinitions.json
+**/ios/Runner/GeneratedPluginRegistrant.*
+
+# Exceptions to above rules.
+!**/ios/**/default.mode1v3
+!**/ios/**/default.mode2v3
+!**/ios/**/default.pbxuser
+!**/ios/**/default.perspectivev3

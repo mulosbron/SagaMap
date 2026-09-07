@@ -13,6 +13,7 @@ import '../adapters/widget_renderer_adapter.dart';
 import '../background/saga_map_background.dart';
 import '../contracts/saga_chunk_context.dart';
 import '../contracts/saga_map_render_context.dart';
+import '../contracts/saga_map_renderer.dart';
 import '../interaction/saga_node_interaction_handler.dart';
 import '../interaction/saga_node_interaction_policy.dart';
 import '../theme/saga_biome_theme_resolver.dart';
@@ -47,6 +48,21 @@ class MapChunkWidget extends StatelessWidget {
   final SagaResponsiveResolver responsiveResolver;
   final SagaNodeBuilder nodeBuilder;
   final SagaNodeProgressResolver? progressResolver;
+
+  /// Paints the chunk's path, terrain and biome tint.
+  ///
+  /// `null`, the default, uses [PainterRendererAdapter] — the built-in look,
+  /// unchanged. Supply one to paint the chunk yourself: a dotted trail, a
+  /// hand-drawn parchment route, a debug overlay. Your renderer receives the
+  /// same [SagaMapRenderContext] the built-in does, so node positions, path
+  /// geometry and progress are all already resolved for you.
+  ///
+  /// This is the same default-preserving injection the domain layer uses for
+  /// `bossRule` and `lootTable`: pass nothing and nothing changes.
+  ///
+  /// Nodes are customised through [nodeBuilder] instead — a node is a widget,
+  /// so it needs the [BuildContext] a renderer does not get.
+  final SagaMapRenderer<CustomPainter>? pathRenderer;
   final ValueChanged<LevelData>? onLevelTap;
 
   /// Convenience shortcut, mirroring [onLevelTap]. Ignored when interactionHandler.onNodeLongPress is set.
@@ -151,6 +167,7 @@ class MapChunkWidget extends StatelessWidget {
     this.responsiveResolver = const SagaResponsiveResolver(),
     required this.nodeBuilder,
     this.progressResolver,
+    this.pathRenderer,
     this.onLevelTap,
     this.onLevelLongPress,
     this.interactionHandler = const SagaNodeInteractionHandler(),
@@ -245,11 +262,13 @@ class MapChunkWidget extends StatelessWidget {
           pathProgressPosition: pathProgressPosition,
         );
 
-        final chunkPainter = PainterRendererAdapter(
-          biomeThemeResolver: biomeThemeResolver,
-          paintBaseBackground:
-              backgroundConfig.kind == SagaMapBackgroundKind.none,
-        ).render(renderContext);
+        final chunkPainter = (pathRenderer ??
+                PainterRendererAdapter(
+                  biomeThemeResolver: biomeThemeResolver,
+                  paintBaseBackground:
+                      backgroundConfig.kind == SagaMapBackgroundKind.none,
+                ))
+            .render(renderContext);
 
         final nodeWidgets = WidgetRendererAdapter(
           context: context,

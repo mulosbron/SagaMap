@@ -17,6 +17,7 @@ import '../decoration/saga_map_decoration.dart';
 import '../character/saga_character_controller.dart';
 import '../character/saga_map_gate.dart';
 import '../contracts/saga_map_render_context.dart';
+import '../contracts/saga_map_renderer.dart';
 import '../contracts/saga_chunk_context.dart';
 import '../controllers/saga_infinite_map_controller.dart';
 import '../controllers/saga_map_camera_controller.dart';
@@ -91,6 +92,12 @@ class SagaInfiniteMapView extends StatefulWidget {
   final SagaResponsiveResolver responsiveResolver;
   final SagaInfiniteNodeBuilder nodeBuilder;
   final SagaNodeProgressResolver? progressResolver;
+
+  /// Paints every chunk's path, terrain and biome tint.
+  ///
+  /// Passed straight to [MapChunkWidget.pathRenderer]; `null` keeps the
+  /// built-in look. See that field for what a custom renderer receives.
+  final SagaMapRenderer<CustomPainter>? pathRenderer;
   final SagaNodeInteractionHandler interactionHandler;
   final SagaNodeInteractionPolicy interactionPolicy;
   final SagaMapBackgroundConfig backgroundConfig;
@@ -242,6 +249,7 @@ class SagaInfiniteMapView extends StatefulWidget {
     this.responsiveResolver = const SagaResponsiveResolver(),
     required this.nodeBuilder,
     this.progressResolver,
+    this.pathRenderer,
     this.interactionHandler = const SagaNodeInteractionHandler(),
     this.interactionPolicy = const SagaNodeInteractionPolicy(),
     this.backgroundConfig = const SagaMapBackgroundConfig.none(),
@@ -297,6 +305,26 @@ class SagaInfiniteMapView extends StatefulWidget {
 
 class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
   final Map<int, SagaChunkContext> _chunkContexts = {};
+
+  /// Bumped whenever progress *may* have changed: a host rebuild, or new
+  /// chunks arriving. Not bumped by the view's own `setState` calls — a pinch,
+  /// a scroll, a character step — because none of those can change what a
+  /// progress resolver returns.
+  ///
+  /// The sweep that resolves every visible level's progress used to sit
+  /// unconditionally in `itemBuilder`, so a host whose resolver does real work
+  /// paid `levelsPerChunk x visibleChunks` lookups on every frame of a zoom
+  /// gesture purely to conclude that nothing had changed.
+  int _progressEpoch = 0;
+
+  /// Epoch each cached chunk context was swept at.
+  final Map<int, int> _contextEpochs = {};
+
+  /// The exact level list each cached context was swept from. Compared by
+  /// identity: the controller hands out the same list until a chunk is
+  /// reloaded, and a reload is the one thing that can bring levels whose
+  /// progress has never been read.
+  final Map<int, List<LevelData>> _contextLevels = {};
   final ScrollController _scrollController = ScrollController();
   StreamSubscription<void>? _kickStart;
 
@@ -357,6 +385,9 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
   @override
   void didUpdateWidget(covariant SagaInfiniteMapView oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // A new widget is the host telling us something changed, and the host is
+    // the only thing that can change what `progressResolver` answers.
+    _progressEpoch++;
     final config = widget.zoomConfig;
     if (config != oldWidget.zoomConfig) {
       final next = config == null ? 1.0 : config.clamp(_zoom);
@@ -391,6 +422,8 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
       // keeping it would render the previous world's levels under the new
       // controller until every chunk happened to be rebuilt.
       _chunkContexts.clear();
+      _contextEpochs.clear();
+      _contextLevels.clear();
       _kickStart?.cancel();
       _kickStart = Stream<void>.fromFuture(widget.controller.initialize())
           .listen((_) {});
@@ -658,10 +691,17 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _chunkContexts.clear();
+    _contextEpochs.clear();
+    _contextLevels.clear();
     super.dispose();
   }
 
   void _onControllerChanged() {
+    // Deliberately does *not* bump the epoch. New chunks bring levels whose
+    // progress has never been read, but they are new chunks: the builder
+    // sweeps any chunk it has no context for, and any whose level list the
+    // controller has replaced. Bumping here would re-sweep every chunk already
+    // on screen every time one more loaded.
     _pruneEvictedContexts();
     if (mounted) {
       setState(() {});
@@ -687,6 +727,8 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
     if (_chunkContexts.isEmpty) return;
     final retained = widget.controller.retainedChunkIndices;
     _chunkContexts.removeWhere((index, _) => !retained.contains(index));
+    _contextEpochs.removeWhere((index, _) => !retained.contains(index));
+    _contextLevels.removeWhere((index, _) => !retained.contains(index));
   }
 
   void _onScroll() {
@@ -756,34 +798,45 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
         if (levels.isEmpty && cached != null) {
           levels = cached.levels;
         }
-        Map<int, LevelProgress> progress = {};
-        if (widget.progressResolver != null && levels.isNotEmpty) {
-          for (final l in levels) {
-            final p = widget.progressResolver!(l);
-            if (p != null) progress[l.id] = p;
+
+        // Skip the sweep entirely when nothing since the last one could have
+        // changed the answer. This is the whole optimisation: a pinch rebuilds
+        // every visible chunk many times a second, and none of those rebuilds
+        // can move a level's progress.
+        final swept = _contextEpochs[index] == _progressEpoch &&
+            identical(_contextLevels[index], levels);
+        if (cached == null || !swept) {
+          Map<int, LevelProgress> progress = {};
+          if (widget.progressResolver != null && levels.isNotEmpty) {
+            for (final l in levels) {
+              final p = widget.progressResolver!(l);
+              if (p != null) progress[l.id] = p;
+            }
           }
-        }
-        bool progressChanged = false;
-        if (cached != null) {
-          if (cached.progress.length != progress.length) {
-            progressChanged = true;
-          } else {
-            for (final k in progress.keys) {
-              if (cached.progress[k] != progress[k]) {
-                progressChanged = true;
-                break;
+          bool progressChanged = false;
+          if (cached != null) {
+            if (cached.progress.length != progress.length) {
+              progressChanged = true;
+            } else {
+              for (final k in progress.keys) {
+                if (cached.progress[k] != progress[k]) {
+                  progressChanged = true;
+                  break;
+                }
               }
             }
           }
-        }
-        if (cached == null || progressChanged) {
-          cached = SagaChunkContext(
-            chunkIndex: index,
-            levels: levels,
-            progress: progress,
-          );
+          if (cached == null || progressChanged) {
+            cached = SagaChunkContext(
+              chunkIndex: index,
+              levels: levels,
+              progress: progress,
+            );
+          }
           if (levels.isNotEmpty) {
             _chunkContexts[index] = cached;
+            _contextEpochs[index] = _progressEpoch;
+            _contextLevels[index] = levels;
           }
         }
 
@@ -797,6 +850,7 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
           responsiveResolver: widget.responsiveResolver,
           nodeBuilder: widget.nodeBuilder,
           progressResolver: widget.progressResolver,
+          pathRenderer: widget.pathRenderer,
           onLevelTap: widget.onLevelTap,
           onLevelLongPress: widget.onLevelLongPress,
           interactionHandler: widget.interactionHandler,

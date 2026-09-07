@@ -4,6 +4,23 @@ All notable changes to this package are documented in this file.
 
 ## 2.0.0
 
+### Added — a path renderer you can inject
+
+`MapChunkWidget.pathRenderer` and `SagaInfiniteMapView.pathRenderer` take a
+`SagaMapRenderer<CustomPainter>`. `SagaMapRenderer` described itself as "the
+extension point for host-supplied renderers" while nothing in the package
+depended on the type, so a host wanting its own path painter had to fork the
+widget. Pass nothing and the built-in look is unchanged. Nodes stay on
+`nodeBuilder`, which is documented on the interface now rather than implied.
+
+### Performance — progress is resolved when it can have changed
+
+The sweep that resolves every visible level's progress sat unconditionally in
+`itemBuilder`, so a host whose `progressResolver` does real work paid
+`levelsPerChunk x visibleChunks` lookups on every frame of a pinch, purely to
+conclude nothing had changed. It now runs when the host rebuilds the view or a
+chunk's levels are replaced, and not otherwise.
+
 ### Fixed — sprite sheets no longer corrupt art silently
 
 - `SagaSpritePainter` used only half of `applyBoxFit`'s answer. A cropping fit

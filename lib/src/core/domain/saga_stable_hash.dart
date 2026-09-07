@@ -32,16 +32,32 @@ int _fmix32(int value) {
   return hash & _mask32;
 }
 
+/// Marker mixed in for a negative input, so `-n` and `n` do not collide.
+const int _signSalt = 0x9E3779B9;
+
 /// Combines [values] into a stable 32-bit hash.
 ///
 /// Identical inputs always yield an identical result — across runs, platforms
-/// and releases.
+/// and releases. Values above 2^32 and negative values are supported and hash
+/// identically on the Dart VM and under dart2js; see
+/// `test/saga_stable_hash_test.dart` for the golden vectors that pin it.
 int stableHash(List<int> values) {
   var hash = 0x811C9DC5;
   for (final value in values) {
-    hash = _fmix32(hash ^ (value & _mask32));
-    // Fold in the high bits so ids beyond 2^32 still separate.
-    hash = _fmix32(hash ^ ((value >> 32) & _mask32));
+    // The sign is carried explicitly rather than through the high word: a
+    // 64-bit two's-complement representation does not exist on the web, where
+    // ints are doubles, so `value >> 32` would disagree across platforms for
+    // every negative input.
+    final negative = value < 0;
+    final magnitude = negative ? -value : value;
+
+    hash = _fmix32(hash ^ (magnitude & _mask32));
+    // Fold in the high bits so ids beyond 2^32 still separate. Integer
+    // division, not `>> 32`: a 32-bit shift is undefined on the web, where it
+    // silently truncates to the low word instead — the one line in this file
+    // that needed 64-bit shift semantics and could not have them.
+    hash = _fmix32(hash ^ ((magnitude ~/ 0x100000000) & _mask32));
+    if (negative) hash = _fmix32(hash ^ _signSalt);
   }
   return hash & _mask32;
 }

@@ -1,3 +1,6 @@
+@Tags(['platform-parity'])
+library;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:saga_map/saga_map.dart';
 
@@ -17,6 +20,42 @@ void main() {
       expect(stableHash([0]), 2886220781);
       expect(stableHash([42, 7]), 991453709);
       expect(stableHash([1, 2, 3]), 4105803690);
+    });
+
+    // Every vector above was under 10,000, so the one line that actually needed
+    // 64-bit shift semantics was never exercised. `hash ^ ((value >> 32) & …)`
+    // has no 64-bit meaning on the web: before the fix, `stableHash([2^32])`
+    // returned 1284044959 on the Dart VM and 851875910 under dart2js/Node. A
+    // seed minted from `DateTime.now().millisecondsSinceEpoch` is ~2^40.7, so
+    // the same seed built a different world on web than on native, and web
+    // seeds ~49.7 days apart aliased onto one world.
+    //
+    // Note the inputs below are integer *literals*, not `1 << 32`: a shift
+    // count of 32 has no meaning on the web either (dart2js uses JavaScript
+    // shift semantics, so `1 << 32` itself collapses to `1` there), so the
+    // literals are what make the two runtimes see the same input. The values
+    // were captured on both runtimes and must stay equal on both;
+    // `dart_test.yaml` runs this suite under `chrome` as well as `vm`.
+    test('matches its reference values above 2^32', () {
+      expect(stableHash([4294967296]), 538560542); // 2^32
+      expect(stableHash([4294967297]), 2936534305); // 2^32 + 1
+      expect(stableHash([1099511627776]), 3662924666); // 2^40
+      // A realistic `DateTime.now().millisecondsSinceEpoch`.
+      expect(stableHash([1757203200000]), 3430044811);
+      expect(stableHash([4294967296, 7]), 1463335543);
+    });
+
+    test('seeds exactly 2^32 apart do not collide', () {
+      const seed = 1757203200000;
+      expect(stableHash([seed]), isNot(stableHash([seed + 4294967296])));
+      expect(stableHash([seed + 4294967296]), 2520830661);
+      expect(stableHash([0]), isNot(stableHash([4294967296])));
+    });
+
+    test('negative values hash stably and do not alias their magnitude', () {
+      expect(stableHash([-42]), 3818627525);
+      expect(stableHash([-4294967296]), 1112350902);
+      expect(stableHash([-42]), isNot(stableHash([42])));
     });
 
     test('stays inside 32 bits', () {

@@ -241,6 +241,25 @@ a host-supplied builder needs one. A `builder` config ignores `fit`,
 `alignment` and `overflowBehavior`: they describe placing an asset the package
 loaded, and it no longer loads this one.
 
+### Correctness — `stableHash` is now web-safe above 2^32
+
+`stableHash`/`stableUnitValue` claimed identical output across the Dart VM and
+the web, but the one line that needed 64-bit shift semantics was left raw:
+`hash ^ ((value >> 32) & 0xFFFFFFFF)`. A 32-bit shift has no meaning under
+dart2js, so a seed at or above 2^32 — which is every seed minted from
+`DateTime.now().millisecondsSinceEpoch` (~2^40.7) — produced a **different
+world on web than on native**, and web seeds ~49.7 days apart aliased onto one
+world. The fold now uses integer division (`value ~/ 0x100000000`), which is
+identical on both runtimes, and negative inputs are folded with an explicit
+sign salt.
+
+This **changes hash output** for two input shapes: values ≥ 2^32 on the web now
+match native (previously they silently collapsed to their low 32 bits), and
+negative values now hash differently everywhere. Since 2.0.0 has not been
+published, nothing has persisted a map under the broken behaviour; after this
+ships, any seed must reproduce the same world on every platform. The contract
+is pinned by golden vectors above 2^32 that run on both `vm` and `chrome`.
+
 ## 1.1.0
 
 No breaking changes: a consumer on `^1.0.0` upgrades without touching its code.

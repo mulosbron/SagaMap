@@ -24,6 +24,7 @@ import '../controllers/saga_infinite_map_controller.dart';
 import '../controllers/saga_map_camera_controller.dart';
 import '../interaction/saga_node_interaction_handler.dart';
 import '../interaction/saga_map_zoom.dart';
+import 'saga_map_view_internals.dart';
 import '../interaction/saga_node_interaction_policy.dart';
 import '../theme/saga_biome_theme_resolver.dart';
 import 'map_chunk_widget.dart';
@@ -364,18 +365,21 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
   bool _openingScrollRunning = false;
   double _parallaxOffset = 0;
 
-  int? _lastBroadcastChunkIndex;
-  int? _highestReachedLevel;
+  late final SagaChunkEventTracker _events = SagaChunkEventTracker(
+    contextFor: (index) {
+      final cached = _chunkContexts[index];
+      if (cached != null && cached.levels.isNotEmpty) return cached;
+      final levels = widget.controller.chunkLevels(index);
+      return levels.isEmpty ? null : _buildChunkContext(index, levels);
+    },
+    levelsFor: (index) => widget.controller.chunkLevels(index),
+  );
 
-  late double _zoom = widget.zoomConfig?.initial ?? 1.0;
-  double _lateralPan = 0;
+  late final SagaZoomGestureController _zoomGesture =
+      SagaZoomGestureController(initialZoom: widget.zoomConfig?.initial ?? 1.0);
 
-  // Captured when a pinch begins, so every update is measured against the
-  // gesture's origin rather than accumulating rounding from frame to frame.
-  double _zoomAtGestureStart = 1;
-  double _panAtGestureStart = 0;
-  double _scrollAtGestureStart = 0;
-  Offset _focalAtGestureStart = Offset.zero;
+  double get _zoom => _zoomGesture.zoom;
+  double get _lateralPan => _zoomGesture.lateralPan;
 
   bool get _isVertical => widget.scrollAxis == Axis.vertical;
 
@@ -401,13 +405,8 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
     // A new widget is the host telling us something changed, and the host is
     // the only thing that can change what `progressResolver` answers.
     _progressEpoch++;
-    final config = widget.zoomConfig;
-    if (config != oldWidget.zoomConfig) {
-      final next = config == null ? 1.0 : config.clamp(_zoom);
-      if (next != _zoom) {
-        _zoom = next;
-        _lateralPan = 0;
-      }
+    if (widget.zoomConfig != oldWidget.zoomConfig) {
+      _zoomGesture.applyConfig(widget.zoomConfig);
     }
     _attachCharacter(
       oldWidget.character?.controller,
@@ -550,66 +549,29 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
 
   void _checkDominantChunk() {
     if (!mounted) return;
-    if (widget.onChunkEnter == null) return;
     if (!_scrollController.hasClients) return;
 
     final position = _scrollController.position;
-    final centerOffset = position.pixels + (position.viewportDimension / 2.0);
-
     final layout = widget.responsiveResolver.resolveForWidth(
       MediaQuery.sizeOf(context).width,
     );
-    final extent =
-        (widget.chunkExtent * layout.nodeSpacing * _zoom).roundToDouble();
-    if (extent <= 0) return;
 
-    final dominantIndex = (centerOffset / extent).floor();
-    if (dominantIndex < 0) return;
-
-    if (_lastBroadcastChunkIndex != dominantIndex) {
-      _lastBroadcastChunkIndex = dominantIndex;
-      final cached = _chunkContexts[dominantIndex];
-      if (cached != null && cached.levels.isNotEmpty) {
-        widget.onChunkEnter!(cached);
-      } else {
-        final levels = widget.controller.chunkLevels(dominantIndex);
-        if (levels.isNotEmpty) {
-          widget.onChunkEnter!(_buildChunkContext(dominantIndex, levels));
-        }
-      }
-    }
+    _events.checkDominantChunk(
+      centerOffset: position.pixels + (position.viewportDimension / 2.0),
+      chunkExtent:
+          (widget.chunkExtent * layout.nodeSpacing * _zoom).roundToDouble(),
+      onChunkEnter: widget.onChunkEnter,
+    );
   }
 
   void _checkLevelReached() {
     if (!mounted) return;
-    if (widget.onLevelReached == null) return;
-
-    final currentPos =
-        widget.character?.effectivePathPosition ?? widget.pathProgressPosition;
-    if (currentPos == null) return;
-
-    final currentLevelIdx = currentPos.floor();
-    if (_highestReachedLevel == null) {
-      _highestReachedLevel = currentLevelIdx;
-      return;
-    }
-    if (currentLevelIdx > _highestReachedLevel!) {
-      _highestReachedLevel = currentLevelIdx;
-
-      final sections = widget.controller.sectionsPerChunk;
-      if (sections > 0) {
-        final chunkIndex = currentLevelIdx ~/ sections;
-        final chunkLevelIndex = currentLevelIdx % sections;
-        final levels = widget.controller.chunkLevels(chunkIndex);
-        if (chunkLevelIndex < levels.length) {
-          widget.onLevelReached!(levels[chunkLevelIndex]);
-        }
-        // Otherwise the chunk is evicted or still loading and the callback is
-        // dropped for this level — see `onLevelReached`'s doc comment. The
-        // reload `chunkLevels` just scheduled will not re-fire it, because
-        // `_highestReachedLevel` has already moved past it.
-      }
-    }
+    _events.checkLevelReached(
+      pathPosition: widget.character?.effectivePathPosition ??
+          widget.pathProgressPosition,
+      sectionsPerChunk: widget.controller.sectionsPerChunk,
+      onLevelReached: widget.onLevelReached,
+    );
   }
 
   /// Loads chunks until [chunkIndex] exists, or the map says it has ended.
@@ -954,52 +916,37 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
   }
 
   void _onPinchStart(ScaleStartDetails details) {
-    _zoomAtGestureStart = _zoom;
-    _panAtGestureStart = _lateralPan;
-    _scrollAtGestureStart =
-        _scrollController.hasClients ? _scrollController.offset : 0;
-    _focalAtGestureStart = details.localFocalPoint;
+    _zoomGesture.start(
+      scrollOffset: _scrollController.hasClients ? _scrollController.offset : 0,
+      focalPoint: details.localFocalPoint,
+    );
   }
 
   void _onPinchUpdate(ScaleUpdateDetails details) {
-    final config = widget.zoomConfig;
-    if (config == null || details.pointerCount < 2) return;
+    final update = _zoomGesture.update(
+      config: widget.zoomConfig,
+      details: details,
+      isVertical: _isVertical,
+    );
+    if (update == null) return;
 
-    final next = config.clamp(_zoomAtGestureStart * details.scale);
-    final ratio = next / _zoomAtGestureStart;
-
-    final focalAlong =
-        _isVertical ? _focalAtGestureStart.dy : _focalAtGestureStart.dx;
-    final focalLateral =
-        _isVertical ? _focalAtGestureStart.dx : _focalAtGestureStart.dy;
-    final currentLateral =
-        _isVertical ? details.localFocalPoint.dx : details.localFocalPoint.dy;
-
-    // Whatever sat under the fingers stays under them: the content grows about
-    // the focal point, so the scroll offset has to grow with it.
-    final targetOffset =
-        (_scrollAtGestureStart + focalAlong) * ratio - focalAlong;
-
-    final pan = _panAtGestureStart * ratio + (currentLateral - focalLateral);
-
-    setState(() {
-      _zoom = next;
-      _lateralPan = pan;
-    });
+    // The controller already holds the new zoom and pan; this only tells the
+    // element tree to read them again.
+    setState(() {});
 
     if (_scrollController.hasClients) {
       final position = _scrollController.position;
       _scrollController.jumpTo(
-        targetOffset.clamp(
+        update.targetScrollOffset.clamp(
           position.minScrollExtent,
           // maxScrollExtent lags a frame behind the resize; clamping to the
           // stale value would fight the zoom, so allow the larger of the two.
-          math.max(position.maxScrollExtent, targetOffset),
+          math.max(position.maxScrollExtent, update.targetScrollOffset),
         ),
       );
     }
 
-    widget.onZoomChanged?.call(next);
+    widget.onZoomChanged?.call(update.zoom);
   }
 
   /// The [kSagaPathNeighborCount] levels preceding [chunkIndex], in path order.

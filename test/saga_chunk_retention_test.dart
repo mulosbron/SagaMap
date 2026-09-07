@@ -72,19 +72,9 @@ void main() {
     // over budget.
     expect(harness.controller.chunkLevels(5), isEmpty);
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: SagaInfiniteMapView(
-            controller: harness.controller,
-            chunkExtent: 600,
-            chunkSpanNormalized: _config.spanForLevelCount(_levelsPerChunk),
-            biomeThemeResolver: const DefaultSagaBiomeThemeResolver(),
-            nodeBuilder: (context, level, layout) => const SizedBox.shrink(),
-          ),
-        ),
-      ),
-    );
+    // A bare host: reloads run post-frame, and nothing else requests chunks,
+    // so this isolates the reload path from the viewport's working set.
+    await tester.pumpWidget(const MaterialApp(home: SizedBox.shrink()));
     await tester.pumpAndSettle();
 
     expect(harness.controller.chunkLevels(5), isNotEmpty);

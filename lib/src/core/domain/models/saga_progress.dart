@@ -29,7 +29,7 @@ class SagaProgress {
     return SagaProgress(
       currentMaxUnlockedLevelId: 0,
       levels: {
-        0: LevelProgress(
+        0: const LevelProgress(
           levelId: 0,
           state: LevelCompletionState.unlocked,
           stars: 0,

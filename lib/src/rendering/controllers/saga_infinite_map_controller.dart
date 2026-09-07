@@ -145,6 +145,13 @@ class SagaInfiniteMapController extends ChangeNotifier {
   /// protection a budget smaller than the viewport's working set would evict a
   /// chunk that is immediately requested again, reloaded, and evicted once
   /// more — an endless rebuild loop rather than a memory saving.
+  ///
+  /// The protection set is cleared only when the pass actually reached the
+  /// budget. If it could not, the working set is genuinely larger than
+  /// [maxRetainedChunks] and forgetting it would restart the loop on the next
+  /// reload: one chunk comes back, the previous one goes out, forever. Keeping
+  /// it means the cache settles just above budget instead — a bounded overrun
+  /// is the honest outcome of a budget the viewport cannot live within.
   void _evictIfNeeded() {
     final budget = maxRetainedChunks;
     if (budget == null) return;
@@ -168,7 +175,7 @@ class SagaInfiniteMapController extends ChangeNotifier {
       }
     }
 
-    _requestedSinceEviction.clear();
+    if (_chunks.length <= budget) _requestedSinceEviction.clear();
   }
 
   void _scheduleReload(int chunkIndex) {

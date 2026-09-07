@@ -12,13 +12,13 @@ void main() {
       final progressOnlyUnlocked = SagaProgress(
         currentMaxUnlockedLevelId: 2,
         levels: {
-          0: LevelProgress(
+          0: const LevelProgress(
               levelId: 0,
               state: LevelCompletionState.unlocked,
               stars: 3), // e.g. cheating stars, but state is unlocked
-          1: LevelProgress(
+          1: const LevelProgress(
               levelId: 1, state: LevelCompletionState.unlocked, stars: 2),
-          2: LevelProgress(
+          2: const LevelProgress(
               levelId: 2, state: LevelCompletionState.unlocked, stars: 0),
         },
       );
@@ -30,13 +30,13 @@ void main() {
       final progress = SagaProgress(
         currentMaxUnlockedLevelId: 5,
         levels: {
-          0: LevelProgress(
+          0: const LevelProgress(
               levelId: 0, state: LevelCompletionState.completed, stars: 3),
-          1: LevelProgress(
+          1: const LevelProgress(
               levelId: 1, state: LevelCompletionState.completed, stars: 2),
-          2: LevelProgress(
+          2: const LevelProgress(
               levelId: 2, state: LevelCompletionState.completed, stars: 1),
-          3: LevelProgress(
+          3: const LevelProgress(
               levelId: 3, state: LevelCompletionState.completed, stars: 3),
         },
       );
@@ -53,11 +53,11 @@ void main() {
       final progress = SagaProgress(
         currentMaxUnlockedLevelId: 5,
         levels: {
-          0: LevelProgress(
+          0: const LevelProgress(
               levelId: 0, state: LevelCompletionState.completed, stars: 3),
-          1: LevelProgress(
+          1: const LevelProgress(
               levelId: 1, state: LevelCompletionState.completed, stars: 3),
-          2: LevelProgress(
+          2: const LevelProgress(
               levelId: 2,
               state: LevelCompletionState.completed,
               stars: 2), // not perfect

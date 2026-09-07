@@ -88,8 +88,8 @@ void main() {
         stars: 2,
       );
 
-      expect(result.nextProgress.levels[17]?.state,
-          LevelCompletionState.unlocked);
+      expect(
+          result.nextProgress.levels[17]?.state, LevelCompletionState.unlocked);
       expect(result.nextProgress.currentMaxUnlockedLevelId, 17);
       // Untouched levels, and the host's data on them, are carried through.
       expect(result.nextProgress.levels[14]?.extra['bookmarked'], true);
@@ -146,8 +146,8 @@ void main() {
         globalSeed: 1,
       );
       expect(result.unlockBlocked, isFalse);
-      expect(result.nextProgress.levels[1]?.state,
-          LevelCompletionState.unlocked);
+      expect(
+          result.nextProgress.levels[1]?.state, LevelCompletionState.unlocked);
     });
 
     test('omitting biomeIds generates the same ids as before', () {

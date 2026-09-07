@@ -4,6 +4,22 @@ All notable changes to this package are documented in this file.
 
 ## 2.0.0
 
+### Breaking — an unrecorded level is now locked
+
+`SagaNodeInteractionPolicy.canTap` treated a `null` `LevelProgress` as tappable.
+An unrecorded level became a free progression skip, and the Semantics tree said
+"enabled" while the game logic disagreed. It now reads as
+`LevelCompletionState.locked`.
+
+The two absences are told apart at `SagaMapRenderContext.resolveProgress`: with
+no `progressResolver` at all the host is not modelling progression and every
+node reads as unlocked, so a purely navigational map still works out of the box.
+A resolver that returns `null` for a level is a tracked map with no record —
+locked.
+
+If you relied on the old behaviour, supply a `progressResolver` that returns an
+unlocked `LevelProgress` for the levels you want open.
+
 A single breaking release. Every item below has a copy-pasteable escape hatch,
 and nothing deprecated in 1.1.0 was removed — those removals stay scheduled for
 3.0.0, so the deprecated builders survive the whole 2.x line.

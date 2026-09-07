@@ -56,11 +56,18 @@ class SagaNodeInteractionPolicy {
   });
 
   /// Returns true when node tap should be accepted.
+  ///
+  /// A node with **no progress record is treated as locked**: an unrecorded
+  /// level must not become tappable just because the host never wrote a record
+  /// for it — that would be an arbitrary progression skip with no tampering at
+  /// all. Treating "no record" and "locked" as the same thing also keeps the
+  /// tap gate, the a11y tree and the Tab order in agreement: all three see the
+  /// same node as closed.
   bool canTap(LevelData level, LevelProgress? progress) {
     // Reachability first: a gate closes a node whatever its progress says.
     if (isReachable != null && !isReachable!(level, progress)) return false;
-    if (progress == null) return true;
-    switch (progress.state) {
+    final state = progress?.state ?? LevelCompletionState.locked;
+    switch (state) {
       case LevelCompletionState.locked:
         return emitTapForLockedNode;
       case LevelCompletionState.completed:

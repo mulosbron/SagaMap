@@ -253,8 +253,32 @@ class SagaMapRenderContext {
   SagaPoint? characterPixel(double pathPosition) =>
       poseAtPathPosition(pathPosition)?.position;
 
-  LevelProgress? resolveProgress(LevelData level) {
-    return progressResolver?.call(level);
+  /// Progress for [level] as the interaction policy should see it.
+  ///
+  /// Two different absences, two different answers:
+  ///
+  /// * **No [progressResolver] at all** — the host is not modelling
+  ///   progression, so there is nothing to gate on and every node reads as
+  ///   [LevelCompletionState.unlocked]. A purely navigational map stays usable
+  ///   without wiring a progress store.
+  /// * **A resolver that returns `null` for this level** — the host *is*
+  ///   modelling progression and has no record for it. That reads as
+  ///   [LevelCompletionState.locked]: an unrecorded level must not become
+  ///   tappable just because a record was never written, which would be a free
+  ///   progression skip.
+  ///
+  /// The synthesized record carries no stars and is never persisted; it exists
+  /// only so the tap gate, the Semantics tree and the Tab order all decide
+  /// from the same value.
+  LevelProgress resolveProgress(LevelData level) {
+    if (progressResolver == null) {
+      return LevelProgress(
+        levelId: level.id,
+        state: LevelCompletionState.unlocked,
+      );
+    }
+    return progressResolver!(level) ??
+        LevelProgress(levelId: level.id, state: LevelCompletionState.locked);
   }
 
   /// Returns a copy bound to a different chunk pixel box.

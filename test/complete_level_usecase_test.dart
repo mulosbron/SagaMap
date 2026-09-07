@@ -34,12 +34,15 @@ void main() {
       // do. The successor used to stay locked forever while
       // currentMaxUnlockedLevelId claimed otherwise, so the map went dead after
       // a single completion.
-      const preSeeded = SagaProgress(
+      final preSeeded = SagaProgress(
         currentMaxUnlockedLevelId: 0,
         levels: {
-          0: LevelProgress(levelId: 0, state: LevelCompletionState.unlocked),
-          1: LevelProgress(levelId: 1, state: LevelCompletionState.locked),
-          2: LevelProgress(levelId: 2, state: LevelCompletionState.locked),
+          0: const LevelProgress(
+              levelId: 0, state: LevelCompletionState.unlocked),
+          1: const LevelProgress(
+              levelId: 1, state: LevelCompletionState.locked),
+          2: const LevelProgress(
+              levelId: 2, state: LevelCompletionState.locked),
         },
       );
 
@@ -60,10 +63,10 @@ void main() {
 
     test('keeps the best star count when a level is replayed', () {
       const useCase = CompleteLevelUseCase();
-      const threeStarred = SagaProgress(
+      final threeStarred = SagaProgress(
         currentMaxUnlockedLevelId: 3,
         levels: {
-          2: LevelProgress(
+          2: const LevelProgress(
             levelId: 2,
             state: LevelCompletionState.completed,
             stars: 3,
@@ -108,7 +111,7 @@ void main() {
     test('completing a level ahead is rejected when unlock order is enforced',
         () {
       const useCase = CompleteLevelUseCase();
-      const atStart = SagaProgress(
+      final atStart = SagaProgress(
         currentMaxUnlockedLevelId: 2,
         levels: {},
       );
@@ -157,7 +160,7 @@ void main() {
 
     test('never lowers currentMaxUnlockedLevelId', () {
       const useCase = CompleteLevelUseCase();
-      const deepProgress = SagaProgress(
+      final deepProgress = SagaProgress(
         currentMaxUnlockedLevelId: 20,
         levels: {},
       );
@@ -174,11 +177,12 @@ void main() {
 
     test('does not demote an already completed successor', () {
       const useCase = CompleteLevelUseCase();
-      const bothDone = SagaProgress(
+      final bothDone = SagaProgress(
         currentMaxUnlockedLevelId: 5,
         levels: {
-          3: LevelProgress(levelId: 3, state: LevelCompletionState.completed),
-          4: LevelProgress(
+          3: const LevelProgress(
+              levelId: 3, state: LevelCompletionState.completed),
+          4: const LevelProgress(
             levelId: 4,
             state: LevelCompletionState.completed,
             stars: 2,
@@ -233,15 +237,21 @@ void main() {
       final initial = SagaProgress.initial();
 
       expect(
-        legacy.execute(currentProgress: initial, levelId: 15, globalSeed: 99).reward,
+        legacy
+            .execute(currentProgress: initial, levelId: 15, globalSeed: 99)
+            .reward,
         isNotNull,
       );
       expect(
-        legacy.execute(currentProgress: initial, levelId: 14, globalSeed: 99).reward,
+        legacy
+            .execute(currentProgress: initial, levelId: 14, globalSeed: 99)
+            .reward,
         isNull,
       );
       expect(
-        legacy.execute(currentProgress: initial, levelId: 0, globalSeed: 99).reward,
+        legacy
+            .execute(currentProgress: initial, levelId: 0, globalSeed: 99)
+            .reward,
         isNull,
       );
     });
@@ -269,15 +279,21 @@ void main() {
       final initial = SagaProgress.initial();
 
       expect(
-        useCase.execute(currentProgress: initial, levelId: 7, globalSeed: 1).reward,
+        useCase
+            .execute(currentProgress: initial, levelId: 7, globalSeed: 1)
+            .reward,
         isNotNull,
       );
       expect(
-        useCase.execute(currentProgress: initial, levelId: 8, globalSeed: 1).reward,
+        useCase
+            .execute(currentProgress: initial, levelId: 8, globalSeed: 1)
+            .reward,
         isNull,
       );
       expect(
-        useCase.execute(currentProgress: initial, levelId: 15, globalSeed: 1).reward,
+        useCase
+            .execute(currentProgress: initial, levelId: 15, globalSeed: 1)
+            .reward,
         isNull,
       );
     });
@@ -339,7 +355,8 @@ void main() {
       }
     });
 
-    test('a bossRule that always fires still honours the first-clear guard', () {
+    test('a bossRule that always fires still honours the first-clear guard',
+        () {
       const useCase = CompleteLevelUseCase(
         bossRule: _always,
         lootTable: fakeTable,

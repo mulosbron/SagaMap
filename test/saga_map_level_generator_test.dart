@@ -176,8 +176,8 @@ void main() {
       final generated = biomesFor(config, 400);
 
       for (var levelId = 0; levelId < generated.length; levelId++) {
-        final expected = kSagaBiomeIds[
-            (levelId ~/ config.biomeSpan) % kSagaBiomeIds.length];
+        final expected =
+            kSagaBiomeIds[(levelId ~/ config.biomeSpan) % kSagaBiomeIds.length];
         expect(generated[levelId], expected, reason: 'level $levelId');
       }
       expect(config.biomeIds, kSagaBiomeIds);

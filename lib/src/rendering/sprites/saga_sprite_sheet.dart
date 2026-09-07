@@ -80,11 +80,12 @@ class SagaSpriteSheet {
       SagaSpriteLayout.vertical => 1,
       // The constructor can only assert; in release a grid with missing or
       // non-positive columns would otherwise divide by zero in [frameRect].
-      SagaSpriteLayout.grid => columns == null || columns <= 0
-          ? throw StateError(
+      SagaSpriteLayout.grid => switch (columns) {
+          final int c when c > 0 => c,
+          _ => throw StateError(
               'SagaSpriteSheet grid layout requires columns > 0',
-            )
-          : columns!,
+            ),
+        },
     };
     // `resolvedColumns` is the divisor in `frameRect` and `rows`. Degenerate
     // dimensions (a zero frameCount, say) must fail here rather than as an

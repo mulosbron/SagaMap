@@ -149,13 +149,13 @@ void main() {
       final originalProgress = SagaProgress(
         currentMaxUnlockedLevelId: 1,
         levels: {
-          1: LevelProgress(
+          1: const LevelProgress(
             levelId: 1,
             state: LevelCompletionState.completed,
             stars: 2,
             extra: {'app.score': 9000},
           ),
-          2: LevelProgress(
+          2: const LevelProgress(
             levelId: 2,
             state: LevelCompletionState.unlocked,
           ),

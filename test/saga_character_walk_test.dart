@@ -447,7 +447,8 @@ void main() {
     /// Pumps a map carrying [gates], returning the character controller and a
     /// setter that swaps the gate list and rebuilds — the host never calls
     /// `clampTravelThroughGates`.
-    Future<(SagaCharacterController, void Function(List<SagaMapGate>))> pumpGated(
+    Future<(SagaCharacterController, void Function(List<SagaMapGate>))>
+        pumpGated(
       WidgetTester tester,
       List<SagaMapGate> gates, {
       void Function(LevelData)? onLevelReached,

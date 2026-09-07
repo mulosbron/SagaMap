@@ -402,7 +402,24 @@ map's path axis; vertical maps are unaffected.
 
 Nodes are keyboard-reachable: Tab moves between them in **level order** (not
 paint order), and Enter or Space activates the focused node. Shift+F10 or the
-context-menu key triggers the long-press action. Locked nodes are skipped. Draw a focus ring by reacting to `SagaNodeInteractionState.focused`,
+context-menu key triggers the long-press action. Locked nodes are skipped —
+the tap gate, the Semantics tree and the Tab order all read the same value, so
+they cannot disagree.
+
+A node with **no progress record is locked**, not open. Two absences, two
+answers:
+
+| Situation | Node reads as |
+| --- | --- |
+| No `progressResolver` at all — the host does not model progression | unlocked |
+| A `progressResolver` that returns `null` for this level | locked |
+
+An unrecorded level on a map that *does* track progress must not become
+tappable just because a record was never written; that would be a progression
+skip needing no tampering at all. A map with no progress tracking stays fully
+navigable. (1.x treated every absence as open.)
+
+Draw a focus ring by reacting to `SagaNodeInteractionState.focused`,
 which is emitted only when focus arrives by keyboard:
 
 ```dart

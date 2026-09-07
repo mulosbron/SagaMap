@@ -394,12 +394,13 @@ void main() {
     });
 
     test('SagaProgress survives a round trip', () {
-      const progress = SagaProgress(
+      final progress = SagaProgress(
         currentMaxUnlockedLevelId: 3,
         levels: {
-          0: LevelProgress(
+          0: const LevelProgress(
               levelId: 0, state: LevelCompletionState.completed, stars: 2),
-          3: LevelProgress(levelId: 3, state: LevelCompletionState.unlocked),
+          3: const LevelProgress(
+              levelId: 3, state: LevelCompletionState.unlocked),
         },
       );
 
@@ -469,7 +470,7 @@ void main() {
       // levels and extra are defensively copied and unmodifiable, so a host
       // cannot silently rewrite persisted state by mutating the returned map.
       expect(
-        () => loaded.levels[999] = LevelProgress(
+        () => loaded.levels[999] = const LevelProgress(
           levelId: 999,
           state: LevelCompletionState.unlocked,
         ),

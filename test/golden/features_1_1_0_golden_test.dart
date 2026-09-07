@@ -33,20 +33,20 @@ const _levels = <LevelData>[
 final _progress = SagaProgress(
   currentMaxUnlockedLevelId: 2,
   levels: {
-    0: LevelProgress(
+    0: const LevelProgress(
       levelId: 0,
       state: LevelCompletionState.completed,
       stars: 3,
     ),
-    1: LevelProgress(
+    1: const LevelProgress(
       levelId: 1,
       state: LevelCompletionState.completed,
       stars: 2,
       extra: {'app.bookmarked': true},
     ),
-    2: LevelProgress(levelId: 2, state: LevelCompletionState.unlocked),
-    3: LevelProgress(levelId: 3, state: LevelCompletionState.locked),
-    4: LevelProgress(levelId: 4, state: LevelCompletionState.locked),
+    2: const LevelProgress(levelId: 2, state: LevelCompletionState.unlocked),
+    3: const LevelProgress(levelId: 3, state: LevelCompletionState.locked),
+    4: const LevelProgress(levelId: 4, state: LevelCompletionState.locked),
   },
 );
 

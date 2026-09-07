@@ -119,7 +119,64 @@ void main() {
           reason: '$state',
         );
       }
-      expect(legacy.canTap(_level, null), isTrue);
+      // No record means locked now (see saga_node_interaction_policy.dart):
+      // the 1.x fail-open made an unrecorded level tappable — an arbitrary
+      // progression skip with no tampering at all.
+      expect(legacy.canTap(_level, null), isFalse);
+      expect(explicit.canTap(_level, null), isFalse);
+    });
+
+    test('an unrecorded level is locked, not open', () {
+      // T-10: the 1.x fail-open made a level with no record tappable, which is
+      // a progression skip that needs no tampering at all.
+      const policy = SagaNodeInteractionPolicy();
+      expect(policy.canTap(_level, null), isFalse);
+      expect(policy.canLongPress(_level, null), isFalse);
+
+      // ...and the safe default does not lock the very first level, because
+      // SagaProgress.initial() actually records it.
+      final initial = SagaProgress.initial();
+      expect(
+        policy.canTap(
+          const LevelData(id: 0, position: SagaPoint(0, 0), biomeId: 'test'),
+          initial.levels[0],
+        ),
+        isTrue,
+      );
+    });
+
+    test('a map with no progressResolver is open, not dead', () {
+      // The two absences are different: "no record on a tracked map" is
+      // locked, "no progress tracking at all" is open.
+      SagaMapRenderContext contextWith(SagaNodeProgressResolver? resolver) {
+        return SagaMapRenderContext(
+          layout: const ResolvedSagaLayout(
+            breakpoint: SagaMapBreakpointName.desktop,
+            pathAxis: SagaMapPathAxis.vertical,
+            nodeSize: 1,
+            nodeSpacing: 1,
+            zoom: 1,
+            interactionRadius: 1.0,
+            cameraPadding: 0,
+            scrollSensitivity: 1,
+            maxLateralExtent: 100,
+          ),
+          levels: const [_level],
+          progressResolver: resolver,
+          chunkSpanNormalized: 1.0,
+          chunkIndex: 0,
+          chunkSize: const SagaSize(width: 100, height: 100),
+        );
+      }
+
+      expect(
+        contextWith(null).resolveProgress(_level).state,
+        LevelCompletionState.unlocked,
+      );
+      expect(
+        contextWith((_) => null).resolveProgress(_level).state,
+        LevelCompletionState.locked,
+      );
     });
 
     test('the veto sees the level and its progress', () {
@@ -251,11 +308,13 @@ void main() {
       // A gate closing behind a player who already passed it would erase real
       // progress, so a veto only ever declines to open.
       const useCase = CompleteLevelUseCase(canUnlock: _neverUnlock);
-      const passed = SagaProgress(
+      final passed = SagaProgress(
         currentMaxUnlockedLevelId: 3,
         levels: {
-          0: LevelProgress(levelId: 0, state: LevelCompletionState.completed),
-          1: LevelProgress(levelId: 1, state: LevelCompletionState.unlocked),
+          0: const LevelProgress(
+              levelId: 0, state: LevelCompletionState.completed),
+          1: const LevelProgress(
+              levelId: 1, state: LevelCompletionState.unlocked),
         },
       );
 

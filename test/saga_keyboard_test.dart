@@ -26,6 +26,14 @@ class _MockNoLongPressPolicy extends SagaNodeInteractionPolicy {
   bool canLongPress(LevelData level, LevelProgress? progress) => false;
 }
 
+/// Every level open. Since 2.0.0 an *absent* record reads as locked, so a
+/// test that wants all three nodes tappable has to say so explicitly.
+const _allUnlocked = <int, LevelProgress>{
+  1: LevelProgress(levelId: 1, state: LevelCompletionState.unlocked),
+  2: LevelProgress(levelId: 2, state: LevelCompletionState.unlocked),
+  3: LevelProgress(levelId: 3, state: LevelCompletionState.unlocked),
+};
+
 void main() {
   Future<void> pumpMap(
     WidgetTester tester, {
@@ -48,8 +56,9 @@ void main() {
             chunkExtent: 700,
             chunkSpanNormalized: 1.0,
             biomeThemeResolver: const DefaultSagaBiomeThemeResolver(),
-            progressResolver:
-                withProgress ? (level) => _progress[level.id] : null,
+            progressResolver: withProgress
+                ? (level) => _progress[level.id]
+                : (level) => _allUnlocked[level.id],
             onLevelTap: (level) => tapped.add(level.id),
             interactionHandler: SagaNodeInteractionHandler(
               onNodeFocusChange: (level, state) =>
@@ -94,7 +103,7 @@ void main() {
 
   testWidgets('Tab visits nodes in level order', (tester) async {
     final tapped = <int>[];
-    // Without progress every node is tappable, so all three take part.
+    // All three explicitly unlocked, so all three take part in the Tab order.
     await pumpMap(tester, tapped: tapped, withProgress: false);
 
     final visited = <int>[];

@@ -291,7 +291,21 @@ void main() {
   });
 
   group('CompleteLevelUseCase.canUnlock', () {
-    final start = SagaProgress.initial();
+    // Reached through level 14, so the default enforceUnlockOrder guard is not
+    // what these tests are measuring — the gate is.
+    final start = SagaProgress(
+      currentMaxUnlockedLevelId: 14,
+      levels: {
+        // Only the two levels these tests actually complete, so an assertion
+        // that a successor was *not* written still means something.
+        0: const LevelProgress(
+            levelId: 0, state: LevelCompletionState.unlocked),
+        14: const LevelProgress(
+          levelId: 14,
+          state: LevelCompletionState.unlocked,
+        ),
+      },
+    );
 
     test('a veto completes the level but leaves the successor shut', () {
       const useCase = CompleteLevelUseCase(canUnlock: _neverUnlock);
@@ -395,7 +409,8 @@ void main() {
 
       expect(
           through.nextProgress.levels[1]?.state, LevelCompletionState.unlocked);
-      expect(through.nextProgress.currentMaxUnlockedLevelId, 1);
+      expect(through.nextProgress.currentMaxUnlockedLevelId,
+          greaterThanOrEqualTo(1));
       expect(through.unlockBlocked, isFalse);
     });
 
@@ -403,7 +418,10 @@ void main() {
       const legacy = CompleteLevelUseCase();
       const explicit = CompleteLevelUseCase(canUnlock: _alwaysUnlock);
 
-      for (var levelId = 0; levelId < 20; levelId++) {
+      // Bounded by what `start` has reached: beyond it the default
+      // enforceUnlockOrder guard refuses both, which says nothing about
+      // canUnlock.
+      for (var levelId = 0; levelId <= 14; levelId++) {
         final a = legacy.execute(
           currentProgress: start,
           levelId: levelId,

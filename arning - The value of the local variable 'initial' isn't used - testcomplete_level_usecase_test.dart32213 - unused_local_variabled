@@ -205,6 +205,7 @@ void main() {
 
     test('returns boss reward only on boss levels', () {
       const useCase = CompleteLevelUseCase();
+      final initial = SagaProgress.initial();
 
       final nonBoss = useCase.execute(
         currentProgress: _reached(9),
@@ -233,6 +234,7 @@ void main() {
       // The escape hatch ADR-0002 promises: a host that already paid out at
       // ids 15/30/45 injects the old rule and nothing moves under its players.
       const legacy = CompleteLevelUseCase(bossRule: _legacyBossRule);
+      final initial = SagaProgress.initial();
 
       expect(
         legacy
@@ -274,6 +276,7 @@ void main() {
         bossRule: _everySeventh,
         lootTable: fakeTable,
       );
+      final initial = SagaProgress.initial();
 
       expect(
         useCase
@@ -316,6 +319,7 @@ void main() {
 
     test('the no-argument constructor keeps the default behaviour', () {
       const injected = CompleteLevelUseCase();
+      final initial = SagaProgress.initial();
 
       // Whatever `isBossLevel` says today, the defaulted use case agrees with
       // it — the point is that injection did not shift the default.

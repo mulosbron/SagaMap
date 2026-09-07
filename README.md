@@ -798,6 +798,31 @@ applied), and `appliedUnlockBlocked` (a completion whose successor stayed shut).
 never reached; `canUnlock` looks forwards and refuses to open the next one. Use
 either, both or neither.
 
+**`enforceUnlockOrder` is a constructor field and ships on.** In 1.x it was an
+`execute` parameter defaulting to `false`, so the shipped configuration accepted
+any level id and the guard was something you had to remember at every call site
+— one omission among five re-opened the hole. Decide it once:
+
+```dart
+// A debug build, or a chapter-skip purchase that deliberately jumps ahead.
+const jumper = CompleteLevelUseCase(enforceUnlockOrder: false);
+
+// Or override it for the single call that means it, and leave the rest guarded.
+useCase.execute(..., enforceUnlockOrder: false);
+```
+
+A negative `levelId` is refused whatever the guard says, and
+`SagaProgress.fromJson` clamps `currentMaxUnlockedLevelId` to at most one past
+the highest recorded level — the guard rests on that integer, so it is
+reconciled with the map it points into rather than trusted.
+
+**One caveat on rewards.** The first-clear check that stops a boss item being
+minted twice is read from the `SagaProgress` you pass in. Two calls made against
+the *same* snapshot — a widget callback and an async save, say — both see an
+uncompleted level and both mint. Thread each result into the next call, or
+persist before completing again. `rollBossReward` is public and applies no guard
+at all; prefer `execute` unless you want an unpersisted preview.
+
 All three hooks default to off — `gates: const []`, `isReachable: null`,
 `canUnlock: null` — which is exactly 1.x behaviour.
 

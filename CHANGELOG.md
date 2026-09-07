@@ -4,6 +4,25 @@ All notable changes to this package are documented in this file.
 
 ## 2.0.0
 
+### Breaking — the progression guard ships on, and is decided once
+
+`enforceUnlockOrder` moved from an `execute` parameter defaulting to `false` to
+a `CompleteLevelUseCase` constructor field defaulting to `true`. It used to be a
+guard a host had to remember at every call site while the shipped default
+accepted any level id. `execute` still takes it as an optional override for the
+one call that deliberately jumps ahead.
+
+A negative `levelId` is now refused whatever the guard says, and
+`SagaProgress.fromJson` clamps `currentMaxUnlockedLevelId` to at most one past
+the highest recorded level, so a tampered save cannot hand itself the pointer
+the guard rests on. `fromJson` sanitises rather than trusts, and says so.
+
+`rollBossReward` stays public — hosts need it for previews and their own
+economies — with its unguarded-mint contract spelled out in full rather than in
+one line. The snapshot-based first-clear guard in `execute` is documented on
+`CompleteLevelResult.reward` and pinned by a test; closing it structurally needs
+the deferred `InventoryRepository` injection (ADR-0003, 2.1.0).
+
 ### Breaking — an unrecorded level is now locked
 
 `SagaNodeInteractionPolicy.canTap` treated a `null` `LevelProgress` as tappable.

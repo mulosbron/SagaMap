@@ -55,7 +55,14 @@ class SagaProgress {
     return json;
   }
 
-  /// Restores progress from serialized payload.
+  /// Restores progress from a serialized payload.
+  ///
+  /// **Sanitises rather than trusts.** A save file is host-controlled and, on a
+  /// device the player owns, player-controlled: wrong types are dropped,
+  /// unparseable level keys are skipped, a negative unlock pointer becomes `0`
+  /// and a pointer beyond the recorded levels is clamped to one past the
+  /// highest of them. What comes back is always a self-consistent
+  /// [SagaProgress], never a faithful echo of the bytes on disk.
   static SagaProgress fromJson(Map<String, dynamic> json) {
     final levelsRaw = json['levels'];
     final Map<int, LevelProgress> levels = {};
@@ -89,9 +96,25 @@ class SagaProgress {
       extra = Map<String, dynamic>.from(extraRaw);
     }
 
+    final resolvedLevels =
+        levels.isNotEmpty ? levels : SagaProgress.initial().levels;
+
+    // Reconcile the pointer with the map it points into. A save claiming
+    // `currentMaxUnlockedLevelId: 9999` next to two recorded levels used to
+    // load happily, and with `enforceUnlockOrder` on that single integer is the
+    // only thing standing between a player and completing any level id. The
+    // rule: the pointer may reach one past the highest recorded level (the
+    // successor a completion opens) and no further. Clamped rather than
+    // thrown, matching the negative-pointer clamp above — a save that will not
+    // load is worse for a player than one that loads honest.
+    final ceiling =
+        resolvedLevels.keys.fold<int>(0, (a, b) => a > b ? a : b) + 1;
+    final clamped =
+        unlocked < 0 ? 0 : (unlocked > ceiling ? ceiling : unlocked);
+
     return SagaProgress(
-      currentMaxUnlockedLevelId: unlocked < 0 ? 0 : unlocked,
-      levels: levels.isNotEmpty ? levels : SagaProgress.initial().levels,
+      currentMaxUnlockedLevelId: clamped,
+      levels: resolvedLevels,
       extra: extra,
     );
   }

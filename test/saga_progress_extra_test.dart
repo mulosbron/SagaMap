@@ -20,11 +20,49 @@ void main() {
             'state': 'completed',
             'stars': 3,
           },
+          '1': {
+            'levelId': 1,
+            'state': 'completed',
+            'stars': 1,
+          },
         },
       };
       final progress = SagaProgress.fromJson(json100);
       expect(progress.extra, isEmpty);
       expect(progress.currentMaxUnlockedLevelId, 2);
+    });
+
+    test('an unlock pointer beyond the recorded levels is clamped', () {
+      // T-12: a save claiming level 9999 next to one recorded level used to
+      // load as written, and with enforceUnlockOrder that single integer is
+      // the only thing standing between a player and any level id. The rule:
+      // the pointer may reach one past the highest record — the successor a
+      // completion opens — and no further.
+      final tampered = {
+        'currentMaxUnlockedLevelId': 9999,
+        'levels': {
+          '0': {'levelId': 0, 'state': 'completed', 'stars': 3},
+        },
+      };
+
+      expect(SagaProgress.fromJson(tampered).currentMaxUnlockedLevelId, 1);
+
+      // Clamped, not thrown: a save that refuses to load is worse for a player
+      // than one that loads honest. Their real levels are untouched.
+      expect(
+        SagaProgress.fromJson(tampered).levels[0]?.state,
+        LevelCompletionState.completed,
+      );
+
+      // The empty-levels payload falls back to the initial state, whose only
+      // record is level 0, so the ceiling is 1 there too.
+      expect(
+        SagaProgress.fromJson({
+          'currentMaxUnlockedLevelId': 9999,
+          'levels': <String, dynamic>{},
+        }).currentMaxUnlockedLevelId,
+        1,
+      );
     });
 
     test('survives round-trip intact', () {

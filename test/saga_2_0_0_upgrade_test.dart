@@ -100,7 +100,17 @@ void main() {
   group('every 2.0.0 breaking change has a working escape hatch', () {
     test('bossRule restores the 1.x boss placement', () {
       const legacy = CompleteLevelUseCase(bossRule: _legacyBossRule);
-      final start = SagaProgress.initial();
+      // enforceUnlockOrder ships on, so the player has to have got here.
+      final start = SagaProgress(
+        currentMaxUnlockedLevelId: 15,
+        levels: {
+          for (var id = 0; id <= 15; id++)
+            id: LevelProgress(
+              levelId: id,
+              state: LevelCompletionState.unlocked,
+            ),
+        },
+      );
 
       expect(
         legacy

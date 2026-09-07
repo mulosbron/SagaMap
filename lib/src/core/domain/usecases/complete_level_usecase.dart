@@ -30,6 +30,14 @@ class CompleteLevelResult {
 
   /// Returned, **not persisted**.
   /// The caller must write it to its `InventoryRepository`; dropping this value silently loses the item.
+  ///
+  /// Minted on first clear only, decided from the [SagaProgress] passed in.
+  /// That snapshot *is* the guard: two `execute` calls made against the same
+  /// `currentProgress` — a widget callback and an async persistence path, say
+  /// — both see an uncompleted level and both mint the same item. Persist the
+  /// result before issuing the next call, or serialise completions per level.
+  /// Making this structurally impossible needs the use case to own the write,
+  /// which is the deferred `InventoryRepository` injection (ADR-0003, 2.1.0).
   final InventoryItem? reward;
 
   /// The level completed, but `canUnlock` refused to open its successor.
@@ -65,7 +73,22 @@ class CompleteLevelUseCase {
     this.bossRule = isBossLevel,
     this.lootTable = kMvpLootTable,
     this.canUnlock,
+    this.enforceUnlockOrder = true,
   });
+
+  /// Whether a level the player has not reached may be completed at all.
+  ///
+  /// **On by default since 2.0.0.** It used to be an `execute` parameter
+  /// defaulting to `false`, which made the shipped configuration accept any
+  /// level id — and made the guard something a host had to remember at every
+  /// call site. One omission among five re-opened the hole. As a constructor
+  /// field it is decided once, next to [canUnlock], and covers every call the
+  /// instance serves.
+  ///
+  /// Turn it off for a level select that deliberately jumps ahead (a debug
+  /// build, a chapter-skip purchase), and prefer overriding it on the single
+  /// [execute] call that means it rather than on the instance.
+  final bool enforceUnlockOrder;
 
   /// Which levels drop a boss reward. Defaults to [isBossLevel].
   ///
@@ -109,19 +132,40 @@ class CompleteLevelUseCase {
   /// Progress only ever moves forward. Completing a level unlocks its successor
   /// whether or not a record for it already exists, and never demotes a level
   /// that is already completed.
-  /// Set [enforceUnlockOrder] to reject completing a level the player has not
-  /// reached yet. Off by default to preserve existing behaviour; a host that
-  /// treats progression as authoritative should turn it on. When a level beyond
-  /// [SagaProgress.currentMaxUnlockedLevelId] is completed with the guard on,
-  /// the call is a no-op and returns the progress unchanged.
+  /// Pass `enforceUnlockOrder` to override the instance's own
+  /// [CompleteLevelUseCase.enforceUnlockOrder] for this one call. When the
+  /// guard is on and a level beyond
+  /// [SagaProgress.currentMaxUnlockedLevelId] is completed, the call is a
+  /// no-op: the progress comes back unchanged and the outcome is
+  /// [CompleteLevelOutcome.rejectedUnreached].
+  ///
+  /// A negative [levelId] is rejected the same way whatever the guard says. A
+  /// level below zero is an impossible state in every configuration, so there
+  /// is no setting under which writing one is correct.
+  ///
+  /// **Call this against the latest progress you hold.** The first-clear guard
+  /// that stops a boss reward being minted twice is read from
+  /// [currentProgress]; two calls made against the same snapshot both see an
+  /// uncompleted level and both mint. See [CompleteLevelResult.reward].
   CompleteLevelResult execute({
     required SagaProgress currentProgress,
     required int levelId,
     required int globalSeed,
     int stars = 1,
-    bool enforceUnlockOrder = false,
+    bool? enforceUnlockOrder,
     DateTime? now,
   }) {
+    final orderEnforced = enforceUnlockOrder ?? this.enforceUnlockOrder;
+
+    // A negative level is an impossible state in every configuration — the
+    // same reasoning `SagaProgress.fromJson` applies to a negative unlock
+    // pointer — so it is refused whatever the order guard says.
+    if (levelId < 0) {
+      return CompleteLevelResult(
+        nextProgress: currentProgress,
+        outcome: CompleteLevelOutcome.rejectedUnreached,
+      );
+    }
     // Clamp rather than assert: an assert is stripped from release builds, so
     // it is no guard at all in production. A negative or absurd score coming
     // from a caller or a tampered save is coerced to a plausible range.
@@ -130,8 +174,7 @@ class CompleteLevelUseCase {
 
     // Skipping ahead: with the guard on, only an already-reachable level may be
     // completed, closing the "complete any level id" arbitrary-skip path.
-    if (enforceUnlockOrder &&
-        levelId > currentProgress.currentMaxUnlockedLevelId) {
+    if (orderEnforced && levelId > currentProgress.currentMaxUnlockedLevelId) {
       return CompleteLevelResult(
         nextProgress: currentProgress,
         outcome: CompleteLevelOutcome.rejectedUnreached,

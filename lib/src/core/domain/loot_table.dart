@@ -75,8 +75,19 @@ bool isBossLevel(int levelId) => levelId >= 0 && levelId % 15 == 14;
 
 /// Rolls a deterministic reward for boss levels.
 ///
-/// Deterministic and unguarded — calling it twice for the same level mints the same item twice.
-/// `CompleteLevelUseCase.execute` applies the first-clear guard; a direct caller must apply its own.
+/// > **This is an unguarded mint.** It stays public because a host needs it to
+/// > preview a drop, to replay a save, or to run its own economy — but it
+/// > applies **no** first-clear check, no progression check and no boss check.
+/// > Calling it twice for the same `(levelId, globalSeed, table)` returns the
+/// > same item twice, and a host that persists both has duplicated an item.
+///
+/// The invariant a direct caller must uphold, in full: roll **once** per level
+/// per player, only after establishing that this is the level's first clear
+/// against the *persisted* progress, and only for a level [isBossLevel] (or
+/// the host's own rule) accepts. `CompleteLevelUseCase.execute` upholds all
+/// three; nothing else does. Prefer it unless you specifically need an
+/// unpersisted preview — a drop-odds screen or a "what would this boss give
+/// me" tooltip, neither of which writes to an inventory.
 ///
 /// [table] defaults to [kMvpLootTable]. An empty table, a negative weight or a
 /// total weight of `0` throws an [ArgumentError] rather than falling back to

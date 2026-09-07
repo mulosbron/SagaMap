@@ -17,8 +17,8 @@ Desktop.ini
 .claude/
 *.lock
 pubspec.lock
-docs/scratch/
-docs/reports/
+# ADRs, task boards and working notes. Kept on disk, out of the repository.
+docs/
 # Staging trash bin & dev artifacts
 .old/
 x/

@@ -4,6 +4,22 @@ All notable changes to this package are documented in this file.
 
 ## 2.0.0
 
+### Fixed — four view lifecycle defects
+
+- A swapped `SagaMapCameraController` was never attached, so every call on the
+  new handle silently did nothing. It is now attached (and the old one detached)
+  in `didUpdateWidget`.
+- Episode headers were absent from every scroll-offset computation, so each one
+  shifted the map by a header per chunk and camera targets landed short by a
+  growing margin. Declare the header's size with the new
+  `SagaInfiniteMapView.episodeHeaderExtent`.
+- The character vanished standing exactly on the last level of the last chunk:
+  the final point has no segment leaving it, so it resolved to no pose while
+  `ownsPathPosition` still claimed the position and no other chunk drew it.
+- A controller swap kept the previous world's chunk contexts, which are keyed by
+  chunk index alone, so a new seed rendered the old map's nodes until every
+  chunk happened to rebuild.
+
 ### Breaking — the progression guard ships on, and is decided once
 
 `enforceUnlockOrder` moved from an `execute` parameter defaulting to `false` to

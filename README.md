@@ -430,6 +430,24 @@ interactionHandler: SagaNodeInteractionHandler(
 )
 ```
 
+#### Headers and the camera
+
+If you build episode headers, tell the view how tall they are:
+
+```dart
+SagaInfiniteMapView(
+  chunkEpisodeHeaderBuilder: (context, chunk) => EpisodeBanner(chunk),
+  episodeHeaderExtent: 80, // the banner's height, or width on a horizontal map
+  // ...
+)
+```
+
+Each list item is `header + chunk`, so a header the view does not know about
+shifts chunk `c` by `c` headers and every camera target — `scrollToPathPosition`,
+the opening scroll, following the character — lands short by a growing margin.
+It is declared rather than measured for the same reason `chunkExtent` is: the
+target has to be computed before the header is laid out.
+
 ### Bounded memory
 
 ```dart

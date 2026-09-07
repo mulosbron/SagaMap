@@ -155,7 +155,20 @@ class SagaMapRenderContext {
 
     final baseLevel = pathPosition.floor();
     final index = pointIndexForLevel(baseLevel);
-    if (index == null || index < 0 || index >= segments.length) return null;
+    if (index == null || index < 0) return null;
+
+    // The final point has no segment leaving it, so standing exactly on the
+    // last level of the last chunk used to resolve to nothing and the
+    // character vanished at the end of the map — while `ownsPathPosition`
+    // still claimed the position, so no other chunk drew it either. Read that
+    // as the end of the last segment instead.
+    if (index >= segments.length) {
+      final overshoot = pathPosition - baseLevel;
+      if (index == segments.length && overshoot == 0) {
+        return pathMetrics.poseOnSegment(segments.length - 1, 1);
+      }
+      return null;
+    }
 
     return pathMetrics.poseOnSegment(index, pathPosition - baseLevel);
   }

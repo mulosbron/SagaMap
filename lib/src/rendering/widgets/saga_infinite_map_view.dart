@@ -177,6 +177,19 @@ class SagaInfiniteMapView extends StatefulWidget {
       'Use chunkEpisodeHeaderBuilder with SagaChunkContext. Removed in 3.0.0.')
   final SagaLegacyEpisodeHeaderBuilder? episodeHeaderBuilder;
 
+  /// Along-axis size of one episode header, in logical pixels.
+  ///
+  /// Declared rather than measured, the same way [chunkExtent] is: a header is
+  /// a host widget and the view cannot know its size before laying it out, but
+  /// every scroll target has to be computed before then. Each list item is
+  /// `header + chunk`, so a header the view does not know about shifts chunk
+  /// `c` by `c` headers — `scrollToPathPosition`, the opening scroll and the
+  /// camera all land short by a growing margin.
+  ///
+  /// Leave it at `0` when you build no headers. Set it to the header's height
+  /// on a vertical map, its width on a horizontal one.
+  final double episodeHeaderExtent;
+
   /// Banner shown before a chunk, handed a [SagaChunkContext] so it can report
   /// on the chunk it announces. Supersedes [episodeHeaderBuilder].
   final SagaEpisodeHeaderBuilder? chunkEpisodeHeaderBuilder;
@@ -252,6 +265,7 @@ class SagaInfiniteMapView extends StatefulWidget {
     this.decorationBuilder,
     this.chunkDecorationBuilder,
     this.episodeHeaderBuilder,
+    this.episodeHeaderExtent = 0,
     this.chunkEpisodeHeaderBuilder,
     this.parallaxBackground,
     this.parallaxFactor = 0.4,
@@ -359,9 +373,24 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
       oldWidget.character?.controller,
       widget.character?.controller,
     );
+    if (oldWidget.cameraController != widget.cameraController) {
+      // A swapped camera controller was never attached, so every
+      // `scrollToPathPosition` on it silently did nothing — the failure mode of
+      // a handle that reports success by returning.
+      oldWidget.cameraController?.detach(_scrollToPathPosition);
+      widget.cameraController?.attach(
+        onScroll: _scrollToPathPosition,
+        characterPosition: _currentCharacterPosition,
+      );
+    }
     if (oldWidget.controller != widget.controller) {
       oldWidget.controller.removeListener(_onControllerChanged);
       widget.controller.addListener(_onControllerChanged);
+      // A new controller is a new world: a different seed, different levels at
+      // the same indices. The context cache is keyed by chunk index alone, so
+      // keeping it would render the previous world's levels under the new
+      // controller until every chunk happened to be rebuilt.
+      _chunkContexts.clear();
       _kickStart?.cancel();
       _kickStart = Stream<void>.fromFuture(widget.controller.initialize())
           .listen((_) {});
@@ -440,7 +469,12 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
     );
     final extent =
         (widget.chunkExtent * layout.nodeSpacing).roundToDouble() * _zoom;
-    return extent * pathPosition / sections;
+    // Each list item is `header + chunk`, so chunk `c` starts `c` headers
+    // further along than its chunk extent alone implies. Without this every
+    // camera target drifts by one header per chunk — a mile deep into the map,
+    // "scroll to level 250" lands somewhere else entirely.
+    final headers = widget.episodeHeaderExtent * (pathPosition / sections);
+    return extent * pathPosition / sections + headers;
   }
 
   double _currentCharacterPosition() =>

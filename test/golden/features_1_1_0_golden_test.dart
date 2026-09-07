@@ -321,4 +321,97 @@ void main() {
       matchesGoldenFile('goldens/features_1_1_0_episode_header.png'),
     );
   });
+
+  /// A-05.05: the header pair. `episodeHeaderExtent` is the number every scroll
+  /// target is computed from, before a header is ever laid out, so the two
+  /// images below pin the alignment the camera maths assumes: the same map,
+  /// scrolled to the same level, with a declared header and without one. Node
+  /// 6 must sit in the same place in both.
+  ///
+  /// The existing header golden above leaves `episodeHeaderExtent` at 0, so it
+  /// records how a header *draws* and says nothing about where the map then
+  /// scrolls to.
+  Future<void> pumpHeaderAlignment(
+    WidgetTester tester, {
+    required double headerExtent,
+  }) async {
+    tester.view.devicePixelRatio = 1.0;
+    tester.view.physicalSize = const Size(400, 800);
+    addTearDown(tester.view.reset);
+
+    final controller = SagaInfiniteMapController(
+      sectionsPerChunk: _levelsPerChunk,
+      initialChunkCount: 4,
+      chunkLoader: (chunkIndex, sectionsPerChunk) => [
+        for (final level in _levels)
+          LevelData(
+            id: chunkIndex * sectionsPerChunk + level.id,
+            position: SagaPoint(
+              level.position.x,
+              level.position.y + chunkIndex,
+            ),
+            biomeId: level.biomeId,
+          ),
+      ],
+    );
+    addTearDown(controller.dispose);
+
+    final camera = SagaMapCameraController();
+    addTearDown(camera.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: Scaffold(
+          body: SagaInfiniteMapView(
+            controller: controller,
+            cameraController: camera,
+            chunkExtent: 600,
+            chunkSpanNormalized: 1.0,
+            lateralBounds: _config.lateralBounds,
+            backgroundConfig: const SagaMapBackgroundConfig.color(
+              color: Color(0xFF2D5A27),
+            ),
+            biomeThemeResolver: const DefaultSagaBiomeThemeResolver(),
+            responsiveResolver: SagaResponsiveResolver(
+              config: SagaMapResponsiveConfig.defaults.copyWith(
+                nodeSpacingPolicy: const SagaMapValuePolicy.all(1.0),
+              ),
+            ),
+            episodeHeaderExtent: headerExtent,
+            chunkEpisodeHeaderBuilder: headerExtent > 0
+                ? (context, chunk) => Container(
+                      height: headerExtent,
+                      color: const Color(0xCC1B3A17),
+                    )
+                : null,
+            nodeBuilder: _node,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Chunk 1, level 1 — far enough in that a one-header-per-chunk drift is
+    // plainly visible, close enough to stay on screen.
+    await camera.scrollToPathPosition(6, alignment: 0, duration: Duration.zero);
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('A-05 — a declared episode header does not move the target',
+      (tester) async {
+    await pumpHeaderAlignment(tester, headerExtent: 80);
+    await expectLater(
+      find.byType(MaterialApp),
+      matchesGoldenFile('goldens/episode_header_alignment_with.png'),
+    );
+  });
+
+  testWidgets('A-05 — the same map with no header at all', (tester) async {
+    await pumpHeaderAlignment(tester, headerExtent: 0);
+    await expectLater(
+      find.byType(MaterialApp),
+      matchesGoldenFile('goldens/episode_header_alignment_without.png'),
+    );
+  });
 }

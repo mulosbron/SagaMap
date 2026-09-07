@@ -230,6 +230,14 @@ class SagaInfiniteMapView extends StatefulWidget {
   ///
   /// Leave it at `0` when you build no headers. Set it to the header's height
   /// on a vertical map, its width on a horizontal one.
+  ///
+  /// **Set it whenever your builder actually returns a header.** This and the
+  /// header builder are one setting in two fields, and they drift in opposite
+  /// directions: build headers without setting this and every camera target
+  /// lands one header per chunk short; set this without building them and it
+  /// lands one header per chunk long. A constructor assert catches the second
+  /// case. The first cannot be caught there — a builder returning `null` for
+  /// every chunk is legitimate and reserves nothing — so it is on you.
   final double episodeHeaderExtent;
 
   /// Banner shown before a chunk, handed a [SagaChunkContext] so it can report
@@ -335,6 +343,25 @@ class SagaInfiniteMapView extends StatefulWidget {
         assert(
           episodeHeaderBuilder == null || chunkEpisodeHeaderBuilder == null,
           'Cannot provide both episodeHeaderBuilder and chunkEpisodeHeaderBuilder.',
+        ),
+        // The extent and the builder are one setting in two fields, and every
+        // scroll target is computed from the extent before a header is ever
+        // laid out. Reserve space no builder fills and the camera lands one
+        // header long per chunk — silently, the map simply stopping where it
+        // said it would, which is the drift this release fixed.
+        //
+        // Only this direction is checked. The reverse — a builder with no
+        // extent — is equally wrong but not decidable here: a builder that
+        // returns `null` for every chunk is legitimate and reserves nothing.
+        // See [episodeHeaderExtent].
+        assert(
+          episodeHeaderExtent <= 0 ||
+              episodeHeaderBuilder != null ||
+              chunkEpisodeHeaderBuilder != null,
+          'episodeHeaderExtent is $episodeHeaderExtent but no episode header '
+          'builder was given, so the view reserves space nothing fills and '
+          'every camera target lands one header per chunk too far. Pass a '
+          'chunkEpisodeHeaderBuilder, or leave episodeHeaderExtent at 0.',
         );
 
   /// Scroll direction implied by the configured path axis.
@@ -566,12 +593,17 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
     // every chunk.
     final extent =
         (widget.chunkExtent * layout.nodeSpacing * _zoom).roundToDouble();
-    // Each list item is `header + chunk`, so chunk `c` starts `c` headers
-    // further along than its chunk extent alone implies. Without this every
-    // camera target drifts by one header per chunk — a mile deep into the map,
-    // "scroll to level 250" lands somewhere else entirely.
-    final headers = widget.episodeHeaderExtent * (pathPosition / sections);
-    return extent * pathPosition / sections + headers;
+    // Each list item is `header + chunk`, so a point inside chunk `c` sits
+    // after **c + 1** headers, not `c`: the chunk's own header precedes it.
+    // The original formula spread the header extent smoothly across the chunk
+    // (`header * pathPosition / sections`), which left a sawtooth up to one
+    // full header wide — node 20 with extent 600, sections 10 and an 80px
+    // header sits at 1440 and the camera aimed at 1360.
+    final chunks = pathPosition / sections;
+    final headerCount = chunks.floor() + 1;
+    final headers =
+        widget.episodeHeaderExtent * (headerCount < 0 ? 0 : headerCount);
+    return extent * chunks + headers;
   }
 
   double _currentCharacterPosition() =>
@@ -607,6 +639,7 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
       centerOffset: position.pixels + (position.viewportDimension / 2.0),
       chunkExtent:
           (widget.chunkExtent * layout.nodeSpacing * _zoom).roundToDouble(),
+      episodeHeaderExtent: widget.episodeHeaderExtent,
       onChunkEnter: widget.onChunkEnter,
     );
   }

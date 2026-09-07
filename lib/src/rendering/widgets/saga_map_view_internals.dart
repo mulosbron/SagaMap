@@ -49,15 +49,26 @@ class SagaChunkEventTracker {
   ///
   /// [centerOffset] is the scroll offset of the viewport's centre and
   /// [chunkExtent] the along-axis size of one chunk, both already zoomed.
+  /// Reports the chunk under the viewport's centre.
+  ///
+  /// [episodeHeaderExtent] must be the same value the view lays its headers
+  /// out with. A list item is `header + chunk`, so chunk `c` begins at
+  /// `c * (chunkExtent + episodeHeaderExtent)`; dividing by the chunk extent
+  /// alone drifts one full chunk every `chunkExtent / episodeHeaderExtent`
+  /// chunks, and `onChunkEnter` then names the wrong chunk for the rest of the
+  /// scroll.
   void checkDominantChunk({
     required double centerOffset,
     required double chunkExtent,
     required void Function(SagaChunkContext chunk)? onChunkEnter,
+    double episodeHeaderExtent = 0,
   }) {
     if (onChunkEnter == null) return;
     if (chunkExtent <= 0) return;
 
-    final dominantIndex = (centerOffset / chunkExtent).floor();
+    final stride = chunkExtent + episodeHeaderExtent;
+    if (stride <= 0) return;
+    final dominantIndex = (centerOffset / stride).floor();
     if (dominantIndex < 0) return;
     if (_lastBroadcastChunkIndex == dominantIndex) return;
 

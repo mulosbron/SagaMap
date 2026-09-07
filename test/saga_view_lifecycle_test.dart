@@ -135,7 +135,11 @@ void main() {
 
     final without = tester.getTopLeft(find.byKey(const ValueKey('node-20')));
 
-    expect(withHeaders.dy, closeTo(without.dy, headerExtent));
+    // A-05.01: the tolerance used to be exactly `headerExtent`, which is
+    // exactly the error the defect produced — the test could not fail. One
+    // pixel is the real claim: the camera lands node 20 in the same place
+    // whether or not the map has headers.
+    expect(withHeaders.dy, closeTo(without.dy, 1.0));
   });
 
   testWidgets('a controller swap does not render the previous world',

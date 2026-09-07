@@ -43,6 +43,54 @@ void main() {
       expect(seen, [0, 1, 0]);
     });
 
+    test('A-05 — headers shift the chunk boundaries the centre is measured '
+        'against', () {
+      // A list item is `header + chunk`, so with a 600px chunk and an 80px
+      // header chunk `c` starts at `c * 680`, not `c * 600`. Dividing by the
+      // chunk extent alone slid one whole chunk every 600/80 chunks, so deep
+      // in the map `onChunkEnter` announced a chunk the player was nowhere
+      // near — and this half of the header fix was never applied at all.
+      const chunkExtent = 600.0;
+      const headerExtent = 80.0;
+
+      final seen = <int>[];
+      final tracker = SagaChunkEventTracker(
+        contextFor: _contextFor,
+        levelsFor: (_) => _levels,
+      );
+
+      // The centre of chunk 8's body: 8 * 680 + 80 + 300.
+      const centreOfChunk8 = 8 * (chunkExtent + headerExtent) + headerExtent + 300;
+
+      tracker.checkDominantChunk(
+        centerOffset: centreOfChunk8,
+        chunkExtent: chunkExtent,
+        episodeHeaderExtent: headerExtent,
+        onChunkEnter: (chunk) => seen.add(chunk.chunkIndex),
+      );
+
+      expect(seen, [8]);
+      // Without the header term this is `(5820 / 600).floor()` == 9.
+      expect((centreOfChunk8 / chunkExtent).floor(), 9,
+          reason: 'the drift this test exists for must actually be one chunk');
+    });
+
+    test('A-05 — a map with no headers is unaffected', () {
+      final seen = <int>[];
+      final tracker = SagaChunkEventTracker(
+        contextFor: _contextFor,
+        levelsFor: (_) => _levels,
+      );
+
+      tracker.checkDominantChunk(
+        centerOffset: 1500,
+        chunkExtent: 600,
+        onChunkEnter: (chunk) => seen.add(chunk.chunkIndex),
+      );
+
+      expect(seen, [2]);
+    });
+
     test('says nothing without a listener, or before the map has a size', () {
       final tracker = SagaChunkEventTracker(
         contextFor: _contextFor,

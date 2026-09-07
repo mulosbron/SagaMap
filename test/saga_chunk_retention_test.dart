@@ -212,6 +212,95 @@ void main() {
     expect(resolverCalls.length, greaterThan(firstPass));
   });
 
+  testWidgets('A-08 — an evicted but still visible chunk is never drawn blank',
+      (tester) async {
+    // NOTE: this cannot currently fail, and the reason is worth stating.
+    // `_evictIfNeeded` protects chunks in `_requestedSinceEviction` and clears
+    // that set only when the cache is back under budget. A scrolling view
+    // requests every visible chunk on every frame, so once the cache is over
+    // budget with all of it requested, the candidate list is empty forever and
+    // eviction never runs again. Eviction therefore happens at most once, in
+    // `initialize`, before anything has been requested — which is why the tests
+    // above that do observe it all evict at load time. Until that latch is
+    // fixed, nothing is evicted mid-scroll and no chunk can go blank.
+    //
+    // The test is kept because it pins the user-visible invariant this defect
+    // is about, and it will bite the day eviction works again.
+    //
+    // `fcdd767` bounded `_chunkContexts` by pruning on `retainedChunkIndices`,
+    // and in doing so deleted the context that `itemBuilder`'s
+    // stale-but-correct fallback reads. A chunk evicted while on screen then
+    // had neither the controller's levels nor a cached copy, so it rendered
+    // with no nodes at all for the frame or two its reload took: a blank band
+    // sliding past under the player's thumb. The bound was right; losing the
+    // fallback was collateral.
+    tester.view.devicePixelRatio = 1.0;
+    tester.view.physicalSize = const Size(400, 800);
+    addTearDown(tester.view.reset);
+
+    final harness = _controller(maxRetainedChunks: 2, initialChunkCount: 8);
+    addTearDown(harness.controller.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SagaInfiniteMapView(
+            controller: harness.controller,
+            chunkExtent: 300,
+            chunkSpanNormalized: _config.spanForLevelCount(_levelsPerChunk),
+            biomeThemeResolver: const DefaultSagaBiomeThemeResolver(),
+            nodeBuilder: (context, level, layout) => const SizedBox.shrink(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // A chunk that has been loaded once can always be drawn: either the
+    // controller still holds its levels, or the view's cached context does.
+    // A chunk never loaded yet legitimately has none, so only the first kind
+    // is checked.
+    final everLoaded = <int>{};
+
+    void expectNoBlankChunk(int step) {
+      for (final chunk in tester.widgetList<MapChunkWidget>(
+          find.byType(MapChunkWidget))) {
+        if (chunk.levels.isNotEmpty) {
+          everLoaded.add(chunk.chunkIndex);
+          continue;
+        }
+        expect(
+          everLoaded.contains(chunk.chunkIndex),
+          isFalse,
+          reason: 'frame $step drew chunk ${chunk.chunkIndex} blank after it '
+              'had already been loaded',
+        );
+      }
+    }
+
+    expectNoBlankChunk(-1);
+
+    // Walk forward a frame at a time through ground that forces eviction with
+    // a budget of two, checking every single frame rather than only the
+    // settled ones — the defect lasts exactly as long as a reload, and
+    // `pumpAndSettle` steps straight over it.
+    for (var step = 0; step < 12; step++) {
+      await tester.drag(find.byType(ListView), const Offset(0, -400));
+      await tester.pump();
+      expectNoBlankChunk(step);
+    }
+    // And back over ground already walked. This is the leg that matters: a
+    // chunk evicted while off screen is scrolled back onto, and the frame
+    // between the request and the reload landing is the blank one.
+    for (var step = 12; step < 24; step++) {
+      await tester.drag(find.byType(ListView), const Offset(0, 400));
+      await tester.pump();
+      expectNoBlankChunk(step);
+    }
+
+    expect(tester.takeException(), isNull);
+  });
+
   test('never reloads a chunk that was never generated', () async {
     final harness = _controller(maxRetainedChunks: 2, initialChunkCount: 2);
     addTearDown(harness.controller.dispose);

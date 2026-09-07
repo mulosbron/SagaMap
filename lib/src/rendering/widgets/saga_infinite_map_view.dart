@@ -159,6 +159,39 @@ class SagaInfiniteMapView extends StatefulWidget {
   /// Handle for scrolling the map from outside the widget tree.
   final SagaMapCameraController? cameraController;
 
+  /// Anything that notifies when [progressResolver]'s answers may have moved.
+  ///
+  /// **When progress is re-resolved.** The view sweeps a chunk's levels
+  /// through [progressResolver] when it has no context for that chunk, when
+  /// the controller hands it a different level list for one, when the host
+  /// rebuilds the view with a new widget instance — and when this listenable
+  /// fires. It deliberately does *not* sweep on the view's own rebuilds: a
+  /// pinch, a scroll or a character step cannot change what a resolver
+  /// returns, and sweeping there cost `levelsPerChunk x visibleChunks`
+  /// lookups per frame.
+  ///
+  /// The widget-instance trigger is the one with a hole in it, and this field
+  /// is the patch. A host that stores the view in a field, or puts it under a
+  /// `const` subtree, hands Flutter the *same* widget instance on every
+  /// rebuild; the framework then skips the update entirely and
+  /// `didUpdateWidget` never runs. That host — the one being careful about
+  /// rebuilds — would otherwise never see progress refresh at all.
+  ///
+  /// Pass whatever already changes when progress does: a `ChangeNotifier`
+  /// game state, a `ValueNotifier<SagaProgress>`, a `Listenable.merge` of
+  /// several.
+  ///
+  /// ```dart
+  /// SagaInfiniteMapView(
+  ///   progressResolver: (level) => gameState.progressFor(level.id),
+  ///   progressListenable: gameState,   // a ChangeNotifier
+  ///   // ...
+  /// )
+  /// ```
+  ///
+  /// The view only listens; it never disposes what it is given.
+  final Listenable? progressListenable;
+
   /// How far the player has reached, as a fractional level index; the path is
   /// painted in two styles either side of it. `null` paints it all one way.
   final double? pathProgressPosition;
@@ -283,6 +316,7 @@ class SagaInfiniteMapView extends StatefulWidget {
     this.followAlignment = 0.5,
     this.initialPathPosition,
     this.cameraController,
+    this.progressListenable,
     this.pathProgressPosition,
     this.decorationBuilder,
     this.chunkDecorationBuilder,
@@ -397,6 +431,15 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _applyOpeningScroll());
     _kickStart =
         Stream<void>.fromFuture(widget.controller.initialize()).listen((_) {});
+    widget.progressListenable?.addListener(_onProgressListenable);
+  }
+
+  /// The host says progress moved. Bump the epoch so the next build sweeps,
+  /// and rebuild — this is the only trigger available to a host whose widget
+  /// instance never changes, so it has to do both.
+  void _onProgressListenable() {
+    if (!mounted) return;
+    setState(() => _progressEpoch++);
   }
 
   @override
@@ -439,6 +482,10 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
       _kickStart?.cancel();
       _kickStart = Stream<void>.fromFuture(widget.controller.initialize())
           .listen((_) {});
+    }
+    if (oldWidget.progressListenable != widget.progressListenable) {
+      oldWidget.progressListenable?.removeListener(_onProgressListenable);
+      widget.progressListenable?.addListener(_onProgressListenable);
     }
     if (oldWidget.pathProgressPosition != widget.pathProgressPosition) {
       _checkLevelReached();
@@ -671,6 +718,7 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
       controller.barrier = null;
     }
     _kickStart?.cancel();
+    widget.progressListenable?.removeListener(_onProgressListenable);
     widget.controller.removeListener(_onControllerChanged);
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
@@ -707,12 +755,25 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
   /// a second, unbounded cache (`_chunkContexts`) that nothing ever removed.
   /// Pruning it in step with the controller makes `maxRetainedChunks` bound
   /// total memory, not just the controller's half.
+  ///
+  /// **A chunk being reloaded is kept.** `itemBuilder` falls back to a cached
+  /// context's levels when the controller has none — that fallback is what
+  /// draws an evicted-but-still-visible chunk from stale-but-correct data for
+  /// the frame or two its reload takes. Pruning on `retainedChunkIndices`
+  /// alone deleted the very context that fallback reads, so the chunk was
+  /// drawn *empty* instead: a blank band sliding past under the player's
+  /// thumb. The bound is not weakened by this — `reloadingChunkIndices` holds
+  /// only chunks that were asked for, so it is bounded by what is on screen,
+  /// and each entry leaves it as soon as its reload lands.
   void _pruneEvictedContexts() {
     if (_chunkContexts.isEmpty) return;
     final retained = widget.controller.retainedChunkIndices;
-    _chunkContexts.removeWhere((index, _) => !retained.contains(index));
-    _contextEpochs.removeWhere((index, _) => !retained.contains(index));
-    _contextLevels.removeWhere((index, _) => !retained.contains(index));
+    final reloading = widget.controller.reloadingChunkIndices;
+    bool drop(int index) =>
+        !retained.contains(index) && !reloading.contains(index);
+    _chunkContexts.removeWhere((index, _) => drop(index));
+    _contextEpochs.removeWhere((index, _) => drop(index));
+    _contextLevels.removeWhere((index, _) => drop(index));
   }
 
   void _onScroll() {
@@ -808,7 +869,20 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
               }
             }
           }
-          if (cached == null || progressChanged) {
+          // T-18 made the refresh conditional on `progressChanged` alone, so a
+          // chunk whose levels were replaced while its progress stayed
+          // identical kept a context carrying the *previous* list — and the
+          // host's decoration builder read the previous world's `LevelData`
+          // while the widget beside it drew the new one. Identity, not
+          // equality: a fresh-list-per-frame host is exactly what T-18 was
+          // protecting, and this is the same comparison the `swept` check
+          // above already makes. It reads `_contextLevels`, the raw list the
+          // last sweep ran on, not `cached.levels` — the context copies its
+          // list into an unmodifiable view, so comparing against that would be
+          // true on every pass and rebuild the context every time.
+          final levelsReplaced =
+              cached != null && !identical(_contextLevels[index], levels);
+          if (cached == null || progressChanged || levelsReplaced) {
             cached = SagaChunkContext(
               chunkIndex: index,
               levels: levels,

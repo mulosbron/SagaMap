@@ -80,6 +80,21 @@ class SagaInfiniteMapController extends ChangeNotifier {
   /// cache when [this] notifies.
   Set<int> get retainedChunkIndices => Set<int>.unmodifiable(_chunks.keys);
 
+  /// Indices whose levels were evicted and are being loaded again.
+  ///
+  /// A chunk lands here when [chunkLevels] is asked for one that is no longer
+  /// in memory: it is on screen, so it was evicted while still visible, and a
+  /// reload is scheduled for after the current frame. Until that reload lands
+  /// the controller has nothing to draw it from.
+  ///
+  /// Exposed for the same reason as [retainedChunkIndices], and as its
+  /// complement: the view may keep its cached context for a chunk in here, so
+  /// an evicted-but-visible chunk is drawn from stale-but-correct levels for
+  /// the frame or two the reload takes, instead of blank. Bounded by what is
+  /// visible, so it does not reopen the unbounded growth
+  /// [retainedChunkIndices] was added to close.
+  Set<int> get reloadingChunkIndices => Set<int>.unmodifiable(_reloading);
+
   /// Whether configured [maxChunkCount] has been reached.
   bool get hasReachedEnd {
     if (maxChunkCount == null) return false;

@@ -75,14 +75,24 @@ class SagaSpriteSheet {
 
   /// Frames per row for the configured layout.
   int get resolvedColumns {
-    switch (layout) {
-      case SagaSpriteLayout.horizontal:
-        return frameCount;
-      case SagaSpriteLayout.vertical:
-        return 1;
-      case SagaSpriteLayout.grid:
-        return columns!;
+    final int result = switch (layout) {
+      SagaSpriteLayout.horizontal => frameCount,
+      SagaSpriteLayout.vertical => 1,
+      // The constructor can only assert; in release a grid with missing or
+      // non-positive columns would otherwise divide by zero in [frameRect].
+      SagaSpriteLayout.grid => columns == null || columns <= 0
+          ? throw StateError(
+              'SagaSpriteSheet grid layout requires columns > 0',
+            )
+          : columns!,
+    };
+    // `resolvedColumns` is the divisor in `frameRect` and `rows`. Degenerate
+    // dimensions (a zero frameCount, say) must fail here rather than as an
+    // integer division-by-zero deep in the painter.
+    if (result <= 0) {
+      throw StateError('SagaSpriteSheet must have at least one column');
     }
+    return result;
   }
 
   /// Number of rows the frames occupy. The last row may be partly empty.

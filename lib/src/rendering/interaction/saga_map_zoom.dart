@@ -26,7 +26,17 @@ class SagaMapZoomConfig {
         );
 
   /// Clamps [zoom] into this config's range.
-  double clamp(double zoom) => zoom.clamp(min, max);
+  double clamp(double zoom) {
+    // The constructor's `assert(max >= min)` is stripped from release builds,
+    // where a backwards range would otherwise make `clamp` return NaN on every
+    // call. Guard it here so the misconfiguration fails loudly at its source.
+    if (min > max) {
+      throw StateError(
+        'SagaMapZoomConfig has min ($min) greater than max ($max)',
+      );
+    }
+    return zoom.clamp(min, max);
+  }
 
   @override
   bool operator ==(Object other) =>

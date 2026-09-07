@@ -33,6 +33,17 @@ class SagaMapLevelGenerator implements LevelGenerator {
         'must not be empty',
       );
     }
+    // Same reasoning, same fix: `biomeSpan` is the divisor in
+    // `levelId ~/ config.biomeSpan`, so a non-positive value is an integer
+    // division by zero (or, for a negative span, silently wrong biomes) exactly
+    // where the constructor's assert is stripped — release builds.
+    if (config.biomeSpan <= 0) {
+      throw ArgumentError.value(
+        config.biomeSpan,
+        'config.biomeSpan',
+        'must be greater than 0',
+      );
+    }
 
     final mid = (config.minX + config.maxX) / 2;
     final bandHalf = (config.maxX - config.minX) / 4;

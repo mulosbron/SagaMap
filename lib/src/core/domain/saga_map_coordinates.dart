@@ -42,10 +42,18 @@ class SagaMapCoordinates {
     int chunkIndex,
     double chunkSpanNormalized,
   ) {
-    assert(
-      chunkSpanNormalized > 0,
-      'chunkSpanNormalized must be greater than 0',
-    );
+    // A runtime guard, not an assert: `chunkSpanNormalized` is the divisor, and
+    // a non-positive (or NaN) span would otherwise produce NaN that survives
+    // `clamp` and surfaces deep inside the painter — with no hint of the real
+    // cause. Asserts are stripped from exactly the release builds that reach
+    // here with a host's own span.
+    if (!(chunkSpanNormalized > 0)) {
+      throw ArgumentError.value(
+        chunkSpanNormalized,
+        'chunkSpanNormalized',
+        'must be greater than 0',
+      );
+    }
     final origin = chunkAlongOrigin(chunkIndex, chunkSpanNormalized);
     return (position.y - origin) / chunkSpanNormalized;
   }

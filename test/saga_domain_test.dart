@@ -4,6 +4,16 @@ import 'package:saga_map/saga_map.dart';
 
 /// Coverage for the domain and configuration surface that shipped untested.
 
+class _NonPositiveBiomeSpanConfig extends SagaMapConfig {
+  _NonPositiveBiomeSpanConfig(this._span)
+      : super(minX: 0.2, maxX: 0.8, stepHeight: 0.08, biomeSpan: 50);
+
+  final int _span;
+
+  @override
+  int get biomeSpan => _span;
+}
+
 void main() {
   group('SagaMapBackgroundConfig', () {
     const paths = ['a.png', 'b.png', 'c.png'];
@@ -308,12 +318,32 @@ void main() {
       expect(terrain.width, 64);
     });
 
-    test('biomeSpan of zero is rejected at construction', () {
+    test('biomeSpan of zero is rejected at construction (debug)', () {
       expect(
         () =>
             SagaMapConfig(minX: 0.2, maxX: 0.8, stepHeight: 0.08, biomeSpan: 0),
         throwsA(isA<AssertionError>()),
       );
+    });
+
+    test('generateLevels rejects a non-positive biomeSpan at runtime', () {
+      // The constructor's assert guards debug builds only; a release build lets
+      // the bad span through, so the generator re-checks it where it is used as
+      // a divisor. A subclass with a valid constructor span but an overridden
+      // `biomeSpan` getter exercises exactly that release path.
+      const generator = SagaMapLevelGenerator();
+      for (final span in [0, -1]) {
+        expect(
+          () => generator.generateLevels(
+            globalSeed: 1,
+            config: _NonPositiveBiomeSpanConfig(span),
+            startLevelId: 0,
+            count: 3,
+          ),
+          throwsA(isA<ArgumentError>()),
+          reason: 'biomeSpan = $span',
+        );
+      }
     });
   });
 

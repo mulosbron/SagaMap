@@ -72,6 +72,14 @@ class SagaInfiniteMapController extends ChangeNotifier {
   /// [maxRetainedChunks] has forced evictions.
   int get retainedChunkCount => _chunks.length;
 
+  /// Indices of the chunks currently held in memory.
+  ///
+  /// The view keeps a second, per-chunk cache (`_chunkContexts`) that must
+  /// shrink in step with this one, otherwise `maxRetainedChunks` bounds only
+  /// the controller's half of the memory. Exposed so the view can prune its
+  /// cache when [this] notifies.
+  Set<int> get retainedChunkIndices => Set<int>.unmodifiable(_chunks.keys);
+
   /// Whether configured [maxChunkCount] has been reached.
   bool get hasReachedEnd {
     if (maxChunkCount == null) return false;
@@ -170,9 +178,14 @@ class SagaInfiniteMapController extends ChangeNotifier {
       try {
         final levels = await chunkLoader(chunkIndex, sectionsPerChunk);
         if (_disposed) return;
-        // Deliberately no eviction here: a reload is proof the chunk is in the
-        // working set, and evicting on this path is what would close the loop.
         _chunks[chunkIndex] = levels;
+        // Eviction must run here too, not only in `loadMore`: once
+        // `maxChunkCount` is reached, `loadMore` short-circuits and would never
+        // evict again, so each reload would push the cache permanently over
+        // budget. The reloaded chunk is in `_requestedSinceEviction` (added by
+        // `chunkLevels` before scheduling this reload), so this pass protects it
+        // and prunes the far chunks instead.
+        _evictIfNeeded();
       } catch (error) {
         if (_disposed) return;
         _lastError = error;

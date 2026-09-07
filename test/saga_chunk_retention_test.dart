@@ -8,6 +8,7 @@ const _levelsPerChunk = 10;
 /// Controller whose loader counts calls, so eviction and reload are observable.
 ({SagaInfiniteMapController controller, List<int> loads}) _controller({
   int? maxRetainedChunks,
+  int? maxChunkCount,
   int initialChunkCount = 3,
 }) {
   const generator = SagaMapLevelGenerator();
@@ -17,6 +18,7 @@ const _levelsPerChunk = 10;
     initialChunkCount: initialChunkCount,
     loadBatchSize: 1,
     maxRetainedChunks: maxRetainedChunks,
+    maxChunkCount: maxChunkCount,
     chunkLoader: (chunkIndex, sectionsPerChunk) {
       loads.add(chunkIndex);
       return generator.generateLevels(
@@ -50,6 +52,43 @@ void main() {
     // Progress is unaffected; only the in-memory cache shrinks.
     expect(harness.controller.loadedChunkCount, 6);
     expect(harness.controller.retainedChunkCount, 3);
+  });
+
+  testWidgets('eviction stays active after maxChunkCount is reached',
+      (tester) async {
+    final harness = _controller(
+      maxRetainedChunks: 3,
+      maxChunkCount: 6,
+      initialChunkCount: 6,
+    );
+    addTearDown(harness.controller.dispose);
+    await harness.controller.initialize();
+    expect(harness.controller.loadedChunkCount, 6);
+    expect(harness.controller.retainedChunkCount, 3);
+
+    // Reading an evicted chunk schedules a post-frame reload. Once
+    // `maxChunkCount` is reached `loadMore` short-circuits, so eviction must
+    // still run on the reload path — otherwise the cache grows permanently
+    // over budget.
+    expect(harness.controller.chunkLevels(5), isEmpty);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SagaInfiniteMapView(
+            controller: harness.controller,
+            chunkExtent: 600,
+            chunkSpanNormalized: _config.spanForLevelCount(_levelsPerChunk),
+            biomeThemeResolver: const DefaultSagaBiomeThemeResolver(),
+            nodeBuilder: (context, level, layout) => const SizedBox.shrink(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(harness.controller.chunkLevels(5), isNotEmpty);
+    expect(harness.controller.retainedChunkCount, lessThanOrEqualTo(3));
   });
 
   test('keeps the chunks nearest the one being read', () async {
@@ -137,6 +176,50 @@ void main() {
 
     // Deterministic loaders are what make eviction safe in the first place.
     expect(harness.controller.chunkLevels(1), equals(original));
+  });
+
+  testWidgets('the view prunes its chunk context cache when chunks evict',
+      (tester) async {
+    final harness = _controller(maxRetainedChunks: 2, initialChunkCount: 6);
+    addTearDown(harness.controller.dispose);
+    await harness.controller.initialize();
+
+    // The resolver runs once per chunk the first time it is built. If the view
+    // kept `_chunkContexts` forever, revisiting an evicted chunk would reuse the
+    // stale cached copy and the resolver would never run again for its levels.
+    final resolverCalls = <int>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SagaInfiniteMapView(
+            controller: harness.controller,
+            chunkExtent: 400,
+            chunkSpanNormalized: _config.spanForLevelCount(_levelsPerChunk),
+            biomeThemeResolver: const DefaultSagaBiomeThemeResolver(),
+            nodeBuilder: (context, level, layout) => const SizedBox.shrink(),
+            progressResolver: (level) {
+              resolverCalls.add(level.id);
+              return null;
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final firstPass = resolverCalls.length;
+    expect(firstPass, greaterThan(0));
+
+    // Scroll far forward (evicting the first chunks) and back again.
+    await tester.drag(find.byType(ListView), const Offset(0, -2000));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView), const Offset(0, 2000));
+    await tester.pumpAndSettle();
+
+    // Revisiting an evicted chunk rebuilds it from a fresh context, so the
+    // resolver runs again for its levels — proof the view dropped its cached
+    // copy in step with the controller.
+    expect(resolverCalls.length, greaterThan(firstPass));
   });
 
   test('never reloads a chunk that was never generated', () async {

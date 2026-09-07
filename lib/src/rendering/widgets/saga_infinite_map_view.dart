@@ -299,7 +299,8 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
 
   /// A single stable tear-off of [_gateBarrier]; a fresh `.clamp` each time
   /// would defeat the identity checks.
-  late final double Function(double, double) _gateBarrierFn = _gateBarrier.clamp;
+  late final double Function(double, double) _gateBarrierFn =
+      _gateBarrier.clamp;
 
   /// Mirrors the character controller's moving flag. Held separately so the
   /// view rebuilds when travel starts and stops, not on every frame of it.
@@ -622,10 +623,12 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
     widget.controller.removeListener(_onControllerChanged);
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    _chunkContexts.clear();
     super.dispose();
   }
 
   void _onControllerChanged() {
+    _pruneEvictedContexts();
     if (mounted) {
       setState(() {});
     }
@@ -638,6 +641,18 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
         if (mounted) _checkDominantChunk();
       });
     }
+  }
+
+  /// Drops the view's own per-chunk cache for chunks the controller evicted.
+  ///
+  /// The controller bounds `_chunks` by `maxRetainedChunks`, but this view kept
+  /// a second, unbounded cache (`_chunkContexts`) that nothing ever removed.
+  /// Pruning it in step with the controller makes `maxRetainedChunks` bound
+  /// total memory, not just the controller's half.
+  void _pruneEvictedContexts() {
+    if (_chunkContexts.isEmpty) return;
+    final retained = widget.controller.retainedChunkIndices;
+    _chunkContexts.removeWhere((index, _) => !retained.contains(index));
   }
 
   void _onScroll() {

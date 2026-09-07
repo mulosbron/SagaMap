@@ -361,6 +361,8 @@ void main() {
             reason: 'level $levelId');
         expect(a.unlockBlocked, isFalse);
         expect(b.unlockBlocked, isFalse);
+        expect(a.outcome, CompleteLevelOutcome.applied);
+        expect(b.outcome, CompleteLevelOutcome.applied);
       }
     });
 
@@ -377,6 +379,7 @@ void main() {
       );
       expect(skipped.nextProgress.levels.containsKey(50), isFalse);
       expect(skipped.unlockBlocked, isFalse);
+      expect(skipped.outcome, CompleteLevelOutcome.rejectedUnreached);
 
       final reachable = gated.execute(
         currentProgress: start,
@@ -387,6 +390,7 @@ void main() {
       expect(reachable.nextProgress.levels[0]?.state,
           LevelCompletionState.completed);
       expect(reachable.unlockBlocked, isTrue);
+      expect(reachable.outcome, CompleteLevelOutcome.appliedUnlockBlocked);
     });
   });
 }

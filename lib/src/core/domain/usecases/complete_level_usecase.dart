@@ -5,12 +5,25 @@ import '../models/inventory_item.dart';
 import '../models/level_progress.dart';
 import '../models/saga_progress.dart';
 
+/// What [CompleteLevelUseCase.execute] did with the request.
+enum CompleteLevelOutcome {
+  /// The completion was applied and nothing blocked the successor.
+  applied,
+
+  /// `enforceUnlockOrder` rejected the level as unreached; nothing changed.
+  rejectedUnreached,
+
+  /// The completion was applied, but `canUnlock` refused to open the successor.
+  appliedUnlockBlocked,
+}
+
 /// Result object returned by [CompleteLevelUseCase.execute].
 class CompleteLevelResult {
   const CompleteLevelResult({
     required this.nextProgress,
     this.reward,
     this.unlockBlocked = false,
+    this.outcome = CompleteLevelOutcome.applied,
   });
 
   final SagaProgress nextProgress;
@@ -28,6 +41,16 @@ class CompleteLevelResult {
   ///
   /// Always `false` when no `canUnlock` is injected.
   final bool unlockBlocked;
+
+  /// Categorises what happened, so a host can tell a refusal from a success.
+  ///
+  /// [CompleteLevelOutcome.rejectedUnreached] is the case [unlockBlocked]
+  /// cannot express: `enforceUnlockOrder` refused the level as unreached, so
+  /// nothing was applied and the progress is returned unchanged.
+  /// [CompleteLevelOutcome.appliedUnlockBlocked] is a completion whose
+  /// successor stayed shut — [unlockBlocked] is exactly
+  /// `outcome == CompleteLevelOutcome.appliedUnlockBlocked`.
+  final CompleteLevelOutcome outcome;
 }
 
 /// Marks a level complete, unlocks the next level and rolls boss rewards.
@@ -109,7 +132,10 @@ class CompleteLevelUseCase {
     // completed, closing the "complete any level id" arbitrary-skip path.
     if (enforceUnlockOrder &&
         levelId > currentProgress.currentMaxUnlockedLevelId) {
-      return CompleteLevelResult(nextProgress: currentProgress);
+      return CompleteLevelResult(
+        nextProgress: currentProgress,
+        outcome: CompleteLevelOutcome.rejectedUnreached,
+      );
     }
 
     final levels = Map<int, LevelProgress>.from(currentProgress.levels);
@@ -150,8 +176,9 @@ class CompleteLevelUseCase {
 
     final currentUnlocked = currentProgress.currentMaxUnlockedLevelId;
     final nextProgress = currentProgress.copyWith(
-      currentMaxUnlockedLevelId:
-          unlockBlocked ? currentUnlocked : math.max(unlockLevelId, currentUnlocked),
+      currentMaxUnlockedLevelId: unlockBlocked
+          ? currentUnlocked
+          : math.max(unlockLevelId, currentUnlocked),
       levels: levels,
     );
 
@@ -159,16 +186,21 @@ class CompleteLevelUseCase {
     // (client-predictable) reward and mints a duplicate item every time, which
     // a host promoting inventory to a server would see as an integrity hole.
     final firstClear = previous?.state != LevelCompletionState.completed;
+    final outcome = unlockBlocked
+        ? CompleteLevelOutcome.appliedUnlockBlocked
+        : CompleteLevelOutcome.applied;
     if (!bossRule(levelId) || !firstClear) {
       return CompleteLevelResult(
         nextProgress: nextProgress,
         unlockBlocked: unlockBlocked,
+        outcome: outcome,
       );
     }
 
     return CompleteLevelResult(
       nextProgress: nextProgress,
       unlockBlocked: unlockBlocked,
+      outcome: outcome,
       reward: rollBossReward(
         levelId: levelId,
         globalSeed: globalSeed,

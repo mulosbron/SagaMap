@@ -770,6 +770,12 @@ A veto never undoes a completion: the level itself is still marked completed and
 a boss reward still drops, because the player did clear it. Only the successor
 and `currentMaxUnlockedLevelId` stand still, and `unlockBlocked` says so.
 
+`result.outcome` (a `CompleteLevelOutcome`) separates the three cases outright:
+`applied`, `rejectedUnreached` (the `enforceUnlockOrder` refusal — nothing was
+applied), and `appliedUnlockBlocked` (a completion whose successor stayed shut).
+`unlockBlocked` is exactly
+`outcome == CompleteLevelOutcome.appliedUnlockBlocked`.
+
 `canUnlock` and `enforceUnlockOrder` guard opposite directions.
 `enforceUnlockOrder` looks backwards and rejects completing a level the player
 never reached; `canUnlock` looks forwards and refuses to open the next one. Use

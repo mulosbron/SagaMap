@@ -129,7 +129,11 @@ const useCase = CompleteLevelUseCase(canUnlock: gateOpen);
 
 `CompleteLevelResult` gained `unlockBlocked` so a host can tell "you finished
 the level" from "you finished it and the road ahead is still shut". It is
-always `false` when no `canUnlock` is injected.
+always `false` when no `canUnlock` is injected. It also gained `outcome` (a
+`CompleteLevelOutcome`): `applied`, `rejectedUnreached` (the
+`enforceUnlockOrder` refusal, which `unlockBlocked` alone could not tell from a
+plain success) and `appliedUnlockBlocked`. `unlockBlocked` is equivalent to
+`outcome == CompleteLevelOutcome.appliedUnlockBlocked`.
 
 ### BREAKING — biome ids come from config
 

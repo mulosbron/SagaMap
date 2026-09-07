@@ -5,6 +5,19 @@ import 'package:flutter/material.dart';
 /// [chunkIndex] is the chunk being painted, or `null` when the background is
 /// built outside a chunk. Vary the artwork by it to reproduce what the removed
 /// multi-asset constructors did.
+/// Called when a background asset fails to load.
+///
+/// Given the chunk being painted, the asset path that failed and the error, and
+/// returns what to draw instead. Without a hook here a mistyped path renders a
+/// blank chunk with only a console line behind it — the map looks loaded and is
+/// not, and the host never finds out.
+typedef SagaMapBackgroundErrorBuilder = Widget Function(
+  BuildContext context,
+  int? chunkIndex,
+  String assetPath,
+  Object error,
+);
+
 typedef SagaMapBackgroundBuilder = Widget Function(
   BuildContext context,
   int? chunkIndex,
@@ -51,6 +64,16 @@ class SagaMapBackgroundConfig {
   /// nothing, the same as [SagaMapBackgroundConfig.none].
   final SagaMapBackgroundBuilder? backgroundBuilder;
 
+  /// What to draw when an asset background fails to load.
+  ///
+  /// `null`, the default, is Flutter's own behaviour: the frame is empty and
+  /// the error goes to the console. Supply one to show a placeholder, report to
+  /// your crash tracker, or fall back to a colour.
+  ///
+  /// Only consulted for asset-backed kinds; a background you build yourself is
+  /// yours to guard.
+  final SagaMapBackgroundErrorBuilder? errorBuilder;
+
   const SagaMapBackgroundConfig.none()
       : kind = SagaMapBackgroundKind.none,
         assetPath = null,
@@ -59,7 +82,8 @@ class SagaMapBackgroundConfig {
         fit = BoxFit.cover,
         alignment = Alignment.center,
         overflowBehavior = SagaMapBackgroundOverflowBehavior.loop,
-        backgroundBuilder = null;
+        backgroundBuilder = null,
+        errorBuilder = null;
 
   const SagaMapBackgroundConfig.color({
     required this.color,
@@ -69,13 +93,15 @@ class SagaMapBackgroundConfig {
         assetPath = null,
         assetPaths = null,
         overflowBehavior = SagaMapBackgroundOverflowBehavior.loop,
-        backgroundBuilder = null;
+        backgroundBuilder = null,
+        errorBuilder = null;
 
   const SagaMapBackgroundConfig.imageAsset({
     required this.assetPath,
     this.fit = BoxFit.contain,
     this.alignment = Alignment.center,
     this.color = Colors.transparent,
+    this.errorBuilder,
   })  : kind = SagaMapBackgroundKind.imageAsset,
         assetPaths = null,
         overflowBehavior = SagaMapBackgroundOverflowBehavior.loop,
@@ -87,6 +113,7 @@ class SagaMapBackgroundConfig {
     this.alignment = Alignment.center,
     this.color = Colors.transparent,
     this.overflowBehavior = SagaMapBackgroundOverflowBehavior.loop,
+    this.errorBuilder,
   })  : kind = SagaMapBackgroundKind.imageAsset,
         assetPath = null,
         backgroundBuilder = null;
@@ -103,7 +130,8 @@ class SagaMapBackgroundConfig {
         color = Colors.transparent,
         fit = BoxFit.cover,
         alignment = Alignment.center,
-        overflowBehavior = SagaMapBackgroundOverflowBehavior.loop;
+        overflowBehavior = SagaMapBackgroundOverflowBehavior.loop,
+        errorBuilder = null;
 
   /// Builds the background widget for an optional [chunkIndex].
   Widget buildBackgroundWidget(BuildContext context, {int? chunkIndex}) {
@@ -121,6 +149,17 @@ class SagaMapBackgroundConfig {
           resolvedPath,
           fit: fit,
           alignment: alignment,
+          // Without this a mistyped asset path renders a blank chunk with
+          // nothing but a console line: the map looks loaded and is not, and
+          // the host has no API-level signal at all.
+          errorBuilder: errorBuilder == null
+              ? null
+              : (context, error, stackTrace) => errorBuilder!(
+                    context,
+                    chunkIndex,
+                    resolvedPath,
+                    error,
+                  ),
         );
       case SagaMapBackgroundKind.builder:
         return backgroundBuilder?.call(context, chunkIndex) ??

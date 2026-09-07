@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/domain/models/level_data.dart';
@@ -214,8 +215,20 @@ class SagaInfiniteMapView extends StatefulWidget {
   /// The first entrance is reported to the host; the package only emits the event.
   final void Function(SagaChunkContext chunk)? onChunkEnter;
 
-  /// Fires when the characters path position crosses a level.
-  /// Fast scrolls may skip intermediate chunks or levels; this only emits the latest reached level.
+  /// Fires when the character's path position crosses a level.
+  ///
+  /// Fast scrolls may skip intermediate chunks or levels; this only emits the
+  /// latest reached level.
+  ///
+  /// **Best-effort, not a ledger.** The event carries the [LevelData] and needs
+  /// the level's chunk in memory to find it, so it is dropped for a level whose
+  /// chunk has been evicted under `maxRetainedChunks` or has not finished
+  /// loading. It is not re-fired when that chunk comes back: the reached-level
+  /// mark has already moved past it. Accepted deliberately — the alternative is
+  /// holding a queue of pending events and replaying them out of order, which
+  /// is worse than a gap for what this is for (a banner, a sound, a hint).
+  /// Anything that must not be missed belongs in your own progression code,
+  /// where the level id is known without the map's help.
   final ValueChanged<LevelData>? onLevelReached;
 
   /// Barriers on the path. The view applies [clampTravelThroughGates] itself,
@@ -500,8 +513,13 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
     final layout = widget.responsiveResolver.resolveForWidth(
       MediaQuery.sizeOf(context).width,
     );
+    // Rounded *after* the zoom, matching MapChunkWidget, which folds the user
+    // zoom into `nodeSpacing` before rounding the extent. Rounding first and
+    // scaling after put the camera's idea of a chunk boundary a fraction of a
+    // pixel from the layout's, and the two drifted a little further apart with
+    // every chunk.
     final extent =
-        (widget.chunkExtent * layout.nodeSpacing).roundToDouble() * _zoom;
+        (widget.chunkExtent * layout.nodeSpacing * _zoom).roundToDouble();
     // Each list item is `header + chunk`, so chunk `c` starts `c` headers
     // further along than its chunk extent alone implies. Without this every
     // camera target drifts by one header per chunk — a mile deep into the map,
@@ -542,7 +560,7 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
       MediaQuery.sizeOf(context).width,
     );
     final extent =
-        (widget.chunkExtent * layout.nodeSpacing).roundToDouble() * _zoom;
+        (widget.chunkExtent * layout.nodeSpacing * _zoom).roundToDouble();
     if (extent <= 0) return;
 
     final dominantIndex = (centerOffset / extent).floor();
@@ -586,6 +604,10 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
         if (chunkLevelIndex < levels.length) {
           widget.onLevelReached!(levels[chunkLevelIndex]);
         }
+        // Otherwise the chunk is evicted or still loading and the callback is
+        // dropped for this level — see `onLevelReached`'s doc comment. The
+        // reload `chunkLevels` just scheduled will not re-fire it, because
+        // `_highestReachedLevel` has already moved past it.
       }
     }
   }
@@ -769,9 +791,7 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
       return const Center(child: CircularProgressIndicator());
     }
     if (count == 0 && widget.controller.lastError != null) {
-      return Center(
-        child: Text('Failed to load chunks: ${widget.controller.lastError}'),
-      );
+      return Center(child: Text(_loadErrorText('Failed to load chunks')));
     }
 
     final layout = widget.responsiveResolver.resolveForWidth(
@@ -1007,10 +1027,27 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
     return next.sublist(0, take);
   }
 
+  /// A loader failure rendered for a player rather than for a log.
+  ///
+  /// Host exception text was previously interpolated raw and unbounded. Two
+  /// problems with that: a long message pushed the map off the screen, and a
+  /// `toString()` on a host's exception can carry a URL, a token or a file path
+  /// that has no business being on a player's screen in release. In release the
+  /// detail is dropped entirely; in debug it is kept, clipped, because that is
+  /// where it is useful.
+  String _loadErrorText(String prefix) {
+    if (kReleaseMode) return prefix;
+    final detail = widget.controller.lastError.toString();
+    const limit = 200;
+    return detail.length <= limit
+        ? '$prefix: $detail'
+        : '$prefix: ${detail.substring(0, limit)}...';
+  }
+
   Widget _buildTrailer() {
     final Widget child;
     if (widget.controller.lastError != null) {
-      child = Text('Chunk load error: ${widget.controller.lastError}');
+      child = Text(_loadErrorText('Chunk load error'));
     } else if (widget.controller.hasReachedEnd) {
       child = const Text('Reached configured chunk limit.');
     } else if (widget.controller.isLoading) {

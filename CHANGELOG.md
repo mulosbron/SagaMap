@@ -4,6 +4,24 @@ All notable changes to this package are documented in this file.
 
 ## 2.0.0
 
+### Fixed — the paths taken when something already went wrong
+
+- `SagaMapBackgroundConfig` takes an `errorBuilder`. A mistyped asset path
+  rendered a blank chunk with only a console line behind it: the map looked
+  loaded and was not, and the host had no API-level signal at all.
+- Loader failures no longer interpolate host exception text raw and unbounded
+  onto a player's screen. The detail is clipped in debug and dropped in release,
+  where a `toString()` can carry a URL, a token or a file path.
+- `splitPathAtProgress` returns empty for a chunk with no levels instead of
+  throwing a `StateError`; an empty chunk is a normal state while one loads.
+- `onLevelReached` is documented as best-effort: it needs the level's chunk in
+  memory, so it is dropped for an evicted or still-loading chunk and not
+  re-fired later.
+- The camera and the chunk layout now round the chunk extent in the same order
+  relative to zoom. Rounding before scaling put the camera's idea of a chunk
+  boundary a fraction of a pixel from the layout's, drifting further with each
+  chunk.
+
 ### Fixed — value-object defects
 
 - `LootTableEntry` is compared by value. `LootTableOdds.probabilityOf` looks an

@@ -191,6 +191,12 @@ class SagaMapRenderContext {
 
     if (index == null) {
       // Entirely behind this chunk, or entirely past it.
+      if (leadingNeighbors.isEmpty && levels.isEmpty) {
+        // A chunk with no levels has no path to split. This used to throw a
+        // StateError out of `levels.first` — an empty chunk is a normal state
+        // while one is loading, not an error.
+        return (walked: const <SagaPathSegment>[], upcoming: segments);
+      }
       final firstVisible = leadingNeighbors.isNotEmpty
           ? leadingNeighbors.first.id
           : levels.first.id;

@@ -58,6 +58,44 @@ void main() {
       expect(stableHash([-42]), isNot(stableHash([42])));
     });
 
+    // A-07.01. Everything above is either negative *or* above 2^32, never
+    // both, and never mixed inside one call. The sign is carried by taking the
+    // magnitude before the high-word fold, so a vector that is negative *and*
+    // large is the only one that exercises the two together — and a mixed
+    // list checks that a sign salt from one value does not leak into the next.
+    //
+    // What no test here can do is tell `magnitude >> 32` from
+    // `magnitude ~/ 0x100000000`. On the Dart VM those are the same expression:
+    // `magnitude` is non-negative by construction, and for non-negative
+    // 64-bit ints an arithmetic shift and integer division agree exactly. The
+    // difference only exists under dart2js, where a shift count of 32 has no
+    // meaning. **That half of the fix is verifiable only under Chrome**, which
+    // is what the `platform-parity` tag on this library and the web job in CI
+    // are for; it cannot be checked locally. Reverting the sign handling,
+    // however, turns this suite red on the VM — verified by hand.
+    test('negative and above 2^32 at the same time', () {
+      expect(stableHash([-4294967297]), 861595412); // -(2^32 + 1)
+      expect(stableHash([-1099511627776]), 4239139107); // -2^40
+      expect(stableHash([-1757203200000]), 4255135428); // a negated timestamp
+
+      // Sign is per value, not per call: these differ from each other and from
+      // the all-positive vector with the same magnitudes.
+      expect(stableHash([4294967296, -4294967296]), 3849804774);
+      expect(stableHash([-42, 4294967296]), 2175706753);
+      expect(stableHash([0, -1]), 3842415898);
+
+      expect(
+        stableHash([4294967296, -4294967296]),
+        isNot(stableHash([-4294967296, 4294967296])),
+        reason: 'the sign salt must not be order-insensitive',
+      );
+      expect(
+        stableHash([-4294967297]),
+        isNot(stableHash([4294967297])),
+        reason: 'a large negative must not alias its magnitude',
+      );
+    });
+
     test('stays inside 32 bits', () {
       for (var i = 0; i < 2000; i++) {
         final hash = stableHash([i, i * 7919]);

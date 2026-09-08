@@ -13,4 +13,11 @@ tags:
       on every supported runtime. They must be run under a browser as well as
       the VM — `flutter test --platform chrome --tags platform-parity` — because
       the divergence they guard against (web ints are doubles, so 64-bit shifts
-      have no meaning) is invisible to a VM-only run. CI runs both.
+      have no meaning) is invisible to a VM-only run.
+
+      They live in `test/parity/`, and that is not a convention but a
+      requirement: the browser job is bounded by that directory, because a tag
+      filter still loads every suite under the browser and the ones touching
+      dart:io fail to load before filtering happens. A tagged suite outside
+      `test/parity/` would run on the VM only, silently — so a hygiene test
+      fails on one. CI runs the directory under both runtimes.

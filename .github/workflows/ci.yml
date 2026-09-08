@@ -22,9 +22,15 @@ jobs:
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
+          # Restores the pinned SDK and the pub cache between runs.
+          cache: true
       - run: flutter pub get
-      - run: dart format --output=none --set-exit-if-changed lib test
+      # `example/` is a consumer of this package and the first thing a reader
+      # copies from. It was analysed and formatted by nobody.
+      - run: flutter pub get --directory example
+      - run: dart format --output=none --set-exit-if-changed lib test example/lib
       - run: flutter analyze
+      - run: flutter analyze --no-fatal-infos example
       - run: flutter test
 
       # Goldens are the one failure a log cannot explain, so keep the images.
@@ -45,19 +51,31 @@ jobs:
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
+          # Restores the pinned SDK and the pub cache between runs.
+          cache: true
       - run: flutter pub get
       # stableHash has to agree on vm and on web, where an int is a double and
       # a 64-bit shift has no meaning — the defect that made one seed generate
       # two different worlds. A VM-only run cannot see it.
       #
-      # Addressed by path, not by `--tags platform-parity` alone: the tag
-      # filter still *loads* every suite under the browser, and the ones that
-      # touch dart:io fail to load before any filtering happens.
+      # Bounded by directory *and* filtered by tag, and it needs both.
       #
-      # Not verified on the machine this was written on — Chrome would not
+      # `--tags platform-parity` alone does not work: the tag filter still
+      # *loads* every suite under the browser, and the ones that touch dart:io
+      # fail to load before any filtering happens. Naming one file instead —
+      # what this job used to do — meant that tagging a second suite silently
+      # ran it nowhere, while dart_test.yaml claimed "CI runs both".
+      #
+      # `test/parity/` is therefore the home of every platform-parity suite,
+      # and a hygiene test in release_hygiene_test.dart fails if a tagged file
+      # is put anywhere else. Adding a parity suite is now one decision — which
+      # directory — rather than a decision plus a CI edit nobody remembers.
+      #
+      # Not verified on the machine this was written on: Chrome would not
       # launch for the test runner there, for any suite including a trivial
-      # one. The first CI run is the real check.
-      - run: flutter test --platform chrome test/saga_stable_hash_test.dart
+      # one, hanging with no output. See CONTRIBUTING.md. The CI run is the
+      # only real check.
+      - run: flutter test --platform chrome --tags platform-parity test/parity
 
   publishable:
     name: pub publish --dry-run
@@ -68,6 +86,8 @@ jobs:
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
+          # Restores the pinned SDK and the pub cache between runs.
+          cache: true
       - run: flutter pub get
       # A gate, not a formality: 2.0.0 shipped with a package that would not
       # have published, and with an archive three quarters demo artwork.

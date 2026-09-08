@@ -263,8 +263,8 @@ void main() {
     final everLoaded = <int>{};
 
     void expectNoBlankChunk(int step) {
-      for (final chunk in tester.widgetList<MapChunkWidget>(
-          find.byType(MapChunkWidget))) {
+      for (final chunk
+          in tester.widgetList<MapChunkWidget>(find.byType(MapChunkWidget))) {
         if (chunk.levels.isNotEmpty) {
           everLoaded.add(chunk.chunkIndex);
           continue;

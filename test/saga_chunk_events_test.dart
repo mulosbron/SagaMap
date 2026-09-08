@@ -233,7 +233,6 @@ void main() {
     expect(newCalls, 1);
   });
 
-
   testWidgets('A-09 — onChunkEnter costs no extra progress resolution',
       (tester) async {
     // Before A-09 there were two sweeps: one inline in `itemBuilder` and one

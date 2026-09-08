@@ -278,10 +278,12 @@ void main() {
       // The escape hatch is simply dropping `const`; what you get for it is
       // that a caller mutating a returned map throws rather than silently
       // rewriting state the host believes it persisted.
-      expect(() => progress.levels[5] = const LevelProgress(
-            levelId: 5,
-            state: LevelCompletionState.unlocked,
-          ), throwsUnsupportedError);
+      expect(
+          () => progress.levels[5] = const LevelProgress(
+                levelId: 5,
+                state: LevelCompletionState.unlocked,
+              ),
+          throwsUnsupportedError);
       expect(() => progress.extra['tickets'] = 99, throwsUnsupportedError);
 
       // And the copy is a copy: mutating the source map afterwards does not
@@ -324,7 +326,8 @@ void main() {
       );
       expect(config.maxLateralExtentPolicy, isNotNull);
       expect(
-        config.copyWith(maxLateralExtentPolicy: () => null)
+        config
+            .copyWith(maxLateralExtentPolicy: () => null)
             .maxLateralExtentPolicy,
         isNull,
       );
@@ -354,8 +357,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: Builder(
-              builder: (context) =>
-                  config.buildBackgroundWidget(context),
+              builder: (context) => config.buildBackgroundWidget(context),
             ),
           ),
         ),
@@ -376,8 +378,7 @@ void main() {
       final controller = SagaInfiniteMapController(
         sectionsPerChunk: 10,
         initialChunkCount: 2,
-        chunkLoader: (chunkIndex, sectionsPerChunk) =>
-            generator.generateLevels(
+        chunkLoader: (chunkIndex, sectionsPerChunk) => generator.generateLevels(
           globalSeed: 42,
           config: _upgradeConfig,
           startLevelId: chunkIndex * sectionsPerChunk,
@@ -532,12 +533,12 @@ void main() {
           .toSet();
       expect(rows, isNotEmpty);
 
-      final source = File('test/saga_2_0_0_upgrade_test.dart').readAsStringSync();
+      final source =
+          File('test/saga_2_0_0_upgrade_test.dart').readAsStringSync();
       // `rows 6 and 12` pins both, so every number in the clause counts.
       final pinned = <int>{
-        for (final m
-            in RegExp(r'Pins CHANGELOG 2\.0\.0, rows? ([\d and,]+)')
-                .allMatches(source))
+        for (final m in RegExp(r'Pins CHANGELOG 2\.0\.0, rows? ([\d and,]+)')
+            .allMatches(source))
           ...RegExp(r'\d+')
               .allMatches(m.group(1)!)
               .map((n) => int.parse(n.group(0)!)),

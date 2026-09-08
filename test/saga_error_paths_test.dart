@@ -129,8 +129,8 @@ void main() {
       );
       expect(
         () => SagaMapConfig.defaultConfig.spanForLevelCount(-3),
-        throwsA(isA<ArgumentError>().having((e) => e.name, 'name',
-            'levelCount')),
+        throwsA(
+            isA<ArgumentError>().having((e) => e.name, 'name', 'levelCount')),
       );
       // The ordinary path is untouched.
       expect(SagaMapConfig.defaultConfig.spanForLevelCount(10),
@@ -198,6 +198,5 @@ void main() {
       // A sound range passes.
       validateZoomRange(min: 0.5, max: 2, initial: 1);
     });
-
   });
 }

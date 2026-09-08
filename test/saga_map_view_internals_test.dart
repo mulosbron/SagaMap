@@ -43,7 +43,8 @@ void main() {
       expect(seen, [0, 1, 0]);
     });
 
-    test('A-05 — headers shift the chunk boundaries the centre is measured '
+    test(
+        'A-05 — headers shift the chunk boundaries the centre is measured '
         'against', () {
       // A list item is `header + chunk`, so with a 600px chunk and an 80px
       // header chunk `c` starts at `c * 680`, not `c * 600`. Dividing by the
@@ -60,7 +61,8 @@ void main() {
       );
 
       // The centre of chunk 8's body: 8 * 680 + 80 + 300.
-      const centreOfChunk8 = 8 * (chunkExtent + headerExtent) + headerExtent + 300;
+      const centreOfChunk8 =
+          8 * (chunkExtent + headerExtent) + headerExtent + 300;
 
       tracker.checkDominantChunk(
         centerOffset: centreOfChunk8,

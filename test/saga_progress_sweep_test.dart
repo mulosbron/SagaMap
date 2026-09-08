@@ -130,7 +130,8 @@ void main() {
     expect(firstContext().progress[0]?.state, LevelCompletionState.completed);
   });
 
-  testWidgets('A-03 — replacing a chunk\'s levels refreshes its context '
+  testWidgets(
+      'A-03 — replacing a chunk\'s levels refreshes its context '
       'even when progress is unchanged', (tester) async {
     tester.view.devicePixelRatio = 1.0;
     tester.view.physicalSize = const Size(400, 800);
@@ -192,8 +193,8 @@ void main() {
       expect(chunk.chunkContext!.levels.length, chunk.levels.length,
           reason: reason);
       for (var i = 0; i < chunk.levels.length; i++) {
-        expect(identical(chunk.chunkContext!.levels[i], chunk.levels[i]),
-            isTrue,
+        expect(
+            identical(chunk.chunkContext!.levels[i], chunk.levels[i]), isTrue,
             reason: reason);
       }
     }
@@ -280,7 +281,8 @@ void main() {
     );
   });
 
-  testWidgets('A-04 — a host that never rebuilds the widget still sees '
+  testWidgets(
+      'A-04 — a host that never rebuilds the widget still sees '
       'progress move', (tester) async {
     tester.view.devicePixelRatio = 1.0;
     tester.view.physicalSize = const Size(400, 800);
@@ -311,7 +313,8 @@ void main() {
       chunkExtent: 600,
       chunkSpanNormalized: _config.spanForLevelCount(_levelsPerChunk),
       biomeThemeResolver: const DefaultSagaBiomeThemeResolver(),
-      progressResolver: (level) => LevelProgress(levelId: level.id, state: state),
+      progressResolver: (level) =>
+          LevelProgress(levelId: level.id, state: state),
       progressListenable: notifier,
       nodeBuilder: (context, level, layout) => const SizedBox.shrink(),
     );
@@ -335,7 +338,8 @@ void main() {
     expect(firstContext().progress[0]?.state, LevelCompletionState.completed);
   });
 
-  testWidgets('A-09 — onChunkEnter reuses the swept context, it does not '
+  testWidgets(
+      'A-09 — onChunkEnter reuses the swept context, it does not '
       're-resolve', (tester) async {
     // There were two sweeps doing the same job, and `onChunkEnter` was served
     // by the second one — so entering a chunk ran the host's progressResolver

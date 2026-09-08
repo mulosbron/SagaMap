@@ -154,16 +154,14 @@ class SagaProgress {
     if (levelsRaw is Map) {
       for (final e in levelsRaw.entries) {
         final rawKey = e.key;
-        final key =
-            rawKey is int ? rawKey : int.tryParse(rawKey.toString());
+        final key = rawKey is int ? rawKey : int.tryParse(rawKey.toString());
         if (key == null || e.value is! Map<String, dynamic>) continue;
         // A negative level is an impossible state everywhere else in this
         // file — the unlock pointer is clamped up to 0, and
         // `CompleteLevelUseCase` refuses a negative id whatever the order
         // guard says. A negative *key* was the one door left open.
         if (key < 0) continue;
-        final record =
-            LevelProgress.fromJson(e.value as Map<String, dynamic>);
+        final record = LevelProgress.fromJson(e.value as Map<String, dynamic>);
         // The key is the identity; the record's own `levelId` is data that
         // must agree with it. `{'-5': {'levelId': 7}}` used to load with the
         // two never compared, after which code that looked a level up by key
@@ -222,8 +220,8 @@ class SagaProgress {
     // and wrote the record to prove it. What no longer works is lifting the
     // pointer with a record for some *other* level.
     final atPointer = resolvedLevels[unlocked];
-    final selfJustified = atPointer != null &&
-        atPointer.state != LevelCompletionState.locked;
+    final selfJustified =
+        atPointer != null && atPointer.state != LevelCompletionState.locked;
     final int clamped;
     if (unlocked < 0) {
       clamped = 0;

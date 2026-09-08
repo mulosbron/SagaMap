@@ -1217,12 +1217,7 @@ class _DemoBiomeTheme implements SagaBiomeThemeResolver {
     ),
     'ashreach': (Color(0xFF3A2F35), Color(0xFFBFA8B4), Color(0x22000000), 'A'),
     'verdant': (Color(0xFF1E4A22), Color(0xFF9CCC65), Color(0x1A7CB342), 'V'),
-    'gloamvale': (
-      Color(0xFF2C2340),
-      Color(0xFFB39DDB),
-      Color(0x223F2A6E),
-      'M'
-    ),
+    'gloamvale': (Color(0xFF2C2340), Color(0xFFB39DDB), Color(0x223F2A6E), 'M'),
   };
 
   /// The emblem key this demo agrees on with itself.

@@ -94,8 +94,7 @@ class _RealmThemeResolver implements SagaBiomeThemeResolver {
 
   @override
   SagaBiomeTheme resolve(String biomeId) {
-    final (background, path, tint) =
-        _palette[biomeId] ?? _palette['sunspire']!;
+    final (background, path, tint) = _palette[biomeId] ?? _palette['sunspire']!;
 
     return SagaBiomeTheme(
       backgroundColor: background,

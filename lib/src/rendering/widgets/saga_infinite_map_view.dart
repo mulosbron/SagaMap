@@ -436,8 +436,16 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
     levelsFor: (index) => widget.controller.chunkLevels(index),
   );
 
-  late final SagaZoomGestureController _zoomGesture =
-      SagaZoomGestureController(initialZoom: widget.zoomConfig?.initial ?? 1.0);
+  late final SagaZoomGestureController _zoomGesture = () {
+    // Validated where the view accepts it, so a range that cannot describe a
+    // range fails during setup rather than from inside a pinch's paint. In
+    // release the config's own asserts are gone, and `clamp` would have
+    // returned NaN for every call.
+    SagaZoomGestureController.validate(widget.zoomConfig);
+    return SagaZoomGestureController(
+      initialZoom: widget.zoomConfig?.initial ?? 1.0,
+    );
+  }();
 
   double get _zoom => _zoomGesture.zoom;
   double get _lateralPan => _zoomGesture.lateralPan;

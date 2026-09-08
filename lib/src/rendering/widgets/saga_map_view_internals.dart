@@ -142,8 +142,67 @@ class SagaZoomGestureUpdate {
 ///
 /// Holds no widget, so the awkward part — keeping whatever sat under the
 /// fingers under the fingers while the content grows — can be read on its own.
+/// The range rule [SagaZoomGestureController.validate] enforces, over plain
+/// numbers.
+///
+/// Split out so it can be tested at all. A debug build cannot construct an
+/// invalid [SagaMapZoomConfig] to hand to the validator — the constructor's
+/// asserts refuse it first, and for a `const` expression the compiler does —
+/// so a test written against the config could only ever exercise the happy
+/// path, which is the shape of test A-07 was about. Over raw numbers the
+/// release-mode rule is checkable in debug.
+void validateZoomRange({
+  required double min,
+  required double max,
+  required double initial,
+}) {
+  if (!(min > 0)) {
+    throw ArgumentError.value(
+      min,
+      'SagaMapZoomConfig.min',
+      'must be greater than 0',
+    );
+  }
+  if (max < min) {
+    throw ArgumentError.value(
+      max,
+      'SagaMapZoomConfig.max',
+      'must not be below min ($min)',
+    );
+  }
+  if (initial < min || initial > max) {
+    throw ArgumentError.value(
+      initial,
+      'SagaMapZoomConfig.initial',
+      'must lie within min..max ($min..$max)',
+    );
+  }
+}
+
 class SagaZoomGestureController {
   SagaZoomGestureController({double initialZoom = 1.0}) : _zoom = initialZoom;
+
+  /// Rejects a config that cannot describe a range, in release as in debug.
+  ///
+  /// [SagaMapZoomConfig]'s own constructor asserts this, and an assert is
+  /// stripped from release builds — so a `min` above `max` used to survive all
+  /// the way to `clamp`, which is reached from a paint. The host then saw a
+  /// `StateError` from a pinch, a frame away from the line that built the
+  /// config.
+  ///
+  /// Checked here, where the view first *accepts* the config, so a bad one
+  /// fails while the widget is being set up. The config keeps its `const`
+  /// constructor, which is worth more than moving the throw two frames
+  /// earlier: hosts write `const SagaMapZoomConfig(...)` inside otherwise
+  /// const subtrees, and a validating constructor cannot be `const`.
+  static void validate(SagaMapZoomConfig? config) {
+    if (config == null) return;
+    validateZoomRange(
+      min: config.min,
+      max: config.max,
+      initial: config.initial,
+    );
+  }
 
   double _zoom;
   double _lateralPan = 0;
@@ -166,6 +225,7 @@ class SagaZoomGestureController {
   /// Returns true when anything changed, so the caller can decide whether a
   /// rebuild is warranted.
   bool applyConfig(SagaMapZoomConfig? config) {
+    validate(config);
     final next = config == null ? 1.0 : config.clamp(_zoom);
     if (next == _zoom) return false;
     _zoom = next;

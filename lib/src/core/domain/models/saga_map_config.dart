@@ -89,7 +89,20 @@ class SagaMapConfig {
   /// holding `n` levels spans `stepHeight * n`. Supplying anything else silently
   /// pushes out-of-range levels onto the chunk edge.
   double spanForLevelCount(int levelCount) {
-    assert(levelCount > 0, 'levelCount must be greater than 0');
+    // Guarded at runtime, not only asserted. This value is handed straight to
+    // `chunkSpanNormalized`, where it is a divisor: a non-positive count
+    // produces a zero or negative span, and in release — where the assert is
+    // gone — that surfaces as NaN coordinates far from here. The message names
+    // `levelCount`, the argument the caller actually passed; the release error
+    // used to name `chunkSpanNormalized` and send hosts looking at the wrong
+    // field.
+    if (levelCount <= 0) {
+      throw ArgumentError.value(
+        levelCount,
+        'levelCount',
+        'must be greater than 0',
+      );
+    }
     return stepHeight * levelCount;
   }
 

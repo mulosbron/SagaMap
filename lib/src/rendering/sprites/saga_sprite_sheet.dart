@@ -31,6 +31,30 @@ enum SagaSpriteLoop {
 /// Pure geometry — no image, no playback. Dimensions are in the image's own
 /// pixels at 1x; [SagaSpriteAnimation] applies the resolved asset scale, so
 /// `2.0x` and `3.0x` asset variants work without changing these numbers.
+/// Names the field that is actually wrong when a sheet resolves to no columns.
+///
+/// Split out so it is testable: in a debug build the constructor's asserts
+/// refuse a degenerate sheet before [SagaSpriteSheet.resolvedColumns] can
+/// report on it, so the message this produces is otherwise reachable only in
+/// release. The old message said "must have at least one column" whatever the
+/// layout — but a horizontal sheet has one column per frame and never reads
+/// `columns`, so it sent hosts to inspect a field that layout ignores.
+String describeDegenerateSheet({
+  required SagaSpriteLayout layout,
+  required int frameCount,
+  required int? columns,
+}) {
+  return switch (layout) {
+    SagaSpriteLayout.horizontal =>
+      'SagaSpriteSheet frameCount must be greater than 0 (got $frameCount); '
+          'a horizontal sheet has one column per frame',
+    SagaSpriteLayout.vertical =>
+      'SagaSpriteSheet frameCount must be greater than 0 (got $frameCount)',
+    SagaSpriteLayout.grid =>
+      'SagaSpriteSheet grid columns must be greater than 0 (got $columns)',
+  };
+}
+
 class SagaSpriteSheet {
   /// Width of one frame.
   final double frameWidth;
@@ -88,10 +112,17 @@ class SagaSpriteSheet {
         },
     };
     // `resolvedColumns` is the divisor in `frameRect` and `rows`. Degenerate
-    // dimensions (a zero frameCount, say) must fail here rather than as an
-    // integer division-by-zero deep in the painter.
+    // dimensions must fail here rather than as an integer division-by-zero
+    // deep in the painter — and must name the field that is actually wrong.
+    // For a horizontal sheet the column count *is* `frameCount`, so the old
+    // "must have at least one column" sent a host looking at `columns`, which
+    // that layout does not even read.
     if (result <= 0) {
-      throw StateError('SagaSpriteSheet must have at least one column');
+      throw StateError(describeDegenerateSheet(
+        layout: layout,
+        frameCount: frameCount,
+        columns: columns,
+      ));
     }
     return result;
   }

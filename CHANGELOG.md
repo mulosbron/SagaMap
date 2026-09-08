@@ -113,6 +113,28 @@ builder read one world's `LevelData` while the widget beside it drew another's.
 separate resolution of the whole chunk, which handed the host a context the
 builders had never seen and paid the cost this section exists to remove.
 
+### Fixed — misconfiguration is refused where it is written
+
+Three configuration errors survived into release builds and then failed from a
+paint, a frame or more away from the line that caused them. Debug builds caught
+all three with asserts; release builds, where the asserts are gone, did not.
+
+- `SagaMapConfig.spanForLevelCount` throws an `ArgumentError` on a non-positive
+  `levelCount` in every build mode. Its release error used to name
+  `chunkSpanNormalized` — the field the *result* is assigned to, not the
+  argument that was wrong — and sent hosts looking in the wrong place.
+- A `SagaSpriteSheet` that resolves to no columns now names the field its own
+  layout reads. The message was "must have at least one column" whatever the
+  layout, but a horizontal sheet has one column per frame and never reads
+  `columns`.
+- A `SagaMapZoomConfig` whose range cannot describe a range is refused where the
+  view accepts it, during setup, instead of returning NaN from every `clamp`
+  call once a pinch begins.
+
+`SagaMapZoomConfig` and `SagaSpriteSheet` keep their `const` constructors: hosts
+write them inside otherwise-const subtrees, and a constructor that validates
+cannot be `const`. The checks live at the point of acceptance instead.
+
 ### Fixed — sprite sheets no longer corrupt art silently
 
 - `SagaSpritePainter` used only half of `applyBoxFit`'s answer. A cropping fit

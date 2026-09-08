@@ -4,6 +4,8 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:saga_map/saga_map.dart';
+import 'package:saga_map/src/rendering/widgets/saga_map_view_internals.dart'
+    show validateZoomRange;
 
 /// T-24: the paths taken when something has already gone wrong. Each of these
 /// used to fail silently, throw where an empty answer was correct, or put host
@@ -109,5 +111,93 @@ void main() {
     // Clipped: the message is for a player, and a host exception's toString can
     // carry a URL, a token or a path that has no business on their screen.
     expect(text.length, lessThan(300));
+  });
+
+  group('A-12 — configuration fails at its source, not at paint time', () {
+    // All three used to reach a paint before failing, and one named the wrong
+    // field when it did. An exception that names the wrong field sends the
+    // host looking in the wrong place, which is worse than a late one.
+
+    test('spanForLevelCount names levelCount, in release too', () {
+      // The release error used to name `chunkSpanNormalized` — the field the
+      // *result* is assigned to, not the argument that was wrong.
+      expect(
+        () => SagaMapConfig.defaultConfig.spanForLevelCount(0),
+        throwsA(isA<ArgumentError>()
+            .having((e) => e.name, 'name', 'levelCount')
+            .having((e) => e.invalidValue, 'invalidValue', 0)),
+      );
+      expect(
+        () => SagaMapConfig.defaultConfig.spanForLevelCount(-3),
+        throwsA(isA<ArgumentError>().having((e) => e.name, 'name',
+            'levelCount')),
+      );
+      // The ordinary path is untouched.
+      expect(SagaMapConfig.defaultConfig.spanForLevelCount(10),
+          SagaMapConfig.defaultConfig.stepHeight * 10);
+    });
+
+    test('a degenerate sheet blames the field its layout actually reads', () {
+      // The old message said "must have at least one column" for every layout.
+      // A horizontal sheet has one column per frame and never reads `columns`,
+      // so that sent the host to inspect a field the layout ignores; the wrong
+      // field named is worse than the error arriving late.
+      //
+      // Exercised through the message builder because a debug build cannot
+      // construct a degenerate sheet to ask — the constructor's asserts refuse
+      // it first, so `resolvedColumns` only ever throws in release.
+      expect(
+        describeDegenerateSheet(
+            layout: SagaSpriteLayout.horizontal, frameCount: 0, columns: null),
+        allOf(contains('frameCount'), isNot(contains('grid columns'))),
+      );
+      expect(
+        describeDegenerateSheet(
+            layout: SagaSpriteLayout.vertical, frameCount: 0, columns: null),
+        contains('frameCount'),
+      );
+      expect(
+        describeDegenerateSheet(
+            layout: SagaSpriteLayout.grid, frameCount: 4, columns: 0),
+        contains('columns'),
+      );
+      // And a sound sheet still resolves rather than complaining.
+      expect(
+        const SagaSpriteSheet(frameWidth: 10, frameHeight: 10, frameCount: 4)
+            .resolvedColumns,
+        4,
+      );
+    });
+
+    test('a backwards zoom range is refused before anything paints', () {
+      // Two layers. In debug, `SagaMapZoomConfig`'s own asserts refuse the
+      // config at construction — for a `const` expression the compiler refuses
+      // it outright. In release those asserts are gone, and `clamp`, reached
+      // from a pinch a frame away from the line that built the config,
+      // returned NaN for every call.
+      //
+      // `validateZoomRange` is the release-mode counterpart, run where the
+      // view *accepts* the config rather than where it paints. It takes plain
+      // numbers precisely so this test can reach it: a debug build cannot
+      // build the invalid config to pass in.
+      expect(
+        () => validateZoomRange(min: 2, max: 0.5, initial: 2),
+        throwsA(isA<ArgumentError>()
+            .having((e) => e.name, 'name', 'SagaMapZoomConfig.max')),
+      );
+      expect(
+        () => validateZoomRange(min: 1, max: 2, initial: 5),
+        throwsA(isA<ArgumentError>()
+            .having((e) => e.name, 'name', 'SagaMapZoomConfig.initial')),
+      );
+      expect(
+        () => validateZoomRange(min: 0, max: 2, initial: 1),
+        throwsA(isA<ArgumentError>()
+            .having((e) => e.name, 'name', 'SagaMapZoomConfig.min')),
+      );
+      // A sound range passes.
+      validateZoomRange(min: 0.5, max: 2, initial: 1);
+    });
+
   });
 }

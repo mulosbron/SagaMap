@@ -334,4 +334,84 @@ void main() {
 
     expect(firstContext().progress[0]?.state, LevelCompletionState.completed);
   });
+
+  testWidgets('A-09 — onChunkEnter reuses the swept context, it does not '
+      're-resolve', (tester) async {
+    // There were two sweeps doing the same job, and `onChunkEnter` was served
+    // by the second one — so entering a chunk ran the host's progressResolver
+    // over that whole chunk again, reintroducing exactly the per-chunk cost
+    // T-18 was written to remove. One implementation now serves both.
+    tester.view.devicePixelRatio = 1.0;
+    tester.view.physicalSize = const Size(400, 800);
+    addTearDown(tester.view.reset);
+
+    final calls = <int>[];
+    final entered = <SagaChunkContext>[];
+    final controller = SagaInfiniteMapController(
+      sectionsPerChunk: _levelsPerChunk,
+      initialChunkCount: 4,
+      chunkLoader: (chunkIndex, sectionsPerChunk) => _generator.generateLevels(
+        globalSeed: 5,
+        config: _config,
+        startLevelId: chunkIndex * sectionsPerChunk,
+        count: sectionsPerChunk,
+      ),
+    );
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SagaInfiniteMapView(
+            controller: controller,
+            chunkExtent: 600,
+            chunkSpanNormalized: _config.spanForLevelCount(_levelsPerChunk),
+            biomeThemeResolver: const DefaultSagaBiomeThemeResolver(),
+            progressResolver: (level) {
+              calls.add(level.id);
+              return LevelProgress(
+                levelId: level.id,
+                state: LevelCompletionState.unlocked,
+              );
+            },
+            onChunkEnter: entered.add,
+            nodeBuilder: (context, level, layout) => const SizedBox.shrink(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final beforeScroll = calls.length;
+
+    // Scroll far enough to enter at least one new chunk.
+    await tester.drag(find.byType(ListView), const Offset(0, -1200));
+    await tester.pumpAndSettle();
+
+    expect(entered, isNotEmpty, reason: 'no chunk was entered to measure');
+
+    // A raw "no id appears twice" check cannot be made here: the view's sweep
+    // is not the only caller of `progressResolver` — `MapChunkWidget` resolves
+    // again for its own nodes — so a newly built chunk legitimately shows its
+    // ids twice whether or not `onChunkEnter` re-resolves. The cost that
+    // `onChunkEnter` itself adds is therefore measured as a difference, with
+    // the callback installed and without it, in
+    // `saga_chunk_events_test.dart`; that test was checked against the old
+    // two-sweep implementation and goes red on it.
+    expect(calls.length, greaterThan(beforeScroll),
+        reason: 'the scroll must have walked onto an unresolved chunk');
+
+    // What this test pins is the other half of A-09, and it needs no
+    // difference to see: the context the host received is the very object the
+    // chunk widget was built with. Two implementations can drift; one object
+    // cannot.
+    final target = entered.last;
+    final built = tester
+        .widgetList<MapChunkWidget>(find.byType(MapChunkWidget))
+        .where((c) => c.chunkIndex == target.chunkIndex);
+    if (built.isNotEmpty) {
+      expect(identical(built.first.chunkContext, target), isTrue,
+          reason: 'onChunkEnter handed out a different context object');
+    }
+  });
 }

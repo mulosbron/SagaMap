@@ -82,8 +82,36 @@ progress re-resolved" contract is on the field's doc comment.
 The sweep that resolves every visible level's progress sat unconditionally in
 `itemBuilder`, so a host whose `progressResolver` does real work paid
 `levelsPerChunk x visibleChunks` lookups on every frame of a pinch, purely to
-conclude nothing had changed. It now runs when the host rebuilds the view or a
-chunk's levels are replaced, and not otherwise.
+conclude nothing had changed.
+
+It now runs when it can matter, and not otherwise. Exactly four things trigger
+it: a chunk with no context yet, a chunk whose level list the controller has
+replaced, a rebuild of the view with a new widget instance, and a notification
+from `progressListenable`.
+
+That last one is new, and it closes the hole in the third. A host that stores
+the view in a field or puts it under a `const` subtree hands Flutter the same
+widget instance every time, so the framework skips the update and
+`didUpdateWidget` never runs — meaning the host being most careful about
+rebuilds was the one that never saw progress refresh at all. Pass whatever
+already changes when progress does:
+
+```dart
+SagaInfiniteMapView(
+  progressResolver: (level) => gameState.progressFor(level.id),
+  progressListenable: gameState,   // a ChangeNotifier, ValueNotifier, ...
+  // ...
+)
+```
+
+The refresh is also no longer gated on the resolved progress alone. A chunk
+whose levels were replaced while every level's progress stayed identical used
+to keep a context describing the *previous* list, so a decoration or header
+builder read one world's `LevelData` while the widget beside it drew another's.
+
+`onChunkEnter` is served from this same sweep now. It used to run a second,
+separate resolution of the whole chunk, which handed the host a context the
+builders had never seen and paid the cost this section exists to remove.
 
 ### Fixed — sprite sheets no longer corrupt art silently
 

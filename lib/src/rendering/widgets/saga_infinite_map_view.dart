@@ -427,11 +427,11 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
   double _parallaxOffset = 0;
 
   late final SagaChunkEventTracker _events = SagaChunkEventTracker(
+    // The same sweep the builder uses, so `onChunkEnter` receives the context
+    // already cached for that chunk rather than a freshly resolved duplicate.
     contextFor: (index) {
-      final cached = _chunkContexts[index];
-      if (cached != null && cached.levels.isNotEmpty) return cached;
-      final levels = widget.controller.chunkLevels(index);
-      return levels.isEmpty ? null : _buildChunkContext(index, levels);
+      final swept = _sweptChunk(index);
+      return swept.levels.isEmpty ? null : swept.context;
     },
     levelsFor: (index) => widget.controller.chunkLevels(index),
   );
@@ -609,21 +609,86 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
   double _currentCharacterPosition() =>
       widget.character?.effectivePathPosition ?? 0;
 
-  /// Builds the context for one chunk, resolving each level's progress so a
-  /// listener sees the same `progress` map the builders do.
-  SagaChunkContext _buildChunkContext(int index, List<LevelData> levels) {
+  /// The one place a chunk's levels and its progress context are resolved.
+  ///
+  /// There used to be two: this sweep inline in `itemBuilder`, and a second
+  /// copy behind `onChunkEnter`. They did the same work and had already begun
+  /// to differ — the inline one grew the epoch gate and the levels-identity
+  /// check, the other never did — and `onChunkEnter` handed the host a context
+  /// built by the second, running the host's `progressResolver` over the whole
+  /// chunk a second time. That is exactly the cost T-18 was written to avoid.
+  ///
+  /// Returns the levels to draw alongside the context describing them. A
+  /// chunk with no levels yet still gets a context — an empty one — because
+  /// the header builder is handed it before the chunk has loaded; only
+  /// `onChunkEnter` wants such a chunk reported as absent, and it maps it to
+  /// `null` itself.
+  ({List<LevelData> levels, SagaChunkContext context}) _sweptChunk(int index) {
+    var levels = widget.controller.chunkLevels(index);
+    var cached = _chunkContexts[index];
+    // Stale but correct beats blank: a chunk evicted while still on screen is
+    // drawn from its cached levels until the reload lands.
+    if (levels.isEmpty && cached != null) {
+      levels = cached.levels;
+    }
+
+    // Skip the sweep entirely when nothing since the last one could have
+    // changed the answer. This is the whole optimisation: a pinch rebuilds
+    // every visible chunk many times a second, and none of those rebuilds can
+    // move a level's progress.
+    final alreadySwept = _contextEpochs[index] == _progressEpoch &&
+        identical(_contextLevels[index], levels);
+    if (cached != null && alreadySwept) {
+      return (levels: levels, context: cached);
+    }
+
     final progress = <int, LevelProgress>{};
-    if (widget.progressResolver != null) {
+    if (widget.progressResolver != null && levels.isNotEmpty) {
       for (final level in levels) {
         final resolved = widget.progressResolver!(level);
         if (resolved != null) progress[level.id] = resolved;
       }
     }
-    return SagaChunkContext(
-      chunkIndex: index,
-      levels: levels,
-      progress: progress,
-    );
+
+    var progressChanged = false;
+    if (cached != null) {
+      if (cached.progress.length != progress.length) {
+        progressChanged = true;
+      } else {
+        for (final key in progress.keys) {
+          if (cached.progress[key] != progress[key]) {
+            progressChanged = true;
+            break;
+          }
+        }
+      }
+    }
+
+    // T-18 made the refresh conditional on `progressChanged` alone, so a chunk
+    // whose levels were replaced while its progress stayed identical kept a
+    // context carrying the *previous* list — and the host's decoration builder
+    // read the previous world's `LevelData` while the widget beside it drew
+    // the new one. Compared against `_contextLevels`, the raw list the last
+    // sweep ran on, not `cached.levels`: the context copies its list into an
+    // unmodifiable view, so that comparison would be true on every pass and
+    // rebuild the context every time.
+    final levelsReplaced =
+        cached != null && !identical(_contextLevels[index], levels);
+    if (cached == null || progressChanged || levelsReplaced) {
+      cached = SagaChunkContext(
+        chunkIndex: index,
+        levels: levels,
+        progress: progress,
+      );
+    }
+
+    if (levels.isNotEmpty) {
+      _chunkContexts[index] = cached;
+      _contextEpochs[index] = _progressEpoch;
+      _contextLevels[index] = levels;
+    }
+
+    return (levels: levels, context: cached);
   }
 
   void _checkDominantChunk() {
@@ -869,68 +934,11 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
         if (index == count) {
           return _buildTrailer();
         }
-        var levels = widget.controller.chunkLevels(index);
-        var cached = _chunkContexts[index];
-        if (levels.isEmpty && cached != null) {
-          levels = cached.levels;
-        }
-
-        // Skip the sweep entirely when nothing since the last one could have
-        // changed the answer. This is the whole optimisation: a pinch rebuilds
-        // every visible chunk many times a second, and none of those rebuilds
-        // can move a level's progress.
-        final swept = _contextEpochs[index] == _progressEpoch &&
-            identical(_contextLevels[index], levels);
-        if (cached == null || !swept) {
-          Map<int, LevelProgress> progress = {};
-          if (widget.progressResolver != null && levels.isNotEmpty) {
-            for (final l in levels) {
-              final p = widget.progressResolver!(l);
-              if (p != null) progress[l.id] = p;
-            }
-          }
-          bool progressChanged = false;
-          if (cached != null) {
-            if (cached.progress.length != progress.length) {
-              progressChanged = true;
-            } else {
-              for (final k in progress.keys) {
-                if (cached.progress[k] != progress[k]) {
-                  progressChanged = true;
-                  break;
-                }
-              }
-            }
-          }
-          // T-18 made the refresh conditional on `progressChanged` alone, so a
-          // chunk whose levels were replaced while its progress stayed
-          // identical kept a context carrying the *previous* list — and the
-          // host's decoration builder read the previous world's `LevelData`
-          // while the widget beside it drew the new one. Identity, not
-          // equality: a fresh-list-per-frame host is exactly what T-18 was
-          // protecting, and this is the same comparison the `swept` check
-          // above already makes. It reads `_contextLevels`, the raw list the
-          // last sweep ran on, not `cached.levels` — the context copies its
-          // list into an unmodifiable view, so comparing against that would be
-          // true on every pass and rebuild the context every time.
-          final levelsReplaced =
-              cached != null && !identical(_contextLevels[index], levels);
-          if (cached == null || progressChanged || levelsReplaced) {
-            cached = SagaChunkContext(
-              chunkIndex: index,
-              levels: levels,
-              progress: progress,
-            );
-          }
-          if (levels.isNotEmpty) {
-            _chunkContexts[index] = cached;
-            _contextEpochs[index] = _progressEpoch;
-            _contextLevels[index] = levels;
-          }
-        }
+        final swept = _sweptChunk(index);
+        final levels = swept.levels;
 
         final chunk = MapChunkWidget(
-          chunkContext: cached,
+          chunkContext: swept.context,
           levels: levels,
           chunkIndex: index,
           chunkExtent: widget.chunkExtent,
@@ -965,7 +973,7 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
 
         Widget? header;
         if (widget.chunkEpisodeHeaderBuilder != null) {
-          header = widget.chunkEpisodeHeaderBuilder!(context, cached);
+          header = widget.chunkEpisodeHeaderBuilder!(context, swept.context);
           // ignore: deprecated_member_use_from_same_package
         } else if (widget.episodeHeaderBuilder != null) {
           // ignore: deprecated_member_use_from_same_package

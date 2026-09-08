@@ -125,6 +125,20 @@ class SagaProgress {
   /// leaves is simply: **a pointer must be justified by its own record or by
   /// a completion below it**, never by a record for some unrelated level.
   ///
+  /// The whole contract, in one list. `fromJson` will:
+  ///
+  /// - drop a wrong-typed `levels`, `extra` or record, and skip an unparseable
+  ///   level key;
+  /// - skip a **negative** level key, which is an impossible state everywhere
+  ///   else in this class;
+  /// - **correct a record whose `levelId` disagrees with its key** to the key,
+  ///   which is the identity the map is built on;
+  /// - raise a negative unlock pointer to `0`, and clamp one that the payload
+  ///   does not justify (see above);
+  /// - read an empty `levels` map as uninitialised and substitute
+  ///   [SagaProgress.initial]'s levels;
+  /// - clamp each record's own fields — see [LevelProgress.fromJson].
+  ///
   /// Pass [onClamp] to be told when the pointer actually moved. A 1.x save
   /// with a sparse `levels` map — 1.x let a host persist the pointer without a
   /// record per level — will clamp here, and with `enforceUnlockOrder` on by
@@ -137,20 +151,29 @@ class SagaProgress {
   }) {
     final levelsRaw = json['levels'];
     final Map<int, LevelProgress> levels = {};
-    if (levelsRaw is Map<String, dynamic>) {
+    if (levelsRaw is Map) {
       for (final e in levelsRaw.entries) {
-        final key = int.tryParse(e.key);
-        if (key != null && e.value is Map<String, dynamic>) {
-          levels[key] = LevelProgress.fromJson(e.value as Map<String, dynamic>);
-        }
-      }
-    } else if (levelsRaw is Map) {
-      for (final e in levelsRaw.entries) {
+        final rawKey = e.key;
         final key =
-            e.key is int ? e.key as int : int.tryParse(e.key.toString());
-        if (key != null && e.value is Map<String, dynamic>) {
-          levels[key] = LevelProgress.fromJson(e.value as Map<String, dynamic>);
-        }
+            rawKey is int ? rawKey : int.tryParse(rawKey.toString());
+        if (key == null || e.value is! Map<String, dynamic>) continue;
+        // A negative level is an impossible state everywhere else in this
+        // file — the unlock pointer is clamped up to 0, and
+        // `CompleteLevelUseCase` refuses a negative id whatever the order
+        // guard says. A negative *key* was the one door left open.
+        if (key < 0) continue;
+        final record =
+            LevelProgress.fromJson(e.value as Map<String, dynamic>);
+        // The key is the identity; the record's own `levelId` is data that
+        // must agree with it. `{'-5': {'levelId': 7}}` used to load with the
+        // two never compared, after which code that looked a level up by key
+        // and code that read `levelId` gave different answers about the same
+        // record — a silent inconsistency that is painful to reproduce.
+        // Corrected rather than dropped, matching how every other field here
+        // is sanitised: a save that loads honest beats one that loses a
+        // record.
+        levels[key] =
+            record.levelId == key ? record : record.copyWith(levelId: key);
       }
     }
     // `is num` guards a wrong-typed value; a negative unlock pointer is an
@@ -287,4 +310,52 @@ class SagaProgress {
       extra: extra ?? Map<String, dynamic>.from(this.extra),
     );
   }
+
+  /// Compared by value.
+  ///
+  /// [LevelProgress] was given value equality in 2.0.0 because the view diffs
+  /// resolved progress against cached progress, and a host resolver building a
+  /// fresh instance per call — the obvious way to write one — reported a
+  /// change on every sweep. The identical mistake sat one level up: a host
+  /// returning a fresh `SagaProgress` per call had the same diff-thrash, just
+  /// on a bigger object. A principle applied to half its cases is more
+  /// misleading than one applied to none.
+  ///
+  /// [levels] is compared entry by entry, which is [LevelProgress]'s own
+  /// equality and therefore bounded by the number of recorded levels — not a
+  /// deep walk. [extra] is compared shallowly, by its entries' own equality,
+  /// for the reason [LevelProgress.extra] is: it is host-owned JSON, and a
+  /// deep walk of arbitrary nested maps is not something a diff can afford.
+  /// A host storing large nested structures in `extra` should compare cheaply
+  /// by keeping a revision counter in it rather than relying on this.
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! SagaProgress) return false;
+    if (other.currentMaxUnlockedLevelId != currentMaxUnlockedLevelId ||
+        other.levels.length != levels.length ||
+        other.extra.length != extra.length) {
+      return false;
+    }
+    for (final entry in levels.entries) {
+      if (other.levels[entry.key] != entry.value) return false;
+    }
+    for (final entry in extra.entries) {
+      if (!other.extra.containsKey(entry.key) ||
+          other.extra[entry.key] != entry.value) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /// Deliberately shallow: hashing every record would make the cheap half of
+  /// a diff as expensive as the expensive half. Equal objects still agree,
+  /// which is all `hashCode` must guarantee.
+  @override
+  int get hashCode => Object.hash(
+        currentMaxUnlockedLevelId,
+        levels.length,
+        extra.length,
+      );
 }

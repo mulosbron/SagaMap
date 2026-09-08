@@ -113,6 +113,37 @@ builder read one world's `LevelData` while the widget beside it drew another's.
 separate resolution of the whole chunk, which handed the host a context the
 builders had never seen and paid the cost this section exists to remove.
 
+### Breaking — `SagaProgress` compares by value, and `fromJson` sanitises its keys
+
+`SagaProgress` now has `==` and `hashCode`. 2.0.0 gave `LevelProgress` value
+equality because the view diffs resolved progress against cached progress, and a
+host resolver building a fresh instance per call — the obvious way to write one
+— reported a change on every sweep. The identical mistake sat one level up: a
+host returning a fresh `SagaProgress` per call had the same diff-thrash on a
+bigger object. A principle applied to half its cases is more misleading than one
+applied to none.
+
+`levels` is compared entry by entry, which is `LevelProgress`'s own equality and
+therefore bounded by the number of recorded levels. `extra` is compared shallowly
+by its entries' own equality, for the reason `LevelProgress.extra` is: it is
+host-owned JSON, and a deep walk of arbitrary nested maps is not something a
+per-frame diff can afford. If you keep large nested structures in `extra`, carry
+a revision counter in it rather than relying on this comparison.
+
+`fromJson` also closes the last two gaps in its key handling:
+
+- A **negative** level key is skipped. A negative level is an impossible state
+  everywhere else in the class — the unlock pointer is raised to `0`, and
+  `CompleteLevelUseCase` refuses a negative id whatever the order guard says —
+  and the map key was the one door left open.
+- A record whose own `levelId` **disagrees with its key** is corrected to the
+  key. `{'-5': {'levelId': 7, ...}}` used to load with the two never compared,
+  after which code looking a level up by key and code reading `levelId` gave
+  different answers about the same record. Corrected rather than dropped,
+  matching how every other field there is sanitised.
+
+The full `fromJson` contract is now stated in one list on the method itself.
+
 ### Fixed — misconfiguration is refused where it is written
 
 Three configuration errors survived into release builds and then failed from a
@@ -272,7 +303,7 @@ A single breaking release, and nothing deprecated in 1.1.0 was removed — those
 removals stay scheduled for 3.0.0, so the deprecated builders survive the whole
 2.x line.
 
-Seventeen breaking changes. Six need code from you; the rest are behaviour or
+Nineteen breaking changes. Six need code from you; the rest are behaviour or
 contract changes, and the "what you do about it" column says when the answer is
 nothing.
 
@@ -295,6 +326,8 @@ nothing.
 | 15 | A gate exactly on a move's destination now blocks | Nothing; this is what a gate was documented to do |
 | 16 | `stableHash` output changed above 2^32 and for negatives | Nothing; nothing has shipped under the old output |
 | 17 | A width in no breakpoint interval resolves differently | Nothing; the old answer was always desktop |
+| 18 | `SagaProgress` compares by value | Nothing; identity comparisons become equality |
+| 19 | `fromJson` skips negative level keys and corrects a record's `levelId` to its key | Nothing, unless you relied on the two disagreeing |
 
 `SagaProgress`'s constructor is no longer `const`: it now defensively copies
 `levels` and `extra` as unmodifiable maps, so mutating a returned map throws

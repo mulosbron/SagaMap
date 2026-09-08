@@ -374,4 +374,109 @@ void main() {
       expect(clamps, isEmpty);
     });
   });
+
+  group('A-13 — fromJson sanitises its keys', () {
+    test('a negative level key is skipped', () {
+      final progress = SagaProgress.fromJson({
+        'currentMaxUnlockedLevelId': 1,
+        'levels': {
+          '-5': {'levelId': -5, 'state': 'completed', 'stars': 3},
+          '0': {'levelId': 0, 'state': 'completed', 'stars': 1},
+        },
+      });
+      // A negative level is an impossible state everywhere else in the class:
+      // the pointer is raised to 0 and CompleteLevelUseCase refuses a negative
+      // id whatever the order guard says. The key was the door left open.
+      expect(progress.levels.containsKey(-5), isFalse);
+      expect(progress.levels.containsKey(0), isTrue);
+    });
+
+    test('a record disagreeing with its key is corrected to the key', () {
+      final progress = SagaProgress.fromJson({
+        'currentMaxUnlockedLevelId': 0,
+        'levels': {
+          '3': {'levelId': 7, 'state': 'completed', 'stars': 2},
+        },
+      });
+      // Looking the record up by key and reading its `levelId` used to give
+      // two different answers about the same record. Corrected rather than
+      // dropped, matching how every other field here is sanitised.
+      expect(progress.levels[3]?.levelId, 3);
+      expect(progress.levels[3]?.stars, 2);
+      expect(progress.levels.containsKey(7), isFalse);
+    });
+
+    test('a negative key that disagrees with its record is still skipped', () {
+      final progress = SagaProgress.fromJson({
+        'currentMaxUnlockedLevelId': 0,
+        'levels': {
+          '-5': {'levelId': 7, 'state': 'completed', 'stars': 3},
+        },
+      });
+      expect(progress.levels.containsKey(-5), isFalse);
+      expect(progress.levels.containsKey(7), isFalse);
+      // Nothing survived, so this reads as an uninitialised save.
+      expect(progress.levels.keys.toList(), [0]);
+    });
+
+    test('an agreeing record is passed through untouched', () {
+      final progress = SagaProgress.fromJson({
+        'currentMaxUnlockedLevelId': 1,
+        'levels': {
+          '0': {'levelId': 0, 'state': 'completed', 'stars': 3},
+        },
+      });
+      expect(progress.levels[0]?.levelId, 0);
+      expect(progress.levels[0]?.stars, 3);
+    });
+  });
+
+  group('A-14 — SagaProgress is compared by value', () {
+    SagaProgress make({int pointer = 1, int stars = 3, String world = 'a'}) =>
+        SagaProgress(
+          currentMaxUnlockedLevelId: pointer,
+          levels: {
+            0: LevelProgress(
+              levelId: 0,
+              state: LevelCompletionState.completed,
+              stars: stars,
+            ),
+          },
+          extra: {'lastWorld': world},
+        );
+
+    test('two field-equal instances are equal', () {
+      // 2.0.0 gave LevelProgress value equality because a host resolver
+      // building a fresh instance per call reported a change on every sweep.
+      // The same mistake sat one level up, on a bigger object.
+      expect(make(), make());
+      expect(make().hashCode, make().hashCode);
+    });
+
+    test('each field is actually compared', () {
+      expect(make(), isNot(make(pointer: 2)));
+      expect(make(), isNot(make(stars: 1)));
+      expect(make(), isNot(make(world: 'b')));
+    });
+
+    test('a differing levels map is not equal', () {
+      final a = make();
+      final b = SagaProgress(
+        currentMaxUnlockedLevelId: 1,
+        levels: {
+          0: const LevelProgress(
+              levelId: 0, state: LevelCompletionState.completed, stars: 3),
+          1: const LevelProgress(
+              levelId: 1, state: LevelCompletionState.unlocked),
+        },
+        extra: const {'lastWorld': 'a'},
+      );
+      expect(a, isNot(b));
+    });
+
+    test('a round trip through JSON compares equal', () {
+      final progress = make();
+      expect(SagaProgress.fromJson(progress.toJson()), progress);
+    });
+  });
 }

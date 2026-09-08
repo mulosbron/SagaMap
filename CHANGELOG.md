@@ -4,6 +4,10 @@ All notable changes to this package are documented in this file.
 
 ## 2.0.0
 
+> Decision records cited below by number (`ADR-0003`, `ADR-0009`, ...) live in
+> [`docs/adrs/`](docs/adrs/) in the repository. They are excluded from the
+> published archive, so from a `pub` download follow the link.
+
 ### Fixed — the paths taken when something already went wrong
 
 - `SagaMapBackgroundConfig` takes an `errorBuilder`. A mistyped asset path

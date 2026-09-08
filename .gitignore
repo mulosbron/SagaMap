@@ -17,8 +17,14 @@ Desktop.ini
 .claude/
 *.lock
 pubspec.lock
-# ADRs, task boards and working notes. Kept on disk, out of the repository.
-docs/
+# Task boards and working notes: on disk, out of the repository.
+# `docs/adrs/` is deliberately NOT ignored — eleven of them are cited by name
+# from CHANGELOG, README and public doc comments, and a citation whose target
+# is untracked resolves for nobody. They stay out of the *published archive*
+# via .pubignore instead, so readers follow a repository link rather than
+# paying for the files in every download.
+docs/tasks/
+docs/**/*.tmp
 # Staging trash bin & dev artifacts
 .old/
 x/

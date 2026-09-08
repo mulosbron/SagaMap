@@ -179,6 +179,17 @@ To the player that is lost progress.
 at all. See
 [**Migration — 1.x saves**](CHANGELOG.md#migration--1x-saves) in the changelog.
 
+### Architecture decisions
+
+Design rationale that would bloat a doc comment lives in numbered decision
+records. The CHANGELOG and several public doc comments cite them by number
+(`ADR-0003`, `ADR-0009`, ...); every one resolves to a file in
+[`docs/adrs/`](docs/adrs/).
+
+They are tracked in the repository but excluded from the published package
+archive, so a `pub` consumer follows the link rather than downloading them with
+every version.
+
 ## Public API Design
 
 Only import this file from your app:

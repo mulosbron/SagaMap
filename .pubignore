@@ -32,7 +32,9 @@ Desktop.ini
 .claude/
 *.lock
 pubspec.lock
-# ADRs, task boards and working notes. Kept on disk, out of the repository.
+# ADRs and task boards: tracked in git (the ADRs are), never in the archive.
+# A consumer reads them at
+# https://github.com/mulosbron/SagaMap/tree/main/docs/adrs
 docs/
 # Staging trash bin & dev artifacts
 .old/

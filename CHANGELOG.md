@@ -113,6 +113,22 @@ builder read one world's `LevelData` while the widget beside it drew another's.
 separate resolution of the whole chunk, which handed the host a context the
 builders had never seen and paid the cost this section exists to remove.
 
+### Fixed — two reassurances that were missing their caveat
+
+- Loader-failure detail is shown in **debug builds only**. It was keyed to
+  `kReleaseMode`, which left *profile* builds — false for both `kReleaseMode`
+  and `kDebugMode` — still printing a host exception's clipped `toString()` on
+  a player's screen. A profile build is a build you hand to someone: a perf
+  test on a real device, an internal track. Redaction that stops at the release
+  flag is redaction with a hole in it.
+- `LootTableOdds.rarityOdds()` documents that it is a **disclosed rate, not a
+  guarantee**. The roll is deterministic in `globalSeed` and the level id, so
+  those odds describe a player only while the seed is not something the player
+  can choose — and `SagaProgressRepository.saveGlobalSeed` exists to write it.
+  That is a deliberate trust boundary rather than a defect (client-side rolls
+  are advisory, ADR-0009), but a method presenting itself as "the disclosed
+  odds" has to say so.
+
 ### Breaking — `SagaProgress` compares by value, and `fromJson` sanitises its keys
 
 `SagaProgress` now has `==` and `hashCode`. 2.0.0 gave `LevelProgress` value

@@ -1122,11 +1122,17 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
   /// Host exception text was previously interpolated raw and unbounded. Two
   /// problems with that: a long message pushed the map off the screen, and a
   /// `toString()` on a host's exception can carry a URL, a token or a file path
-  /// that has no business being on a player's screen in release. In release the
-  /// detail is dropped entirely; in debug it is kept, clipped, because that is
-  /// where it is useful.
+  /// that has no business being on a player's screen.
+  ///
+  /// **The detail is shown in debug builds only.** It was keyed to
+  /// `kReleaseMode`, which left *profile* builds — false for both
+  /// `kReleaseMode` and `kDebugMode` — still printing the clipped detail. A
+  /// profile build is a build you hand to someone: a perf test on a real
+  /// device, a TestFlight or internal track. Redaction that stops at the
+  /// release flag is redaction with a hole in it, so the condition is now
+  /// "debug, or nothing".
   String _loadErrorText(String prefix) {
-    if (kReleaseMode) return prefix;
+    if (!kDebugMode) return prefix;
     final detail = widget.controller.lastError.toString();
     const limit = 200;
     return detail.length <= limit

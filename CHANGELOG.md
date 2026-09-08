@@ -155,7 +155,12 @@ context the fallback reads. Such chunks are kept until their reload lands.
   `ownsPathPosition` still claimed the position and no other chunk drew it.
 - A controller swap kept the previous world's chunk contexts, which are keyed by
   chunk index alone, so a new seed rendered the old map's nodes until every
-  chunk happened to rebuild.
+  chunk happened to rebuild. It also kept three high-water marks over the old
+  world's numbering, which is the half of that fix that was missing: in the new
+  world `onLevelReached` stayed silent for every level the *previous* one had
+  already passed, `onChunkEnter` compared against a stale last index, and the
+  opening scroll — already recorded as done — never ran again. A controller
+  swap now clears all of it in one place.
 
 ### Breaking — the progression guard ships on, and is decided once
 
@@ -438,6 +443,18 @@ const useCase = CompleteLevelUseCase(canUnlock: gateOpen);
 - `CompleteLevelUseCase.canUnlock` — vetoes opening the successor. The level
   itself still completes and a boss reward still drops; only the successor and
   `currentMaxUnlockedLevelId` stand still.
+
+`SagaCharacterController.jumpTo` **deliberately does not consult gates**, and
+now says so. It is the placement primitive — restoring a saved position,
+a level select, a chapter-skip purchase, a debug tool — and a gate governs
+travel, not where the character is standing; clamping there would drag a
+restored save back behind a gate the player passed long ago. For an instant
+move that gates *do* govern, ask for the move and turn the animation off:
+
+```dart
+controller.jumpTo(14);                   // place: gates ignored
+controller.moveTo(14, animate: false);   // move: gates respected
+```
 
 `CompleteLevelResult` gained `unlockBlocked` so a host can tell "you finished
 the level" from "you finished it and the road ahead is still shut". It is

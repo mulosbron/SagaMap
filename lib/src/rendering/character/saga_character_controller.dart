@@ -41,6 +41,9 @@ class SagaCharacterController extends ChangeNotifier {
   /// `SagaInfiniteMapView.gates` and the view applies
   /// [clampTravelThroughGates] for you. Set it only for a barrier gates cannot
   /// express — the view then leaves yours in place rather than replacing it.
+  ///
+  /// Asked by [moveTo] and [advance]. **Not** asked by [jumpTo], which places
+  /// the character rather than moving it; see that method for why.
   double Function(double from, double to)? barrier;
 
   final AnimationController _animation;
@@ -98,7 +101,26 @@ class SagaCharacterController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Places the character without animating.
+  /// Places the character at [position] without animating.
+  ///
+  /// **Deliberately ignores [barrier], and therefore gates.** This is the
+  /// placement primitive, not a move: it is what restores a saved position on
+  /// load, what puts the character down after a chapter purchase or a level
+  /// select, and what a debug tool uses. A host doing any of those is stating
+  /// where the character *is*, and a gate has no opinion about that — a gate
+  /// governs travel. Clamping here would quietly drag a restored save back to
+  /// the near side of a gate the player legitimately passed long ago.
+  ///
+  /// For an instant move that gates *do* govern, ask for the move and turn the
+  /// animation off:
+  ///
+  /// ```dart
+  /// controller.jumpTo(14);                      // place: gates ignored
+  /// controller.moveTo(14, animate: false);      // move: gates respected
+  /// ```
+  ///
+  /// [moveTo] routes through here after asking the barrier, so the two differ
+  /// only in whether the question is asked.
   void jumpTo(double position) {
     _journey = null;
     if (_animation.isAnimating) _animation.stop();

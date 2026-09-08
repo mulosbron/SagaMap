@@ -237,4 +237,62 @@ void main() {
       expect(controller.pathPosition, 5);
     });
   });
+
+  group('A-10 — jumpTo places, moveTo moves', () {
+    // The audit found `jumpTo` never asking the barrier and called it a gap
+    // rather than a decision. It is a decision now, and this pins both halves
+    // of it: placing ignores gates, moving obeys them, and the difference is
+    // the animate flag on `moveTo` — not the choice of method.
+    testWidgets('jumpTo deliberately passes a closed gate', (tester) async {
+      late SagaCharacterController controller;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: _TickerHost(
+            build: (context, vsync) {
+              controller = SagaCharacterController(vsync: vsync);
+              controller.barrier = (from, to) => clampTravelThroughGates(
+                    const [SagaMapGate(pathPosition: 5, isOpen: false)],
+                    from,
+                    to,
+                  );
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      );
+      addTearDown(controller.dispose);
+
+      // Restoring a saved position, a level select, a chapter-skip purchase:
+      // the host is stating where the character *is*. A gate has no opinion
+      // about that, and clamping here would drag a legitimate save backwards.
+      controller.jumpTo(12);
+      expect(controller.pathPosition, 12);
+    });
+
+    testWidgets('moveTo without animation still stops at the gate',
+        (tester) async {
+      late SagaCharacterController controller;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: _TickerHost(
+            build: (context, vsync) {
+              controller = SagaCharacterController(vsync: vsync);
+              controller.barrier = (from, to) => clampTravelThroughGates(
+                    const [SagaMapGate(pathPosition: 5, isOpen: false)],
+                    from,
+                    to,
+                  );
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      );
+      addTearDown(controller.dispose);
+
+      // The instant move that gates *do* govern — the alternative `jumpTo`'s
+      // doc comment points hosts at.
+      await controller.moveTo(12, animate: false);
+      expect(controller.pathPosition, lessThan(5));
+    });
+  });
 }

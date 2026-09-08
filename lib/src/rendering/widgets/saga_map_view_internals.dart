@@ -45,6 +45,18 @@ class SagaChunkEventTracker {
   /// The highest level index reached so far, for tests and diagnostics.
   int? get highestReachedLevel => _highestReachedLevel;
 
+  /// Forgets what has been announced, for a new world on the same view.
+  ///
+  /// Both fields are "furthest so far" marks, and both are meaningless across
+  /// a controller swap: the new controller's chunk 3 is not the old one's, and
+  /// its level 40 was never reached. Left standing, `onLevelReached` stays
+  /// silent for every level the *previous* world had already passed, and
+  /// `onChunkEnter` decides against a stale last value.
+  void reset() {
+    _lastBroadcastChunkIndex = null;
+    _highestReachedLevel = null;
+  }
+
   /// Announces the chunk under the middle of the viewport, once per entry.
   ///
   /// [centerOffset] is the scroll offset of the viewport's centre and

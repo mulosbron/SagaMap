@@ -200,4 +200,94 @@ void main() {
     // And one level short of it, which always worked, still does.
     expect(context.poseAtPathPosition(lastId - 1), isNotNull);
   });
+
+  testWidgets('A-11 — a swapped controller starts its world with a clean slate',
+      (tester) async {
+    // `77b98ca` cleared the context caches on a controller swap and left three
+    // marks standing. In the second world `onLevelReached` stayed silent for
+    // every level the first world had already passed, `onChunkEnter` decided
+    // against a stale last index, and the opening scroll — already "done" —
+    // never ran again.
+    tester.view.devicePixelRatio = 1.0;
+    tester.view.physicalSize = const Size(400, 800);
+    addTearDown(tester.view.reset);
+
+    SagaInfiniteMapController makeController(int seed) =>
+        SagaInfiniteMapController(
+          sectionsPerChunk: _levelsPerChunk,
+          initialChunkCount: 4,
+          chunkLoader: (chunkIndex, sectionsPerChunk) =>
+              _generator.generateLevels(
+            globalSeed: seed,
+            config: _config,
+            startLevelId: chunkIndex * sectionsPerChunk,
+            count: sectionsPerChunk,
+          ),
+        );
+
+    final first = makeController(5);
+    addTearDown(first.dispose);
+    final second = makeController(99);
+    addTearDown(second.dispose);
+
+    final reached = <int>[];
+    final entered = <int>[];
+    var controller = first;
+    var pathPosition = 0.0;
+
+    Widget build() => MaterialApp(
+          home: Scaffold(
+            body: SagaInfiniteMapView(
+              controller: controller,
+              chunkExtent: 600,
+              chunkSpanNormalized: _config.spanForLevelCount(_levelsPerChunk),
+              biomeThemeResolver: const DefaultSagaBiomeThemeResolver(),
+              pathProgressPosition: pathPosition,
+              onLevelReached: (level) => reached.add(level.id),
+              onChunkEnter: (c) => entered.add(c.chunkIndex),
+              nodeBuilder: (context, level, layout) => const SizedBox.shrink(),
+            ),
+          ),
+        );
+
+    await tester.pumpWidget(build());
+    await tester.pumpAndSettle();
+
+    // The first observation only establishes a baseline — opening the map at
+    // level 30 is not the player reaching level 30 — so walking takes two
+    // moves: one to set the mark, one to cross it.
+    pathPosition = 5;
+    await tester.pumpWidget(build());
+    await tester.pumpAndSettle();
+    pathPosition = 12;
+    await tester.pumpWidget(build());
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView), const Offset(0, -1300));
+    await tester.pumpAndSettle();
+
+    expect(reached, isNotEmpty, reason: 'the first world must report progress');
+    reached.clear();
+    entered.clear();
+
+    // A new world, on the same view.
+    controller = second;
+    await tester.pumpWidget(build());
+    await tester.pumpAndSettle();
+
+    // Level 12 was passed in the *previous* world. In this one it has never
+    // been reached, so crossing it must be announced.
+    pathPosition = 0;
+    await tester.pumpWidget(build());
+    await tester.pumpAndSettle();
+    pathPosition = 12;
+    await tester.pumpWidget(build());
+    await tester.pumpAndSettle();
+
+    expect(
+      reached,
+      isNotEmpty,
+      reason: 'onLevelReached stayed silent: the high-water mark survived the '
+          'controller swap',
+    );
+  });
 }

@@ -499,13 +499,7 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
     if (oldWidget.controller != widget.controller) {
       oldWidget.controller.removeListener(_onControllerChanged);
       widget.controller.addListener(_onControllerChanged);
-      // A new controller is a new world: a different seed, different levels at
-      // the same indices. The context cache is keyed by chunk index alone, so
-      // keeping it would render the previous world's levels under the new
-      // controller until every chunk happened to be rebuilt.
-      _chunkContexts.clear();
-      _contextEpochs.clear();
-      _contextLevels.clear();
+      _resetForNewWorld();
       _kickStart?.cancel();
       _kickStart = Stream<void>.fromFuture(widget.controller.initialize())
           .listen((_) {});
@@ -517,6 +511,32 @@ class _SagaInfiniteMapViewState extends State<SagaInfiniteMapView> {
     if (oldWidget.pathProgressPosition != widget.pathProgressPosition) {
       _checkLevelReached();
     }
+  }
+
+  /// Everything keyed to the world the old controller described.
+  ///
+  /// A new controller is a new world: a different seed, different levels at
+  /// the same indices. Every piece of state below is indexed by, or is a
+  /// high-water mark over, that old world, so all of it is wrong the moment
+  /// the controller changes.
+  ///
+  /// Gathered in one place deliberately. `77b98ca` cleared the context caches
+  /// and left the three marks standing, which is how the fix came to be half a
+  /// fix: `onLevelReached` never fired again for any level the previous world
+  /// had already passed, `onChunkEnter` compared against a stale last index,
+  /// and the opening scroll — already "done" — never ran in the second world.
+  /// When a fourth field joins them, it belongs here.
+  void _resetForNewWorld() {
+    // Keyed by chunk index alone, so they would render the previous world's
+    // levels until every chunk happened to be rebuilt.
+    _chunkContexts.clear();
+    _contextEpochs.clear();
+    _contextLevels.clear();
+    // High-water marks over the old world's level and chunk numbering.
+    _events.reset();
+    // The new world gets its own opening scroll; `_openingScrollRunning` is
+    // left alone because an in-flight scroll is still in flight.
+    _openingScrollDone = false;
   }
 
   void _attachCharacter(

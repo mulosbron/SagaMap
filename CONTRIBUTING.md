@@ -45,3 +45,51 @@ limitation of the local setup, not a property of the tests.
 **Treat CI as the only check for web parity.** Do not conclude from a local
 hang that a parity suite is broken, and do not "fix" a parity suite based on
 local browser behaviour. Push and read the `test (chrome)` job.
+
+## Screenshots
+
+Two kinds live under `doc/screenshots/`, and they are not interchangeable.
+
+**Goldens** (`test/golden/goldens/`) are the regression net. They render a
+synthetic chunk with hand-authored levels and plain shapes — no icons, no
+glyphs, no fonts — so the same commit produces the same bytes on any machine.
+A visual change fails a test. Regenerate deliberately:
+
+```bash
+flutter test --update-goldens test/golden
+```
+
+**Device screenshots** (`doc/screenshots/demo_*.png`) are photographs of the
+example app on a real device: real assets, real fonts, real device pixel ratio.
+Nothing compares them, so a device or font change moves them silently. They
+exist to show a reader what the package looks like, not to catch a regression —
+which is why the goldens sit alongside rather than being replaced by them.
+
+Recapture them with a device or emulator booted:
+
+```bash
+cd example
+flutter drive \
+  --driver=test_driver/integration_test.dart \
+  --target=integration_test/screenshot_test.dart \
+  -d <device-id>
+```
+
+The driver writes them at the device's own resolution, which for a modern
+phone is around 150 KB each. **Halve them before committing** — every byte
+under `doc/` ships in the published archive, and a 1080-wide phone screenshot
+is four times what a README renders:
+
+```bash
+python -c "
+from PIL import Image; import glob
+for f in glob.glob('doc/screenshots/demo_*.png'):
+    im = Image.open(f); w, h = im.size
+    im.resize((w // 2, h // 2), Image.LANCZOS).convert(
+        'P', palette=Image.ADAPTIVE, colors=192).save(f, optimize=True)
+"
+```
+
+That step took the seven 2.0.0 screenshots from 1081 KB to 160 KB. If it is
+skipped, `dart pub publish --dry-run` will show the archive growing by roughly
+a megabyte.

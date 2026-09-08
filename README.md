@@ -25,6 +25,39 @@ tests), so they show exactly what it draws.
 - **Walked vs. upcoming** — the stretch the player has covered is drawn in the
   bright colour, the road ahead dimmed, split exactly under the character.
 
+### New in 2.0.0
+
+Photographs of the example app on a device, not golden renders — see
+[CONTRIBUTING.md](CONTRIBUTING.md#screenshots) for the difference.
+
+| Host-defined realms | The realm turning over | The same stretch, built-in ids |
+| --- | --- | --- |
+| ![Five host realms, each with its own colour and ambient wash](doc/screenshots/demo_2_0_0_host_realms.png) | ![The biome changing every ten levels](doc/screenshots/demo_2_0_0_realm_cycle.png) | ![One biome across the whole stretch](doc/screenshots/demo_2_0_0_builtin_biomes.png) |
+
+- **Host-defined biome ids** — the demo passes five realm ids of its own to
+  `SagaMapConfig.biomeIds`, none of which the package ships a theme for. The
+  package cycles them and hands each back to the host's resolver.
+- **`biomeSpan` and the id count set the cycle together** — ten levels each
+  against five realms closes in fifty, so the middle image turns over twice in
+  one screen. The right-hand image is the same scroll position with the
+  built-in three ids at fifty levels each: one colour, all the way down.
+- **`SagaBiomeTheme.ambientTint`** — the wash over each realm, painted by the
+  chunk painter over the background and the path but under the node widgets.
+- **`SagaBiomeTheme.assets`** — the letter on each node is read back out of
+  that opaque map. The package carried it from the theme to the node builder
+  without ever looking inside.
+
+| Injected boss rule and loot table | The walked path | The feature sheet |
+| --- | --- | --- |
+| ![Square boss nodes every fifth level](doc/screenshots/demo_2_0_0_custom_rewards.png) | ![Completed levels lit with stars](doc/screenshots/demo_2_0_0_walked_path.png) | ![The 2.0.0 switches](doc/screenshots/demo_2_0_0_feature_sheet.png) |
+
+- **Injectable rewards** — the square nodes are bosses. The demo injects
+  `bossRule: (id) => id % 5 == 4` and its own `lootTable`, so bosses land every
+  fifth level instead of the package's fifteenth and drop the demo's own items.
+- **Gates** — the demo's gate sits at level 12 and starts closed. One predicate
+  drives all three consumers: the character stops before it, nodes past it stop
+  responding, and clearing level 11 no longer opens level 12.
+
 ### New in 1.1.0
 
 | Level-anchored bands and host data | Episode header from the chunk context |

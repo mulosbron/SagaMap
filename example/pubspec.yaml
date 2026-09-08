@@ -41,4 +41,8 @@ environment:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  # Drives the demo on a real device or emulator, where widget tests cannot
+  # reach: asset decoding, platform text, real frame scheduling.
+  integration_test:
+    sdk: flutter
   flutter_lints: ^6.0.0

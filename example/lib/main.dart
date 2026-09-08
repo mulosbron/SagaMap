@@ -26,8 +26,9 @@ const double _pixelsPerLevel = 96;
 /// [SagaMapConfig.spanForLevelCount].
 const int _levelsPerChunk = 10;
 
-/// The geometry the whole demo generates against.
-const SagaMapConfig _mapConfig = SagaMapConfig.defaultConfig;
+/// The geometry the whole demo generates against, when it is not overriding
+/// the biome ids. See `_SagaMapDemoState._mapConfig`.
+const SagaMapConfig _baseMapConfig = SagaMapConfig.defaultConfig;
 
 /// Where the demo's one gate sits. Closed, it holds the character on the near
 /// side until the host decides to open it.
@@ -68,6 +69,19 @@ const List<LootTableEntry> _demoLootTable = <LootTableEntry>[
     rarity: InventoryRarity.legendary,
     weight: 5,
   ),
+];
+
+/// The demo's own biome ids (2.0.0).
+///
+/// Before `SagaMapConfig.biomeIds`, the generator read the `const` global
+/// `kSagaBiomeIds` and a host with its own realms had no way in. These five are
+/// nothing the package has heard of; it cycles them all the same.
+const List<String> _demoRealms = <String>[
+  'sunspire',
+  'drownlands',
+  'ashreach',
+  'verdant',
+  'gloamvale',
 ];
 
 /// Which artwork supplies the map background.
@@ -124,7 +138,15 @@ class _SagaMapDemoState extends State<SagaMapDemo>
   /// Boss drops collected so far.
   final List<InventoryItem> _inventory = <InventoryItem>[];
 
-  /// Seed every level position is derived from. Change it for a new map.
+  /// Persists the seed and the progress. 2.0.0 added `saveGlobalSeed` to this
+  /// contract, so "regenerate the map" no longer means writing a default as a
+  /// side effect of loading one.
+  final SagaProgressRepository _repository =
+      InMemorySagaProgressRepository(globalSeed: 42);
+
+  /// Seed every level position is derived from. Mirrors what the repository
+  /// holds; [_reseed] writes through [SagaProgressRepository.saveGlobalSeed]
+  /// and reads back, rather than trusting this field.
   int _seed = 42;
 
   /// Highest level reached, which is where the path stops looking "walked".
@@ -135,6 +157,10 @@ class _SagaMapDemoState extends State<SagaMapDemo>
   /// Which episode (chunk) the viewport is centred on. Driven by [onChunkEnter],
   /// a 1.1.0 listener that fires as the map scrolls into a new chunk.
   int _currentEpisode = 1;
+
+  /// Swaps the built-in three biome ids for the demo's own five (2.0.0).
+  /// Rebuilds the map, since biome ids are baked into generated levels.
+  bool _hostRealms = false;
 
   /// Swaps the package's boss rule and loot table for the demo's own (2.0.0).
   /// Everything downstream — the node shape, the boss band, the drop-rate
@@ -170,6 +196,21 @@ class _SagaMapDemoState extends State<SagaMapDemo>
     super.initState();
     _map = _buildMapController();
     _character = _buildCharacterController();
+    _loadStoredSeed();
+  }
+
+  /// Reads the seed the repository holds.
+  ///
+  /// Loading is inert by contract — it must not write a default back — so the
+  /// map built above is discarded and rebuilt only if the stored seed differs
+  /// from the one it was built with.
+  Future<void> _loadStoredSeed() async {
+    final stored = await _repository.loadGlobalSeed();
+    if (!mounted || stored == _seed) return;
+    setState(() {
+      _seed = stored;
+      _recreateMapController();
+    });
   }
 
   @override
@@ -233,17 +274,42 @@ class _SagaMapDemoState extends State<SagaMapDemo>
   bool _gateOpen(int levelId) => !_gateClosed || levelId < _gateLevel;
 
   /// Rebuilds the map for a new seed, resetting progress with it.
-  void _reseed(int seed) {
+  ///
+  /// The seed is persisted through [SagaProgressRepository.saveGlobalSeed]
+  /// (2.0.0) and read back, so what the map draws is what a restart would
+  /// restore rather than a field that only agrees with storage by luck.
+  ///
+  /// Progress is reset here on purpose. A `SagaProgress` survives a reseed —
+  /// it keeps its level ids — but those ids now point at different terrain,
+  /// so carrying it over would claim the player had cleared levels of a world
+  /// that never existed.
+  Future<void> _reseed(int seed) async {
+    await _repository.saveGlobalSeed(seed);
+    final stored = await _repository.loadGlobalSeed();
+    if (!mounted) return;
+
     setState(() {
-      _seed = seed;
+      _seed = stored;
       _progress = SagaProgress.initial();
       _inventory.clear();
       _reached = 0;
-      _status = 'New map from seed $seed';
-      _map.dispose();
-      _map = _buildMapController();
+      _status = 'New map from seed $stored';
+      _recreateMapController();
     });
     _character.jumpTo(0);
+  }
+
+  /// Swaps the generator's biome ids between the package's three and the
+  /// demo's five (2.0.0), rebuilding the map because biome ids are baked into
+  /// generated levels.
+  void _setHostRealms(bool enabled) {
+    setState(() {
+      _hostRealms = enabled;
+      _status = enabled
+          ? 'Generating ${_demoRealms.length} host realms'
+          : 'Back to the built-in biome ids';
+      _recreateMapController();
+    });
   }
 
   /// Swaps the gait, which needs a fresh controller since gait is fixed at
@@ -258,14 +324,17 @@ class _SagaMapDemoState extends State<SagaMapDemo>
     _character.jumpTo(at);
   }
 
+  /// Replaces the map controller with one built from the current seed and
+  /// config. Call inside a [setState]; [_rebuildMap] is the wrapper for
+  /// callers that are not already in one.
+  void _recreateMapController() {
+    _map.dispose();
+    _map = _buildMapController();
+  }
+
   /// Rebuilds the map controller in place, for toggles that change how chunks
   /// are loaded rather than how they are drawn.
-  void _rebuildMap() {
-    setState(() {
-      _map.dispose();
-      _map = _buildMapController();
-    });
-  }
+  void _rebuildMap() => setState(_recreateMapController);
 
   // --- Gameplay ------------------------------------------------------------
 
@@ -323,6 +392,15 @@ class _SagaMapDemoState extends State<SagaMapDemo>
       }
     });
   }
+
+  /// The geometry the map generates against.
+  ///
+  /// `biomeSpan` drops to 10 alongside the demo's realms so the cycle is
+  /// actually visible: five realms x 10 levels closes in 50, against the
+  /// default three x 50 which takes 150.
+  SagaMapConfig get _mapConfig => _hostRealms
+      ? _baseMapConfig.copyWith(biomeSpan: 10, biomeIds: _demoRealms)
+      : _baseMapConfig;
 
   /// The boss rule currently in force, package default or the demo's own.
   SagaBossRule get _bossRule =>
@@ -497,6 +575,17 @@ class _SagaMapDemoState extends State<SagaMapDemo>
     final isCurrent = level.id == _progress.currentMaxUnlockedLevelId;
     final isBoss = _bossRule(level.id);
 
+    // 2.0.0: the round trip the opaque asset map exists for. The biome id was
+    // generated from `SagaMapConfig.biomeIds`, resolved to a theme, and the
+    // key that comes back is one this demo put there — the package carried it
+    // without ever reading it. Only shown for the demo's own realms, where the
+    // letter means something.
+    final emblem = _hostRealms
+        ? const _DemoBiomeTheme()
+            .resolve(level.biomeId)
+            .assets[_DemoBiomeTheme.emblemKey]
+        : null;
+
     final Color fill;
     final Color border;
     switch (state) {
@@ -538,7 +627,18 @@ class _SagaMapDemoState extends State<SagaMapDemo>
                 fontSize: 13,
               ),
             ),
-            if ((progress?.stars ?? 0) > 0)
+            if (emblem != null)
+              Text(
+                emblem,
+                style: TextStyle(
+                  color: state == LevelCompletionState.locked
+                      ? Colors.white54
+                      : Colors.black54,
+                  fontSize: 8,
+                  fontWeight: FontWeight.bold,
+                ),
+              )
+            else if ((progress?.stars ?? 0) > 0)
               Text(
                 '★' * progress!.stars,
                 style: const TextStyle(color: Colors.black87, fontSize: 8),
@@ -943,6 +1043,21 @@ class _SagaMapDemoState extends State<SagaMapDemo>
                 _backgroundPicker(update),
                 _section('Rules'),
                 SwitchListTile(
+                  title: const Text('Host realms'),
+                  subtitle: Text(
+                    _hostRealms
+                        ? '${_demoRealms.length} own ids, 10 levels each, '
+                            'with an ambient wash'
+                        : 'Built-in biome ids: ${kSagaBiomeIds.length}, '
+                            '50 levels each',
+                  ),
+                  value: _hostRealms,
+                  onChanged: (v) {
+                    _setHostRealms(v);
+                    setSheetState(() {});
+                  },
+                ),
+                SwitchListTile(
                   title: const Text('Custom rewards'),
                   subtitle: const Text(
                     'Injected bossRule + lootTable: a boss every 5th level',
@@ -1082,21 +1197,47 @@ class _SagaMapDemoState extends State<SagaMapDemo>
 class _DemoBiomeTheme implements SagaBiomeThemeResolver {
   const _DemoBiomeTheme();
 
+  /// Palette, wash and emblem per biome id.
+  ///
+  /// Covers the package's three and the demo's five. Writing a resolver is
+  /// what a host with its own `SagaMapConfig.biomeIds` does instead of living
+  /// with `DefaultSagaBiomeThemeResolver`, which knows only the built-in three
+  /// and falls back to forest for everything else.
+  static const Map<String, (Color, Color, Color?, String)> _palette = {
+    // id: (background, walked path, ambient wash, emblem)
+    kBiomeIdForest: (Color(0xFF2D5A27), Color(0xFFFFC107), null, 'F'),
+    kBiomeIdDesert: (Color(0xFF6E5A2A), Color(0xFFFFD466), null, 'D'),
+    kBiomeIdGlacier: (Color(0xFF2A4A5C), Color(0xFF9FE3FF), null, 'G'),
+    'sunspire': (Color(0xFF7A3E12), Color(0xFFFFB74D), Color(0x1AFF7043), 'S'),
+    'drownlands': (
+      Color(0xFF14323F),
+      Color(0xFF5FC7D6),
+      Color(0x1A00ACC1),
+      'W'
+    ),
+    'ashreach': (Color(0xFF3A2F35), Color(0xFFBFA8B4), Color(0x22000000), 'A'),
+    'verdant': (Color(0xFF1E4A22), Color(0xFF9CCC65), Color(0x1A7CB342), 'V'),
+    'gloamvale': (
+      Color(0xFF2C2340),
+      Color(0xFFB39DDB),
+      Color(0x223F2A6E),
+      'M'
+    ),
+  };
+
+  /// The emblem key this demo agrees on with itself.
+  ///
+  /// `SagaBiomeTheme.assets` is an opaque `Map<String, String>`: the package
+  /// carries it and never reads it, so the key namespace is entirely the
+  /// host's. See `_buildNode`, which reads it back.
+  static const String emblemKey = 'emblem';
+
   @override
   SagaBiomeTheme resolve(String biomeId) {
-    Color background;
-    Color walked;
-    switch (biomeId) {
-      case kBiomeIdDesert:
-        background = const Color(0xFF6E5A2A);
-        walked = const Color(0xFFFFD466);
-      case kBiomeIdGlacier:
-        background = const Color(0xFF2A4A5C);
-        walked = const Color(0xFF9FE3FF);
-      default:
-        background = const Color(0xFF2D5A27);
-        walked = const Color(0xFFFFC107);
-    }
+    // Falls back to forest for an id this demo has not themed, matching what
+    // the built-in resolver does — a wrong-green map beats a crash.
+    final (background, walked, tint, emblem) =
+        _palette[biomeId] ?? _palette[kBiomeIdForest]!;
 
     return SagaBiomeTheme(
       backgroundColor: background,
@@ -1107,6 +1248,16 @@ class _DemoBiomeTheme implements SagaBiomeThemeResolver {
       shadowColor: const Color(0x40000000),
       pathBorderWidth: 12,
       pathInnerStrokeWidth: 7,
+
+      // 2.0.0: a translucent wash the chunk painter lays over background and
+      // path, under the node widgets. Only the demo's own realms set one, so
+      // toggling "Host realms" shows the difference.
+      ambientTint: tint,
+
+      // 2.0.0: art keys the package hands back untouched. A real host would
+      // put asset paths here; this demo puts a letter, to make the point that
+      // the package never looks inside.
+      assets: {emblemKey: emblem},
     );
   }
 }

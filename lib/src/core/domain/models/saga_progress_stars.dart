@@ -4,6 +4,15 @@ import 'saga_progress.dart';
 /// Provides total star counts and chunk evaluation without duplicate loops.
 extension SagaProgressStars on SagaProgress {
   /// Total stars from all completed levels.
+  ///
+  /// Counts the default mode's [LevelProgress.stars] only; alternate-mode
+  /// scores in [LevelProgress.starsByMode] are not part of it. Spending does
+  /// not lower it — see [availableStars].
+  ///
+  /// This is the one definition. It stays on the extension rather than moving
+  /// into the class beside [SagaProgress.spentStars], because a call written
+  /// as `SagaProgressStars(progress).totalStars` would stop compiling — a
+  /// break a minor release does not get to make.
   int get totalStars {
     int total = 0;
     for (final level in levels.values) {
@@ -13,6 +22,12 @@ extension SagaProgressStars on SagaProgress {
     }
     return total;
   }
+
+  /// Stars earned and not yet spent: [totalStars] minus
+  /// [SagaProgress.spentStars].
+  ///
+  /// Never negative, because `spentStars` never exceeds [totalStars].
+  int get availableStars => totalStars - spentStars;
 
   /// Calculates the sum of stars in the interval [startLevelId, startLevelId + count).
   ///

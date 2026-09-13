@@ -21,6 +21,7 @@ export 'src/core/domain/models/saga_geometry.dart';
 export 'src/core/domain/models/saga_map_config.dart';
 export 'src/core/domain/models/saga_progress.dart';
 export 'src/core/domain/models/saga_progress_stars.dart';
+export 'src/core/domain/pity_rule.dart';
 export 'src/core/domain/responsive/saga_map_responsive_config.dart';
 export 'src/core/domain/responsive/saga_responsive_resolver.dart';
 export 'src/core/domain/saga_dominant_biome.dart';

@@ -148,7 +148,8 @@ void main() {
     // Chunks load lazily; dragging far enough crosses seams and evicts chunks
     // when bounded memory is on. Real scroll physics, not a synthetic jump.
     for (var i = 0; i < 6; i++) {
-      await tester.drag(find.byType(SagaInfiniteMapView), const Offset(0, -400));
+      await tester.drag(
+          find.byType(SagaInfiniteMapView), const Offset(0, -400));
       await tester.pumpAndSettle();
     }
 

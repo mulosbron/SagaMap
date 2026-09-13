@@ -3,6 +3,7 @@ import 'dart:math';
 import 'loot_table_odds.dart';
 import 'models/level_data.dart';
 import 'models/inventory_item.dart';
+import 'pity_rule.dart';
 
 /// Weighted loot entry used by reward roll logic.
 class LootTableEntry {
@@ -115,18 +116,47 @@ bool isBossLevel(int levelId) => levelId >= 0 && levelId % 15 == 14;
 ///
 /// The seed is `levelId ^ globalSeed`, so the same `(levelId, globalSeed, table)`
 /// always yields the same item.
+///
+/// **Pity.** With a [pityRule], a [pityCounter] at or above its threshold
+/// narrows the roll to the entries of its guaranteed rarity or better. The
+/// counter decides which entries are drawn from and never touches the seed,
+/// so the roll stays deterministic in `(levelId, globalSeed, table,
+/// pityCounter, pityRule)`. If no entry qualifies — the table has no such
+/// tier, or only zero-weight ones — the roll falls back to the whole table
+/// rather than throwing: a table without a rare tier is a legitimate economy,
+/// and a guarantee it cannot honour is not a misconfiguration. Without a rule
+/// the counter is ignored and the roll is exactly the one 2.0.0 made.
 InventoryItem rollBossReward({
   required int levelId,
   required int globalSeed,
   List<LootTableEntry> table = kMvpLootTable,
   DateTime? now,
+  int pityCounter = 0,
+  SagaPityRule? pityRule,
 }) {
   // Validates empty, negative and zero-total tables in one place, shared with
   // the odds extension so the roll and a disclosure screen cannot disagree.
-  final totalWeight = table.totalWeight;
+  // The whole table is validated even when pity narrows it, so a malformed
+  // table fails on every roll rather than only on the unlucky ones.
+  var pool = table;
+  var poolWeight = table.totalWeight;
+  if (pityRule != null && pityRule.isDue(pityCounter)) {
+    final eligible = [
+      for (final entry in table)
+        if (pityRule.satisfies(entry.rarity)) entry,
+    ];
+    var eligibleWeight = 0;
+    for (final entry in eligible) {
+      eligibleWeight += entry.weight;
+    }
+    if (eligibleWeight > 0) {
+      pool = eligible;
+      poolWeight = eligibleWeight;
+    }
+  }
   final rng = Random(levelId ^ globalSeed);
-  var roll = rng.nextInt(totalWeight);
-  for (final entry in table) {
+  var roll = rng.nextInt(poolWeight);
+  for (final entry in pool) {
     if (roll < entry.weight) {
       return InventoryItem(
         itemId: entry.itemId,
@@ -143,6 +173,6 @@ InventoryItem rollBossReward({
   // than the old silent first-entry fallback, which would have masked a table
   // mutated underneath the roll.
   throw StateError(
-    'Loot roll fell through a table of total weight $totalWeight.',
+    'Loot roll fell through a table of total weight $poolWeight.',
   );
 }

@@ -531,10 +531,11 @@ void main() {
 
     test('two execute calls on one snapshot both mint', () {
       // T-13: the first-clear guard reads the snapshot passed in, so two calls
-      // against the same currentProgress both see an uncompleted level. Making
-      // this structurally impossible needs the use case to own the inventory
-      // write (ADR-0003, deferred to 2.1.0); until then the invariant is
-      // documented on CompleteLevelResult.reward and pinned here.
+      // against the same currentProgress both see an uncompleted level. 2.1.0
+      // let the use case own the inventory write (executeAndPersist), which
+      // closes the dropped-reward hole but not this one — pinned for the write
+      // path too in saga_reward_persistence_test.dart. The invariant is
+      // documented on CompleteLevelResult.reward.
       const useCase = CompleteLevelUseCase();
       final snapshot = SagaProgress(
         currentMaxUnlockedLevelId: 14,

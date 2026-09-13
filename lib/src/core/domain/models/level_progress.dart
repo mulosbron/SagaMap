@@ -25,8 +25,20 @@ class LevelProgress {
   final int stars;
   final DateTime? lastPlayedAt;
 
-  /// Per-level host data — alternate-mode scores, a no-mistake streak.
+  /// Per-level host data — a no-mistake streak, a bookmark.
   final Map<String, dynamic> extra;
+
+  /// Best star score per alternate replay mode, keyed by the host's mode id.
+  ///
+  /// The default mode's score stays in [stars]; this map holds only the
+  /// others — `'hard'`, `'mirror'`, whatever the host calls them. A mode run
+  /// never touches [stars] or [state], and its stars are not counted by
+  /// `SagaProgressStars.totalStars`, so they are not spendable either: a host
+  /// that wants them in its economy sums them itself. Read one with
+  /// [starsFor].
+  ///
+  /// Each value is bounded to `[0, kMaxLevelStars]` on load, like [stars].
+  final Map<String, int> starsByMode;
 
   const LevelProgress({
     required this.levelId,
@@ -34,7 +46,34 @@ class LevelProgress {
     this.stars = 0,
     this.lastPlayedAt,
     this.extra = const {},
+    this.starsByMode = const {},
   });
+
+  /// Throws an [ArgumentError] if [modeId] cannot name an alternate mode.
+  ///
+  /// The default mode is `null` — its score is [stars] — so an id that reads
+  /// as "the default" is refused rather than stored beside it: the empty
+  /// string, an id of only whitespace, and `'default'`. Accepting one would
+  /// give the default mode two scores free to disagree.
+  static void checkModeId(String modeId) {
+    if (_namesDefaultMode(modeId)) {
+      throw ArgumentError.value(
+        modeId,
+        'modeId',
+        'Names the default mode, which is null.',
+      );
+    }
+  }
+
+  /// This level's best score in [modeId], where `null` is the default mode.
+  ///
+  /// A mode never played scores `0`. Throws an [ArgumentError] for a [modeId]
+  /// [checkModeId] refuses.
+  int starsFor(String? modeId) {
+    if (modeId == null) return stars;
+    checkModeId(modeId);
+    return starsByMode[modeId] ?? 0;
+  }
 
   /// Serializes level progress for storage.
   Map<String, dynamic> toJson() {
@@ -46,6 +85,11 @@ class LevelProgress {
     };
     if (extra.isNotEmpty) {
       json['extra'] = extra;
+    }
+    // Omitted while empty, so a save that never used a mode is byte-for-byte
+    // what 2.0.0 wrote.
+    if (starsByMode.isNotEmpty) {
+      json['starsByMode'] = starsByMode;
     }
     return json;
   }
@@ -74,16 +118,34 @@ class LevelProgress {
       extra = Map<String, dynamic>.from(extraRaw);
     }
 
+    // A wrong-typed map reads as no modes played. Inside a well-typed one each
+    // entry is judged alone — a bad score costs that mode, not every mode —
+    // and a key naming the default mode is dropped, since `stars` already
+    // holds that score and the two must not disagree.
+    final modesRaw = json['starsByMode'];
+    final starsByMode = <String, int>{};
+    if (modesRaw is Map) {
+      for (final entry in modesRaw.entries) {
+        final key = entry.key;
+        final value = entry.value;
+        if (key is! String || value is! num || _namesDefaultMode(key)) {
+          continue;
+        }
+        starsByMode[key] = _clampStars(value.toInt());
+      }
+    }
+
     return LevelProgress(
       levelId: rawLevel is num ? rawLevel.toInt() : 0,
       state: LevelCompletionState.fromString(
         rawState is String ? rawState : 'locked',
       ),
       // Bounded to a plausible score; a negative or absurd value is coerced.
-      stars: stars < 0 ? 0 : (stars > kMaxLevelStars ? kMaxLevelStars : stars),
+      stars: _clampStars(stars),
       lastPlayedAt:
           rawLastPlayed is String ? DateTime.tryParse(rawLastPlayed) : null,
       extra: extra,
+      starsByMode: starsByMode,
     );
   }
 
@@ -104,6 +166,7 @@ class LevelProgress {
     int? stars,
     DateTime? Function()? lastPlayedAt,
     Map<String, dynamic>? extra,
+    Map<String, int>? starsByMode,
   }) {
     return LevelProgress(
       levelId: levelId ?? this.levelId,
@@ -111,6 +174,7 @@ class LevelProgress {
       stars: stars ?? this.stars,
       lastPlayedAt: lastPlayedAt == null ? this.lastPlayedAt : lastPlayedAt(),
       extra: extra ?? Map<String, dynamic>.from(this.extra),
+      starsByMode: starsByMode ?? Map<String, int>.from(this.starsByMode),
     );
   }
 
@@ -124,7 +188,8 @@ class LevelProgress {
   ///
   /// [extra] is compared shallowly, by its own entries' equality: it is
   /// host-owned JSON, and a deep walk of arbitrary nested maps is not something
-  /// a per-frame diff can afford.
+  /// a per-frame diff can afford. [starsByMode] holds only integers, so its
+  /// entry-by-entry comparison is complete.
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
@@ -133,7 +198,8 @@ class LevelProgress {
         other.state != state ||
         other.stars != stars ||
         other.lastPlayedAt != lastPlayedAt ||
-        other.extra.length != extra.length) {
+        other.extra.length != extra.length ||
+        other.starsByMode.length != starsByMode.length) {
       return false;
     }
     for (final entry in extra.entries) {
@@ -141,6 +207,9 @@ class LevelProgress {
           other.extra[entry.key] != entry.value) {
         return false;
       }
+    }
+    for (final entry in starsByMode.entries) {
+      if (other.starsByMode[entry.key] != entry.value) return false;
     }
     return true;
   }
@@ -152,5 +221,12 @@ class LevelProgress {
         stars,
         lastPlayedAt,
         extra.length,
+        starsByMode.length,
       );
 }
+
+bool _namesDefaultMode(String modeId) =>
+    modeId.trim().isEmpty || modeId == 'default';
+
+int _clampStars(int stars) =>
+    stars < 0 ? 0 : (stars > kMaxLevelStars ? kMaxLevelStars : stars);

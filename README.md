@@ -18,12 +18,38 @@ tests), so they show exactly what it draws.
 
 | Curved path (vertical) | Walked vs. upcoming | Curved path (horizontal) |
 | --- | --- | --- |
-| ![Curved vertical path](doc/screenshots/curved_path_vertical.png) | ![Walked path lit up](doc/screenshots/walked_path.png) | ![Curved horizontal path](doc/screenshots/curved_path_horizontal.png) |
+| ![Curved vertical path](docs/screenshots/curved_path_vertical.png) | ![Walked path lit up](docs/screenshots/walked_path.png) | ![Curved horizontal path](docs/screenshots/curved_path_horizontal.png) |
 
 - **Curved path** — `pathCurvature` bends the line between nodes; the nodes
   stay put. Continuous across chunk seams.
 - **Walked vs. upcoming** — the stretch the player has covered is drawn in the
   bright colour, the road ahead dimmed, split exactly under the character.
+
+### New in 2.1.0
+
+Photographs of the example app on a device, not golden renders — see
+[CONTRIBUTING.md](CONTRIBUTING.md#screenshots) for the difference.
+
+| Replay modes on the map | Mode scores side by side |
+| --- | --- |
+| ![Replay modes with distinct rings](docs/screenshots/demo_2_1_0_replay_modes.png) | ![Long-press dialog showing default and hard scores](docs/screenshots/demo_2_1_0_level_scores.png) |
+
+- **Replay modes (`starsByMode`)** — levels can be replayed under alternative mode
+  rules (e.g. `'hard'`) without overriding normal mode star counts or advancing the
+  unlock frontier.
+- **Per-mode star accounting** — `LevelProgress.starsFor(modeId)` inspects scores
+  per mode, keeping the progression history intact and cleanly separated.
+
+| The star economy | Economy toggles in the sheet |
+| --- | --- |
+| ![Stars spent on opening a gate toll](docs/screenshots/demo_2_1_0_star_toll.png) | ![Economy controls with pity rule](docs/screenshots/demo_2_1_0_feature_sheet.png) |
+
+- **Star economy (`spentStars` & `availableStars`)** — stars are no longer just an
+  ever-growing score; `SagaProgress.spendStars()` allows spending them on toll gates,
+  perks, or content unlocks.
+- **Pity rule and persistence injection** — `SagaPityRule` guarantees rare-or-better
+  loot drops after bad streaks, while `executeAndPersist` ties roll results directly
+  to an injected `InventoryRepository`.
 
 ### New in 2.0.0
 
@@ -32,7 +58,7 @@ Photographs of the example app on a device, not golden renders — see
 
 | Host-defined realms | The realm turning over | The same stretch, built-in ids |
 | --- | --- | --- |
-| ![Five host realms, each with its own colour and ambient wash](doc/screenshots/demo_2_0_0_host_realms.png) | ![The biome changing every ten levels](doc/screenshots/demo_2_0_0_realm_cycle.png) | ![One biome across the whole stretch](doc/screenshots/demo_2_0_0_builtin_biomes.png) |
+| ![Five host realms, each with its own colour and ambient wash](docs/screenshots/demo_2_0_0_host_realms.png) | ![The biome changing every ten levels](docs/screenshots/demo_2_0_0_realm_cycle.png) | ![One biome across the whole stretch](docs/screenshots/demo_2_0_0_builtin_biomes.png) |
 
 - **Host-defined biome ids** — the demo passes five realm ids of its own to
   `SagaMapConfig.biomeIds`, none of which the package ships a theme for. The
@@ -49,7 +75,7 @@ Photographs of the example app on a device, not golden renders — see
 
 | Injected boss rule and loot table | The walked path | The feature sheet |
 | --- | --- | --- |
-| ![Square boss nodes every fifth level](doc/screenshots/demo_2_0_0_custom_rewards.png) | ![Completed levels lit with stars](doc/screenshots/demo_2_0_0_walked_path.png) | ![The 2.0.0 switches](doc/screenshots/demo_2_0_0_feature_sheet.png) |
+| ![Square boss nodes every fifth level](docs/screenshots/demo_2_0_0_custom_rewards.png) | ![Completed levels lit with stars](docs/screenshots/demo_2_0_0_walked_path.png) | ![The 2.0.0 switches](docs/screenshots/demo_2_0_0_feature_sheet.png) |
 
 - **Injectable rewards** — the square nodes are bosses. The demo injects
   `bossRule: (id) => id % 5 == 4` and its own `lootTable`, so bosses land every
@@ -62,7 +88,7 @@ Photographs of the example app on a device, not golden renders — see
 
 | Level-anchored bands and host data | Episode header from the chunk context |
 | --- | --- |
-| ![atLevel bands, biome-tinted scenery and an extra-driven bookmark](doc/screenshots/features_1_1_0_decorations.png) | ![Episode header reporting stars earned in the chunk](doc/screenshots/features_1_1_0_episode_header.png) |
+| ![atLevel bands, biome-tinted scenery and an extra-driven bookmark](docs/screenshots/features_1_1_0_decorations.png) | ![Episode header reporting stars earned in the chunk](docs/screenshots/features_1_1_0_episode_header.png) |
 
 - **Level-anchored bands** — the red stripes are `SagaMapDecoration.atLevel`:
   aligned to a level id rather than a pixel coordinate, spanning the chunk's
@@ -193,6 +219,13 @@ A change is breaking (requires a major version bump) if it breaks:
 3. **Saved data meaning:** Reading old data behaves differently (e.g. altering the deterministic sequence of levels).
 
 **Deprecation policy:** Nothing marked `@Deprecated` is removed in the same major version. It will emit a warning until the next major release.
+
+### Upgrading from 2.0.0
+
+2.1.0 has no breaking changes. The one thing worth a look: if you kept a spent-
+star ledger or per-mode scores in `extra` because 2.0.0 had nowhere else for
+them, the package does not move them for you — `extra` is never read. The
+[changelog](CHANGELOG.md#210) has a copy-pasteable migration for each.
 
 ### Upgrading from 1.x
 
@@ -605,6 +638,8 @@ final perfect = progress.isRangePerfect(0, 10);
 
 ### Rewards
 
+`execute` returns the reward; it does not store it. Write it yourself:
+
 ```dart
 final result = completeLevelUseCase.execute(
   currentProgress: progress,
@@ -612,9 +647,33 @@ final result = completeLevelUseCase.execute(
   globalSeed: 42,
 );
 if (result.reward != null) {
-  await inventoryRepository.add(result.reward!);
+  await inventoryRepository.addItem(result.reward!);
 }
 ```
+
+Or inject the repository and let the use case write it (2.1.0):
+
+```dart
+final useCase = CompleteLevelUseCase(inventory: inventoryRepository);
+
+final result = await useCase.executeAndPersist(
+  currentProgress: progress,
+  levelId: level.id,
+  globalSeed: 42,
+);
+// true when there was a reward and it was written
+print(result.rewardPersisted);
+await progressRepository.saveProgress(result.nextProgress);
+```
+
+`executeAndPersist` applies exactly `execute`'s rules, so a completion that
+mints nothing writes nothing, and replaying a cleared boss writes no second
+item. If the write throws, the exception reaches you and no result comes back:
+treat the completion as not having happened, and do not save progress for it.
+The reward store and your progress store are two stores the package does not
+own, so making them one transaction is yours to do. `execute` never writes,
+even with an `inventory` injected, and `executeAndPersist` without one throws a
+`StateError`.
 
 ### Custom rewards
 
@@ -670,6 +729,44 @@ final odds = kMvpLootTable.rarityOdds();
 
 Text('Legendary drop rate: ${(odds[InventoryRarity.legendary]! * 100).toStringAsFixed(1)}%');
 ```
+
+### Pity
+
+A long run of common drops reads to a player as a broken chest. `SagaPityRule`
+guarantees the next boss drop is at least a given rarity once `threshold`
+drops in a row have come up below it (2.1.0).
+
+The counter is save data, so it lives with you — `SagaProgress.extra` is the
+natural place. The rule lives in the package, so every consumer counts the same
+way: `nextCounter` resets on the guaranteed rarity or better and adds one
+otherwise.
+
+```dart
+const pity = SagaPityRule(threshold: 10, guaranteedRarity: InventoryRarity.rare);
+const useCase = CompleteLevelUseCase(pityRule: pity);
+
+final counter = (progress.extra['app.pity'] as int?) ?? 0;
+final result = useCase.execute(
+  currentProgress: progress,
+  levelId: level.id,
+  globalSeed: seed,
+  pityCounter: counter,
+);
+
+var next = result.nextProgress;
+final reward = result.reward;
+if (reward != null) {
+  next = next.copyWith(extra: {
+    ...next.extra,
+    'app.pity': pity.nextCounter(counter, reward.rarity),
+  });
+}
+```
+
+The counter narrows which entries are drawn from and never touches the seed, so
+the roll stays deterministic. A table with no entry of the guaranteed rarity
+rolls normally rather than throwing. Without a `pityRule`, nothing changes.
+
 ### Character on the path
 
 A character walks the map, Candy-Crush style. The library computes where it is,
@@ -945,11 +1042,72 @@ final progress = SagaProgress(
       extra: const {'app.no_mistake_streak': 10}, // per-level data
     ),
   },
-  extra: const {'app.spent_stars': 5, 'app.opened_chests': 2}, // global data
+  extra: const {'app.opened_chests': 2}, // global data
 );
 ```
 
 > **Note**: Keys should be namespaced (e.g., using an `app.` prefix) to avoid future collisions. Keep the stored data small, as it is serialized on every save.
+
+Spent stars and per-mode scores used to be the classic uses of `extra`. Since
+2.1.0 both are first-class — see the next two sections, and the migration notes
+in [`CHANGELOG.md`](CHANGELOG.md#migration--a-spending-ledger-kept-in-extra)
+if you kept them in `extra` before.
+
+### Star economy
+
+Earned stars are `totalStars`; `spentStars` is the other half of the ledger, and
+`availableStars` is what is left.
+
+```dart
+final next = progress.spendStars(5);
+if (next == null) {
+  showToast('${5 - progress.availableStars} more stars needed');
+} else {
+  await repository.saveProgress(next);
+  openTheGate();
+}
+```
+
+`spendStars` returns `null` when the player is short rather than throwing — too
+few stars is an ordinary moment in a game, and the nullable return makes the
+compiler ask you to handle it. Spending `0` or less throws an `ArgumentError`.
+
+`spentStars` never exceeds `totalStars`: the constructor refuses one that
+would, and `fromJson` clamps a tampered save into range. Alternate-mode scores
+are not part of `totalStars`, so they cannot be spent.
+
+### Replay modes
+
+The same level under different rules keeps a score per mode. The default mode is
+`null` and its score stays in `stars`; every other mode has its own entry in
+`LevelProgress.starsByMode`.
+
+```dart
+final result = useCase.execute(
+  currentProgress: progress,
+  levelId: level.id,
+  globalSeed: seed,
+  stars: 3,
+  modeId: 'hard',
+);
+
+final record = result.nextProgress.levels[level.id]!;
+record.starsFor(null);    // the normal score, untouched
+record.starsFor('hard');  // 3
+```
+
+A mode run records its best score and does nothing else to progression:
+
+- **It never unlocks.** The next level, the unlock pointer and the level's own
+  state are left alone, and `canUnlock` is not asked. Otherwise clearing a
+  level on hard would open the next one a second time.
+- **It never drops a boss reward.** That belongs to the first clear, which is
+  the default mode's.
+- The order guard still applies. Whether a mode needs the normal clear first is
+  your rule.
+
+Mode ids `''`, whitespace-only and `'default'` throw an `ArgumentError`: they
+would name the default mode, which is `null`.
 
 ## Example App
 
@@ -958,6 +1116,8 @@ See [`example/lib/main.dart`](example/lib/main.dart) for a full showcase:
 - map rendering with background modes
 - infinite map controller usage
 - generator and progression use-case demo
+- the 2.1.0 economy: a pity rule, rewards written through `executeAndPersist`,
+  a star toll that opens the gate, and hard replays scored beside normal ones
 
 Run it:
 

@@ -48,7 +48,7 @@ local browser behaviour. Push and read the `test (chrome)` job.
 
 ## Screenshots
 
-Two kinds live under `doc/screenshots/`, and they are not interchangeable.
+Two kinds live under `docs/screenshots/`, and they are not interchangeable.
 
 **Goldens** (`test/golden/goldens/`) are the regression net. They render a
 synthetic chunk with hand-authored levels and plain shapes — no icons, no
@@ -59,7 +59,7 @@ A visual change fails a test. Regenerate deliberately:
 flutter test --update-goldens test/golden
 ```
 
-**Device screenshots** (`doc/screenshots/demo_*.png`) are photographs of the
+**Device screenshots** (`docs/screenshots/demo_*.png`) are photographs of the
 example app on a real device: real assets, real fonts, real device pixel ratio.
 Nothing compares them, so a device or font change moves them silently. They
 exist to show a reader what the package looks like, not to catch a regression —
@@ -75,15 +75,20 @@ flutter drive \
   -d <device-id>
 ```
 
+Each release's set has its own target — `screenshot_test.dart` for 2.0.0,
+`screenshot_2_1_0_test.dart` for 2.1.0 — so recapturing one set does not
+disturb the other.
+
 The driver writes them at the device's own resolution, which for a modern
 phone is around 150 KB each. **Halve them before committing** — every byte
-under `doc/` ships in the published archive, and a 1080-wide phone screenshot
-is four times what a README renders:
+under `docs/` is kept in git and excluded from the published archive by
+`.pubignore`, and a 1080-wide phone screenshot is four times what a README
+renders:
 
 ```bash
 python -c "
 from PIL import Image; import glob
-for f in glob.glob('doc/screenshots/demo_*.png'):
+for f in glob.glob('docs/screenshots/demo_*.png'):
     im = Image.open(f); w, h = im.size
     im.resize((w // 2, h // 2), Image.LANCZOS).convert(
         'P', palette=Image.ADAPTIVE, colors=192).save(f, optimize=True)

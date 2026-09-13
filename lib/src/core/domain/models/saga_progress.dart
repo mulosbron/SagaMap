@@ -1,4 +1,5 @@
 import 'level_progress.dart';
+import 'saga_progress_stars.dart';
 
 /// What [SagaProgress.fromJson] changed when it reconciled a stored unlock
 /// pointer with the records beside it.
@@ -56,17 +57,46 @@ class SagaProgress {
   /// Keep it small; it is serialised on every save.
   final Map<String, dynamic> extra;
 
+  /// Stars the player has spent. Never exceeds
+  /// [SagaProgressStars.totalStars].
+  ///
+  /// Earned stars are [LevelProgress.stars]; this is the other half of the
+  /// ledger, so [SagaProgressStars.availableStars] is one subtraction rather
+  /// than a sum every host keeps beside the save. Spend through [spendStars],
+  /// which refuses to overdraw.
+  final int spentStars;
+
   /// Defensively copies [levels] and [extra] as unmodifiable maps, so a caller
   /// mutating a returned map cannot silently rewrite "persisted" state — it
   /// throws instead. This mirrors the inventory repository's
   /// `List.unmodifiable` guarantee. The cost is that the constructor is no
   /// longer `const`.
+  ///
+  /// Throws an [ArgumentError] when [spentStars] is negative or above the
+  /// stars [levels] have earned. [fromJson] clamps instead, because a save is
+  /// data it has to load; a constructor call is code that can be corrected.
   SagaProgress({
     required this.currentMaxUnlockedLevelId,
     required Map<int, LevelProgress> levels,
     Map<String, dynamic> extra = const {},
+    this.spentStars = 0,
   })  : levels = Map<int, LevelProgress>.unmodifiable(levels),
-        extra = Map<String, dynamic>.unmodifiable(extra);
+        extra = Map<String, dynamic>.unmodifiable(extra) {
+    if (spentStars < 0) {
+      throw ArgumentError.value(
+        spentStars,
+        'spentStars',
+        'Must not be negative.',
+      );
+    }
+    if (spentStars > 0 && spentStars > totalStars) {
+      throw ArgumentError.value(
+        spentStars,
+        'spentStars',
+        'Exceeds the $totalStars stars these levels have earned.',
+      );
+    }
+  }
 
   /// Creates the baseline progress with level `0` unlocked.
   /// Note that level `0` is the first level.
@@ -94,6 +124,11 @@ class SagaProgress {
       'currentMaxUnlockedLevelId': currentMaxUnlockedLevelId,
       'levels': levelsMap,
     };
+    // Omitted at zero, so a save that never spent a star is byte-for-byte what
+    // 2.0.0 wrote.
+    if (spentStars != 0) {
+      json['spentStars'] = spentStars;
+    }
     if (extra.isNotEmpty) {
       json['extra'] = extra;
     }
@@ -137,6 +172,7 @@ class SagaProgress {
   ///   does not justify (see above);
   /// - read an empty `levels` map as uninitialised and substitute
   ///   [SagaProgress.initial]'s levels;
+  /// - clamp `spentStars` into `[0, totalStars]`;
   /// - clamp each record's own fields — see [LevelProgress.fromJson].
   ///
   /// Pass [onClamp] to be told when the pointer actually moved. A 1.x save
@@ -238,11 +274,25 @@ class SagaProgress {
       ));
     }
 
-    return SagaProgress(
+    final loaded = SagaProgress(
       currentMaxUnlockedLevelId: clamped,
       levels: resolvedLevels,
       extra: extra,
     );
+
+    // Spent stars are bounded by earned ones, for the reason the pointer is
+    // bounded by completions: a save is player-controlled. A negative
+    // `spentStars` is a free top-up, and one above the total is a balance
+    // below zero that no purchase check was written to expect. Clamped rather
+    // than thrown, matching every other field here — a save that will not load
+    // is worse for a player than one that loads honest.
+    final rawSpent = json['spentStars'];
+    final storedSpent = rawSpent is num ? rawSpent.toInt() : 0;
+    final earned = loaded.totalStars;
+    final spent =
+        storedSpent < 0 ? 0 : (storedSpent > earned ? earned : storedSpent);
+
+    return spent == 0 ? loaded : loaded.copyWith(spentStars: spent);
   }
 
   /// Loads a save written by 1.x **without** clamping its unlock pointer.
@@ -292,21 +342,57 @@ class SagaProgress {
       currentMaxUnlockedLevelId: pointer,
       levels: levels,
       extra: decoded.extra,
+      spentStars: decoded.spentStars,
     );
   }
 
   /// Returns a copy with selective field overrides.
+  ///
+  /// [spentStars] is carried over when omitted, so replacing [levels] with a
+  /// map that has earned fewer stars than were spent throws, as the
+  /// constructor does.
   SagaProgress copyWith({
     int? currentMaxUnlockedLevelId,
     Map<int, LevelProgress>? levels,
     Map<String, dynamic>? extra,
+    int? spentStars,
   }) {
     return SagaProgress(
       currentMaxUnlockedLevelId:
           currentMaxUnlockedLevelId ?? this.currentMaxUnlockedLevelId,
       levels: levels ?? Map<int, LevelProgress>.from(this.levels),
       extra: extra ?? Map<String, dynamic>.from(this.extra),
+      spentStars: spentStars ?? this.spentStars,
     );
+  }
+
+  /// Spends [amount] stars, or returns `null` when fewer than [amount] are
+  /// available.
+  ///
+  /// Too few stars is an ordinary moment in a game — a player taps "buy" short
+  /// of the price — not a programming error, so it is a value rather than an
+  /// exception. The nullable return is the point: the compiler will not let a
+  /// host treat a refused purchase as a completed one.
+  ///
+  /// ```dart
+  /// final next = progress.spendStars(5);
+  /// if (next == null) {
+  ///   showToast('${5 - progress.availableStars} more stars needed');
+  /// } else {
+  ///   await repository.saveProgress(next);
+  ///   openTheGate();
+  /// }
+  /// ```
+  ///
+  /// Throws an [ArgumentError] when [amount] is `0` or less: spending nothing
+  /// is a caller's mistake, and a negative amount is a refund this method
+  /// must not quietly become.
+  SagaProgress? spendStars(int amount) {
+    if (amount <= 0) {
+      throw ArgumentError.value(amount, 'amount', 'Must be greater than 0.');
+    }
+    if (amount > availableStars) return null;
+    return copyWith(spentStars: spentStars + amount);
   }
 
   /// Compared by value.
@@ -331,6 +417,7 @@ class SagaProgress {
     if (identical(this, other)) return true;
     if (other is! SagaProgress) return false;
     if (other.currentMaxUnlockedLevelId != currentMaxUnlockedLevelId ||
+        other.spentStars != spentStars ||
         other.levels.length != levels.length ||
         other.extra.length != extra.length) {
       return false;
@@ -353,6 +440,7 @@ class SagaProgress {
   @override
   int get hashCode => Object.hash(
         currentMaxUnlockedLevelId,
+        spentStars,
         levels.length,
         extra.length,
       );

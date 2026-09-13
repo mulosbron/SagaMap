@@ -2,6 +2,203 @@
 
 All notable changes to this package are documented in this file.
 
+## 2.1.0
+
+No breaking changes: a consumer on `^2.0.0` upgrades without touching its code.
+Every addition below defaults to what 2.0.0 did, and a save written by 2.0.0
+loads unchanged and is written back key for key until one of the new fields is
+actually used.
+
+The four features here were deferred from 2.0.0 onto the injection seams it
+introduced (ADR-0003, ADR-0004). Two of them were already possible through
+`extra`; if you built that workaround, each section ends with the way across.
+
+### Added — a pity rule for boss rewards
+
+At the default table's 75% common rate, ten commons in a row happen to roughly
+one player in eighteen. On a long map that is a certainty for somebody, and
+that player concludes the chest is broken.
+
+`SagaPityRule(threshold: 10, guaranteedRarity: InventoryRarity.rare)` is the
+guarantee. Once `threshold` boss rewards in a row have come up below
+`guaranteedRarity`, the next roll is drawn only from entries of that rarity or
+better.
+
+```dart
+const pity = SagaPityRule(threshold: 10);
+const useCase = CompleteLevelUseCase(pityRule: pity);
+
+final counter = (progress.extra['app.pity'] as int?) ?? 0;
+final result = useCase.execute(
+  currentProgress: progress,
+  levelId: level.id,
+  globalSeed: seed,
+  pityCounter: counter,
+);
+final reward = result.reward;
+if (reward != null) {
+  progress = result.nextProgress.copyWith(extra: {
+    ...result.nextProgress.extra,
+    'app.pity': pity.nextCounter(counter, reward.rarity),
+  });
+}
+```
+
+- **The counter lives with you; the rule lives here.** The counter is save
+  data, so it arrives per call as `execute(pityCounter:)` and you store it
+  wherever the rest of the save goes. `nextCounter` is the one place that
+  decides how it moves — reset on the guaranteed rarity or better, whether pity
+  or luck produced it; up by one otherwise.
+- **Deterministic as before.** The counter narrows which entries are drawn
+  from and never touches the seed.
+- **A guarantee the table cannot keep falls back, not over.** A table with no
+  entry of that rarity, or only zero-weight ones, rolls normally. A table
+  without a rare tier is a legitimate economy, not a misconfiguration. The
+  whole table is still validated on every roll.
+- A `threshold` of `0` or less is asserted in the constructor and throws an
+  `ArgumentError` when applied, the way a malformed loot table does.
+- `rollBossReward` takes the same two parameters. Without a `pityRule` the
+  counter is ignored and the roll is exactly the one 2.0.0 made.
+
+### Added — the use case can own the reward write
+
+`CompleteLevelUseCase` defined nothing about persistence: it returned the reward
+and every host wrote it, or forgot to. `inventory` and `executeAndPersist` close
+that half of the contract.
+
+```dart
+final useCase = CompleteLevelUseCase(inventory: inventoryRepository);
+
+final result = await useCase.executeAndPersist(
+  currentProgress: progress,
+  levelId: level.id,
+  globalSeed: seed,
+);
+await progressRepository.saveProgress(result.nextProgress);
+```
+
+- **`execute` is unchanged and still never writes**, even with an `inventory`
+  injected. The repository is asynchronous; turning `execute` into a `Future`
+  would have broken every caller for a write most of them already make.
+- **`executeAndPersist` applies exactly `execute`'s rules.** A completion that
+  mints nothing writes nothing, a rejected one writes nothing, and replaying a
+  cleared boss against the progress the first clear returned writes no second
+  item.
+- **A failed write propagates, and no result comes back.** Treat the
+  completion as not having happened: there is no `nextProgress` to save. The
+  reward store and your progress store are two stores the package does not
+  own, so making them one transaction is yours to build.
+- `CompleteLevelResult.rewardPersisted` is `true` exactly when a reward was
+  written.
+- Calling `executeAndPersist` with no `inventory` throws a `StateError`: a
+  method named for persisting that silently did not is the bug it exists to
+  remove.
+
+**What this does not close.** The first-clear guard still reads the snapshot
+you pass. Two calls against the same `currentProgress` both see an uncompleted
+boss and both write. Thread each result into the next call, as with `execute`.
+
+### Added — a star economy
+
+Stars were collected and had nowhere to go, so every host kept its own
+spending ledger beside the save.
+
+- `SagaProgress.spentStars` (default `0`) records what was spent.
+  `SagaProgressStars.availableStars` is `totalStars - spentStars`.
+- `SagaProgress.spendStars(amount)` is the one way to spend. **It returns
+  `null` when the player is short** rather than throwing: too few stars is an
+  ordinary moment in a game, and the nullable return makes the compiler ask
+  you to handle it. An `amount` of `0` or less throws an `ArgumentError`.
+- `spentStars` never exceeds `totalStars`. The constructor throws an
+  `ArgumentError` for a negative value or one above the total; `fromJson`
+  clamps into `[0, totalStars]` instead, because a save is data it has to load.
+- `toJson` omits `spentStars` at `0`.
+- `totalStars` stays on the `SagaProgressStars` extension. Moving it into the
+  class would break `SagaProgressStars(progress).totalStars`, which a minor
+  release does not get to do.
+
+```dart
+final next = progress.spendStars(5);
+if (next == null) {
+  showToast('${5 - progress.availableStars} more stars needed');
+} else {
+  await repository.saveProgress(next);
+  openTheGate();
+}
+```
+
+#### Migration — a spending ledger kept in `extra`
+
+The package never reads an `extra` key (ADR-0004), so a ledger you kept there
+is carried through 2.1.0 untouched and is still yours to move. Do it once, on
+load:
+
+```dart
+final ledger = progress.extra['app.spent_stars'];
+if (ledger is int) {
+  progress = progress.copyWith(
+    // Clamped: the constructor refuses a ledger above what was earned.
+    spentStars: ledger.clamp(0, progress.totalStars),
+    extra: Map.of(progress.extra)..remove('app.spent_stars'),
+  );
+  await repository.saveProgress(progress);
+}
+```
+
+Remove the key in the same write. Leaving both lets a later build read the old
+ledger and spend the same stars twice.
+
+### Added — replay modes
+
+The same level under different rules — hard, mirror, memory — had no place for
+its own score. `LevelProgress.stars` holds one.
+
+- `LevelProgress.starsByMode` holds the best score per alternate mode, keyed by
+  your mode id. The default mode's score stays in `stars`. Read either with
+  `starsFor(modeId)`, where `null` is the default mode.
+- `execute(modeId: 'hard')` records a mode run, keeping the best score as the
+  default mode does.
+- **A mode run never unlocks.** The successor, the unlock pointer and the
+  level's own `state` and `stars` are left as they were, and `canUnlock` is not
+  consulted. Otherwise clearing a level on hard would open the next one a
+  second time.
+- **A mode run never drops a boss reward.** The reward belongs to the first
+  clear, and the first clear is the default mode's.
+- The order guard still applies. Whether a mode needs the default clear first
+  is your rule.
+- Mode stars are not counted by `totalStars`, so they are not spendable.
+- A `modeId` of `''`, whitespace only, or `'default'` throws an
+  `ArgumentError` (`LevelProgress.checkModeId`): it would give the default mode
+  two scores free to disagree. `fromJson` drops such keys, clamps each score to
+  `[0, kMaxLevelStars]`, skips wrong-typed entries and reads a wrong-typed map
+  as no modes played. `toJson` omits the key while it is empty.
+
+#### Migration — per-mode scores kept in `extra`
+
+```dart
+final levels = <int, LevelProgress>{};
+for (final MapEntry(key: id, value: level) in progress.levels.entries) {
+  final hard = level.extra['app.hard_stars'];
+  levels[id] = hard is int
+      ? level.copyWith(
+          starsByMode: {...level.starsByMode, 'hard': hard},
+          extra: Map.of(level.extra)..remove('app.hard_stars'),
+        )
+      : level;
+}
+progress = progress.copyWith(levels: levels);
+```
+
+`copyWith` does not clamp; route the result through
+`SagaProgress.fromJson(progress.toJson())` if the old scores were never bounded.
+
+### Example
+
+The demo gains an **Economy** section: a pity rule on the boss drops, rewards
+written through `executeAndPersist` into an injected repository, a star toll
+that opens the gate through `spendStars`, and hard replays whose scores appear
+as a red ring on the node and beside the normal score in the level dialog.
+
 ## 2.0.0
 
 > Decision records cited below by number (`ADR-0003`, `ADR-0009`, ...) live in

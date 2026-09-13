@@ -84,8 +84,27 @@ const List<String> _demoRealms = <String>[
   'gloamvale',
 ];
 
+/// A 2.1.0 showcase: bad-luck protection on the boss drops.
+///
+/// Two drops below rare in a row, and the next boss is guaranteed rare or
+/// better. Deliberately low, so the rule shows within a few bosses.
+const SagaPityRule _demoPityRule = SagaPityRule(threshold: 2);
+
+/// Where the demo keeps its pity counter: host-owned save data in
+/// `SagaProgress.extra`. The package never reads it; the rule moves it.
+const String _pityKey = 'demo.pity';
+
+/// The demo's one alternate replay mode (2.1.0).
+const String _hardMode = 'hard';
+
+/// What opening the gate costs, spent through `SagaProgress.spendStars`.
+const int _tollPrice = 5;
+
 /// Which artwork supplies the map background.
 enum DemoBackground { none, colour, svg, image, multiSvg }
+
+/// Whether a completion is the normal game or a replay on hard (2.1.0).
+enum DemoPlayMode { normal, hard }
 
 /// How the character is drawn — the point being that the library does not care.
 enum DemoCharacterArt { spriteSheet, flutterWidget }
@@ -135,8 +154,13 @@ class _SagaMapDemoState extends State<SagaMapDemo>
   /// Progression state: which levels are locked, unlocked or done.
   SagaProgress _progress = SagaProgress.initial();
 
-  /// Boss drops collected so far.
-  final List<InventoryItem> _inventory = <InventoryItem>[];
+  /// Where boss drops are written (2.1.0). The use case writes to it through
+  /// `executeAndPersist`; the demo only ever reads it back.
+  InventoryRepository _inventoryRepository = InMemoryInventoryRepository();
+
+  /// Boss drops collected so far, as last read back from
+  /// [_inventoryRepository].
+  List<InventoryItem> _inventory = const <InventoryItem>[];
 
   /// Persists the seed and the progress. 2.0.0 added `saveGlobalSeed` to this
   /// contract, so "regenerate the map" no longer means writing a default as a
@@ -166,6 +190,12 @@ class _SagaMapDemoState extends State<SagaMapDemo>
   /// Everything downstream — the node shape, the boss band, the drop-rate
   /// sheet and the reward itself — follows from this one flag.
   bool _customRewards = false;
+
+  /// Applies [_demoPityRule] to boss drops (2.1.0).
+  bool _pityOn = false;
+
+  /// Normal play, or replaying levels on hard for a separate score (2.1.0).
+  DemoPlayMode _playMode = DemoPlayMode.normal;
 
   /// The last level the character physically walked over, reported by
   /// [onLevelReached] (1.1.0) rather than inferred from completion.
@@ -291,7 +321,8 @@ class _SagaMapDemoState extends State<SagaMapDemo>
     setState(() {
       _seed = stored;
       _progress = SagaProgress.initial();
-      _inventory.clear();
+      _inventoryRepository = InMemoryInventoryRepository();
+      _inventory = const <InventoryItem>[];
       _reached = 0;
       _status = 'New map from seed $stored';
       _recreateMapController();
@@ -354,42 +385,104 @@ class _SagaMapDemoState extends State<SagaMapDemo>
       return;
     }
 
-    _completeLevel(level.id);
+    await _completeLevel(level.id);
   }
 
   /// Applies the completion use-case and folds the result back into state.
   ///
   /// The use-case keeps the better of the old and new star counts, unlocks the
-  /// next level, and mints a boss reward only on a first clear.
-  void _completeLevel(int levelId) {
+  /// next level, and mints a boss reward only on a first clear. Since 2.1.0 it
+  /// also writes that reward: `executeAndPersist` hands it to the injected
+  /// repository before returning, so there is no list for the demo to forget
+  /// to add it to.
+  ///
+  /// On hard the same call records a separate mode score instead, and does
+  /// nothing else — no unlock, no loot.
+  Future<void> _completeLevel(int levelId) async {
+    final pityBefore = _pityCounter;
     final useCase = CompleteLevelUseCase(
       bossRule: _bossRule,
       lootTable: _lootTable,
       // The gate refuses to open the successor. The level itself still
       // completes and a boss reward still drops — the player did clear it.
       canUnlock: _gateOpen,
-    );
-    final result = useCase.execute(
-      currentProgress: _progress,
-      levelId: levelId,
-      globalSeed: _seed,
-      stars: 1 + (levelId % kMaxLevelStars),
+      pityRule: _pityOn ? _demoPityRule : null,
+      inventory: _inventoryRepository,
     );
 
+    final CompleteLevelResult result;
+    try {
+      result = await useCase.executeAndPersist(
+        currentProgress: _progress,
+        levelId: levelId,
+        globalSeed: _seed,
+        // Normal and hard score differently on purpose, so the two can be seen
+        // not to overwrite each other.
+        stars: _playMode == DemoPlayMode.hard
+            ? kMaxLevelStars - levelId % kMaxLevelStars
+            : 1 + levelId % kMaxLevelStars,
+        pityCounter: pityBefore,
+        modeId: _modeId,
+      );
+    } catch (error) {
+      // A failed write is no completion at all: there is no progress to keep.
+      if (mounted) setState(() => _status = 'Reward not saved: $error');
+      return;
+    }
+    final items = await _inventoryRepository.getItems();
+    if (!mounted) return;
+
     setState(() {
-      _progress = result.nextProgress;
+      var next = result.nextProgress;
+      final reward = result.reward;
+      // The counter is save data, so it lives in the host's `extra`; how it
+      // moves is the rule's decision, not the demo's.
+      if (reward != null && _pityOn) {
+        next = next.copyWith(extra: {
+          ...next.extra,
+          _pityKey: _demoPityRule.nextCounter(pityBefore, reward.rarity),
+        });
+      }
+      _progress = next;
+      _inventory = items;
       // The walked path is painted up to here.
       _reached = _reached > levelId ? _reached : levelId.toDouble();
-      final reward = result.reward;
-      if (reward != null) {
-        _inventory.add(reward);
-        _status = 'Boss cleared — found ${reward.itemName}!';
+
+      if (_modeId != null) {
+        final best = next.levels[levelId]?.starsFor(_hardMode) ?? 0;
+        _status = 'Hard run on level $levelId: best ★$best — nothing unlocks';
+      } else if (reward != null) {
+        final forced = _pityOn && _demoPityRule.isDue(pityBefore);
+        _status = 'Boss cleared — found ${reward.itemName} '
+            '(${reward.rarity.name}${forced ? ', pity' : ''})';
       } else if (result.unlockBlocked) {
         // 2.0.0: the completion stands, the road ahead does not open.
         _status = 'Level $levelId complete — the gate ahead is still shut';
       } else {
         _status = 'Level $levelId complete';
       }
+    });
+  }
+
+  /// Spends stars to open the gate (2.1.0).
+  ///
+  /// `spendStars` returns `null` rather than throwing when the player is
+  /// short, so "not enough stars" is a branch here rather than a crash.
+  void _payToll() {
+    setState(() {
+      if (!_gateClosed) {
+        _status = 'The gate at level $_gateLevel is already open';
+        return;
+      }
+      final paid = _progress.spendStars(_tollPrice);
+      if (paid == null) {
+        _status = 'The toll is $_tollPrice★ — '
+            'you have ${_progress.availableStars}★';
+        return;
+      }
+      _progress = paid;
+      _gateClosed = false;
+      _status = 'Paid $_tollPrice★ — the gate at level $_gateLevel is open';
     });
   }
 
@@ -411,6 +504,12 @@ class _SagaMapDemoState extends State<SagaMapDemo>
   List<LootTableEntry> get _lootTable =>
       _customRewards ? _demoLootTable : kMvpLootTable;
 
+  /// The stored pity counter, `0` on a fresh save.
+  int get _pityCounter => (_progress.extra[_pityKey] as int?) ?? 0;
+
+  /// The mode id a completion is recorded under; `null` is the normal game.
+  String? get _modeId => _playMode == DemoPlayMode.hard ? _hardMode : null;
+
   /// Progress lookup the map uses to style each node.
   LevelProgress? _progressFor(LevelData level) => _progress.levels[level.id];
 
@@ -420,8 +519,8 @@ class _SagaMapDemoState extends State<SagaMapDemo>
   /// through JSON without knowing what it means.
   void _showLevelInfo(LevelData level) {
     final displayId = level.id + 1;
-    final bookmarked =
-        (_progressFor(level)?.extra['bookmarked'] as bool?) ?? false;
+    final progress = _progressFor(level);
+    final bookmarked = (progress?.extra['bookmarked'] as bool?) ?? false;
 
     // Odds only make sense where a reward actually rolls: boss levels. Both
     // halves come from the injected pair, so the disclosed rates cannot drift
@@ -436,9 +535,23 @@ class _SagaMapDemoState extends State<SagaMapDemo>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // 2.1.0: both scores, read through `starsFor` — `null` is the
+            // normal game, and a hard run never overwrote it.
+            Text('Normal ★${progress?.starsFor(null) ?? 0}   '
+                'Hard ★${progress?.starsFor(_hardMode) ?? 0}'),
+            const SizedBox(height: 8),
             if (odds.isEmpty)
               const Text('A normal level — no boss loot rolls here.')
             else ...[
+              if (_pityOn) ...[
+                Text(
+                  _demoPityRule.isDue(_pityCounter)
+                      ? 'Pity: this drop is guaranteed rare or better'
+                      : 'Pity: $_pityCounter of ${_demoPityRule.threshold} '
+                          'drops below rare',
+                ),
+                const SizedBox(height: 6),
+              ],
               const Text('Boss drop rates',
                   style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 6),
@@ -574,6 +687,7 @@ class _SagaMapDemoState extends State<SagaMapDemo>
     final state = progress?.state ?? LevelCompletionState.locked;
     final isCurrent = level.id == _progress.currentMaxUnlockedLevelId;
     final isBoss = _bossRule(level.id);
+    final beatenOnHard = (progress?.starsFor(_hardMode) ?? 0) > 0;
 
     // 2.0.0: the round trip the opaque asset map exists for. The biome id was
     // generated from `SagaMapConfig.biomeIds`, resolved to a theme, and the
@@ -605,9 +719,13 @@ class _SagaMapDemoState extends State<SagaMapDemo>
         color: fill,
         shape: isBoss ? BoxShape.rectangle : BoxShape.circle,
         borderRadius: isBoss ? BorderRadius.circular(10) : null,
+        // 2.1.0: a red ring marks a level beaten on hard. It is read through
+        // `starsFor`, so the normal stars drawn inside are untouched.
         border: Border.all(
-          color: isCurrent ? Colors.white : border,
-          width: isCurrent ? 3 : 2,
+          color: isCurrent
+              ? Colors.white
+              : (beatenOnHard ? const Color(0xFFE53935) : border),
+          width: isCurrent || beatenOnHard ? 3 : 2,
         ),
         boxShadow: const [
           BoxShadow(color: Colors.black38, blurRadius: 4, offset: Offset(0, 2)),
@@ -922,8 +1040,9 @@ class _SagaMapDemoState extends State<SagaMapDemo>
           Text(
             'seed $_seed · episode $_currentEpisode · '
             'reached L$_lastReachedLevel · '
-            '★ ${_progress.totalStars} · '
+            '★ ${_progress.availableStars}/${_progress.totalStars} · '
             'items ${_inventory.length} · '
+            '${_playMode == DemoPlayMode.hard ? 'hard · ' : ''}'
             'zoom ${_zoom.toStringAsFixed(2)} · '
             '${_axis == SagaMapPathAxis.vertical ? 'vertical' : 'horizontal'}',
             style: const TextStyle(fontSize: 11, color: Colors.white70),
@@ -1093,6 +1212,45 @@ class _SagaMapDemoState extends State<SagaMapDemo>
                     setSheetState(() {});
                   },
                 ),
+                _section('Economy'),
+                SwitchListTile(
+                  title: const Text('Pity rule'),
+                  subtitle: Text(
+                    'After ${_demoPityRule.threshold} drops below rare, the '
+                    'next boss is rare or better · counter $_pityCounter',
+                  ),
+                  value: _pityOn,
+                  onChanged: (v) => update(() => _pityOn = v),
+                ),
+                SegmentedButton<DemoPlayMode>(
+                  segments: const [
+                    ButtonSegment(
+                      value: DemoPlayMode.normal,
+                      label: Text('Normal'),
+                      icon: Icon(Icons.flag),
+                    ),
+                    ButtonSegment(
+                      value: DemoPlayMode.hard,
+                      label: Text('Hard replay'),
+                      icon: Icon(Icons.whatshot),
+                    ),
+                  ],
+                  selected: {_playMode},
+                  onSelectionChanged: (s) => update(() => _playMode = s.first),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.toll),
+                  title: const Text('Pay the toll'),
+                  subtitle: Text(
+                    '$_tollPrice★ opens the gate · '
+                    '${_progress.availableStars} of '
+                    '${_progress.totalStars}★ available',
+                  ),
+                  onTap: () {
+                    _payToll();
+                    setSheetState(() {});
+                  },
+                ),
                 _section('Map'),
                 ListTile(
                   leading: const Icon(Icons.casino),
@@ -1106,9 +1264,11 @@ class _SagaMapDemoState extends State<SagaMapDemo>
                 if (_inventory.isNotEmpty)
                   ListTile(
                     leading: const Icon(Icons.inventory_2),
-                    title: const Text('Boss drops'),
-                    subtitle:
-                        Text(_inventory.map((i) => i.itemName).join(', ')),
+                    title:
+                        const Text('Boss drops, as the repository holds them'),
+                    subtitle: Text(_inventory
+                        .map((i) => '${i.itemName} (${i.rarity.name})')
+                        .join(', ')),
                   ),
               ],
             ),

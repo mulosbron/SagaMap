@@ -301,15 +301,19 @@ class MapChunkWidget extends StatelessWidget {
                 ),
                 ..._buildDecorations(context, renderContext),
                 Positioned.fill(
-                  child: CustomPaint(painter: chunkPainter),
+                  child: RepaintBoundary(
+                    child: CustomPaint(painter: chunkPainter),
+                  ),
                 ),
                 ...nodeWidgets,
                 if (character != null)
                   Positioned.fill(
-                    child: _SagaCharacterLayer(
-                      character: character!,
-                      renderContext: renderContext,
-                      characterKey: characterKey,
+                    child: RepaintBoundary(
+                      child: _SagaCharacterLayer(
+                        character: character!,
+                        renderContext: renderContext,
+                        characterKey: characterKey,
+                      ),
                     ),
                   ),
               ],

@@ -254,4 +254,60 @@ void main() {
 
     expect(tester.takeException(), isAssertionError);
   });
+
+  testWidgets(
+      'chunk painter and character layer are wrapped in RepaintBoundary',
+      (tester) async {
+    final levels = <LevelData>[
+      const LevelData(
+          id: 1, position: SagaPoint(0.2, 0.1), biomeId: kBiomeIdForest),
+      const LevelData(
+          id: 2, position: SagaPoint(0.5, 0.5), biomeId: kBiomeIdForest),
+    ];
+    final charKey = GlobalKey();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: MapChunkWidget(
+            chunkContext: SagaChunkContext(
+                chunkIndex: 0, levels: const [], progress: const {}),
+            levels: levels,
+            chunkIndex: 0,
+            chunkExtent: 600,
+            chunkSpanNormalized: 1.0,
+            biomeThemeResolver: const DefaultSagaBiomeThemeResolver(),
+            character: SagaCharacter(
+              pathPosition: 1.0,
+              builder: (context, state) =>
+                  const SizedBox(key: ValueKey('char-widget'), width: 20, height: 20),
+            ),
+            characterKey: charKey,
+            nodeBuilder: (context, level, layout) => Text('Level ${level.id}'),
+          ),
+        ),
+      ),
+    );
+
+    final chunkBoundaries = find.descendant(
+      of: find.byType(MapChunkWidget),
+      matching: find.byType(RepaintBoundary),
+    );
+    expect(chunkBoundaries, findsNWidgets(2));
+
+    // First RepaintBoundary wraps chunk CustomPaint
+    final boundaries =
+        tester.widgetList<RepaintBoundary>(chunkBoundaries).toList();
+    expect(boundaries[0].child, isA<CustomPaint>());
+
+    // Second RepaintBoundary wraps the character layer
+    expect(
+      find.descendant(
+        of: chunkBoundaries.at(1),
+        matching: find.byKey(charKey),
+      ),
+      findsOneWidget,
+    );
+  });
 }
+

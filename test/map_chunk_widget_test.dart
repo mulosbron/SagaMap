@@ -279,8 +279,8 @@ void main() {
             biomeThemeResolver: const DefaultSagaBiomeThemeResolver(),
             character: SagaCharacter(
               pathPosition: 1.0,
-              builder: (context, state) =>
-                  const SizedBox(key: ValueKey('char-widget'), width: 20, height: 20),
+              builder: (context, state) => const SizedBox(
+                  key: ValueKey('char-widget'), width: 20, height: 20),
             ),
             characterKey: charKey,
             nodeBuilder: (context, level, layout) => Text('Level ${level.id}'),
@@ -310,4 +310,3 @@ void main() {
     );
   });
 }
-

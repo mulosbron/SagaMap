@@ -30,6 +30,7 @@ Desktop.ini
 .cursor/
 .agents/
 .claude/
+.superpowers/
 *.lock
 pubspec.lock
 # ADRs and task boards: tracked in git (the ADRs are), never in the archive.

@@ -21,6 +21,7 @@ Consequences** (with **Positive** and **Negative** subheadings):
 | [0008](0008-decoupling-flutter-svg-dependency.md) | Drop the `flutter_svg` dependency | Accepted | 2.0.0 | T-20 |
 | [0009](0009-client-side-reward-trust-boundary.md) | A client-side rolled reward is advisory | Accepted | 2.0.0 | T-14 |
 | [0010](0010-keeping-equatable-and-fast-noise-dependencies.md) | Keep `equatable` + `fast_noise` | Accepted | 2.0.0 | T-25 |
+| [0011](0011-reconciling-unlock-pointer-with-records.md) | Reconciling unlock pointer with records, and 1.x migration | Accepted | 2.0.0 | SAST V-1, V-2 |
 
 ## Status flow
 

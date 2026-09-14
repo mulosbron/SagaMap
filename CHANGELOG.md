@@ -192,6 +192,10 @@ progress = progress.copyWith(levels: levels);
 `copyWith` does not clamp; route the result through
 `SagaProgress.fromJson(progress.toJson())` if the old scores were never bounded.
 
+### Improved — rendering repaint isolation
+
+- `MapChunkWidget` isolates its static spline/background canvas and the animated character layer inside dedicated `RepaintBoundary` widgets to eliminate unnecessary repaints across chunk redraw cycles.
+
 ### Example
 
 The demo gains an **Economy** section: a pity rule on the boss drops, rewards

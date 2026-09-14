@@ -15,6 +15,7 @@ Desktop.ini
 .cursor/
 .agents/
 .claude/
+.superpowers/
 *.lock
 pubspec.lock
 # Task boards and working notes: on disk, out of the repository.
